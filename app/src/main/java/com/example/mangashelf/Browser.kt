@@ -1,0 +1,557 @@
+package com.example.mangashelf
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
+import android.text.InputType
+import android.text.TextUtils
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import java.net.URLEncoder
+
+class BrowserTab(val web: WebView, var workId: String?) {
+    var title: String = "Nova aba"
+    var url: String = ""
+}
+
+class BrowserController(private val act: MainActivity) {
+    val view = FrameLayout(act)
+    private val tabs = ArrayList<BrowserTab>()
+    private var active: BrowserTab? = null
+    var isOpen = false
+        private set
+    private var fullscreen = false
+    private val webHolder = FrameLayout(act)
+
+    private lateinit var topBar: LinearLayout
+    private lateinit var tabScroll: HorizontalScrollView
+    private lateinit var tabStrip: LinearLayout
+    private lateinit var bottomBar: LinearLayout
+    private lateinit var urlField: EditText
+    private lateinit var progress: ProgressBar
+    private lateinit var fsButton: TextView
+    private lateinit var btnBack: TextView
+    private lateinit var btnFwd: TextView
+    private lateinit var chapGroup: LinearLayout
+    private lateinit var chapText: TextView
+
+    init {
+        view.visibility = View.GONE
+        buildChrome()
+    }
+
+    private fun dp(v: Int): Int = act.dp(v)
+
+    private fun iconBtn(t: String, onClick: () -> Unit): TextView {
+        val x = act.tv(t, 20f, P.text, true)
+        x.gravity = Gravity.CENTER
+        x.setOnClickListener { onClick() }
+        return x
+    }
+
+    // ---------- interface ----------
+    private fun buildChrome() {
+        (webHolder.parent as? ViewGroup)?.removeView(webHolder)
+        view.removeAllViews()
+        webHolder.setBackgroundColor(P.bg)
+
+        val col = LinearLayout(act)
+        col.orientation = LinearLayout.VERTICAL
+        col.setBackgroundColor(P.bg)
+
+        topBar = LinearLayout(act)
+        topBar.orientation = LinearLayout.HORIZONTAL
+        topBar.gravity = Gravity.CENTER_VERTICAL
+        topBar.setBackgroundColor(P.card)
+        topBar.setPadding(dp(6), dp(6), dp(6), dp(6))
+        val closeBtn = iconBtn("✕") { close() }
+        urlField = EditText(act)
+        urlField.setSingleLine(true)
+        urlField.textSize = 14f
+        urlField.setTextColor(P.text)
+        urlField.setHintTextColor(P.sub)
+        urlField.hint = "Buscar ou digitar endereço"
+        urlField.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        urlField.imeOptions = EditorInfo.IME_ACTION_GO
+        urlField.setSelectAllOnFocus(true)
+        urlField.setPadding(dp(14), 0, dp(14), 0)
+        urlField.background = shape(P.bg, dp(20).toFloat(), P.line, dp(1))
+        urlField.setOnEditorActionListener { v, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_GO) {
+                go(urlField.text.toString())
+                v.hideKeyboard()
+                urlField.clearFocus()
+                true
+            } else {
+                false
+            }
+        }
+        val menu = iconBtn("⋮") { showMenu() }
+        topBar.addv(closeBtn, dp(40), dp(40))
+        topBar.addv(urlField, 0, dp(40), 1f, 4, 0, 4, 0)
+        topBar.addv(menu, dp(40), dp(40))
+        col.addv(topBar)
+
+        progress = ProgressBar(act, null, android.R.attr.progressBarStyleHorizontal)
+        progress.max = 100
+        progress.progressTintList = ColorStateList.valueOf(P.accent)
+        progress.visibility = View.GONE
+        col.addv(progress, MATCH, dp(3))
+
+        tabStrip = LinearLayout(act)
+        tabStrip.orientation = LinearLayout.HORIZONTAL
+        tabStrip.gravity = Gravity.CENTER_VERTICAL
+        tabStrip.setPadding(dp(6), dp(5), dp(6), dp(5))
+        tabScroll = HorizontalScrollView(act)
+        tabScroll.isHorizontalScrollBarEnabled = false
+        tabScroll.setBackgroundColor(P.bg)
+        tabScroll.addView(tabStrip)
+        col.addv(tabScroll)
+
+        col.addv(webHolder, MATCH, 0, 1f)
+
+        bottomBar = LinearLayout(act)
+        bottomBar.orientation = LinearLayout.HORIZONTAL
+        bottomBar.gravity = Gravity.CENTER_VERTICAL
+        bottomBar.setBackgroundColor(P.card)
+        bottomBar.setPadding(dp(6), dp(4), dp(6), dp(4))
+        btnBack = iconBtn("◀") {
+            val w = active?.web
+            if (w != null && w.canGoBack()) w.goBack()
+        }
+        btnFwd = iconBtn("▶") {
+            val w = active?.web
+            if (w != null && w.canGoForward()) w.goForward()
+        }
+        val reload = iconBtn("⟳") { active?.web?.reload() }
+        bottomBar.addv(btnBack, dp(44), dp(44))
+        bottomBar.addv(btnFwd, dp(44), dp(44))
+        bottomBar.addv(reload, dp(44), dp(44))
+        bottomBar.addv(View(act), 0, 0, 1f)
+
+        chapGroup = LinearLayout(act)
+        chapGroup.orientation = LinearLayout.HORIZONTAL
+        chapGroup.gravity = Gravity.CENTER_VERTICAL
+        chapGroup.background = shape(P.bg, dp(22).toFloat(), P.line, dp(1))
+        chapText = act.tv("Cap. 0", 13f, P.text, true)
+        chapText.gravity = Gravity.CENTER
+        chapGroup.addv(iconBtn("−") { bumpChapter(-1) }, dp(40), dp(40))
+        chapGroup.addv(chapText, WRAP, WRAP, 0f, 4, 0, 4, 0)
+        chapGroup.addv(iconBtn("+") { bumpChapter(1) }, dp(40), dp(40))
+        bottomBar.addv(chapGroup, WRAP, WRAP)
+        col.addv(bottomBar)
+
+        view.addView(col, FrameLayout.LayoutParams(MATCH, MATCH))
+
+        fsButton = act.tv("⤡", 20f, Color.WHITE, true)
+        fsButton.gravity = Gravity.CENTER
+        fsButton.background = shape(0x99000000.toInt(), dp(22).toFloat())
+        fsButton.setOnClickListener { toggleFullscreen() }
+        val flp = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.BOTTOM)
+        flp.setMargins(0, 0, dp(14), dp(28))
+        view.addView(fsButton, flp)
+
+        refreshTabs()
+        refreshNav()
+        refreshChapterBar()
+        val a = active
+        if (a != null) urlField.setText(a.url)
+        applyFullscreen()
+    }
+
+    fun retheme() {
+        buildChrome()
+    }
+
+    private fun refreshTabs() {
+        tabStrip.removeAllViews()
+        for (t in tabs) {
+            val sel = t === active
+            val chip = LinearLayout(act)
+            chip.orientation = LinearLayout.HORIZONTAL
+            chip.gravity = Gravity.CENTER_VERTICAL
+            chip.setPadding(dp(12), dp(6), dp(4), dp(6))
+            chip.background = if (sel) shape(P.accent, dp(18).toFloat())
+            else shape(P.card, dp(18).toFloat(), P.line, dp(1))
+            val title = act.tv(t.title.ifBlank { "Nova aba" }, 12f, if (sel) Color.WHITE else P.text, sel)
+            title.maxLines = 1
+            title.ellipsize = TextUtils.TruncateAt.END
+            title.maxWidth = dp(120)
+            chip.addv(title, WRAP, WRAP)
+            val x = act.tv("✕", 13f, if (sel) Color.WHITE else P.sub, true)
+            x.setPadding(dp(10), dp(2), dp(8), dp(2))
+            x.setOnClickListener { closeTab(t) }
+            chip.addv(x, WRAP, WRAP)
+            chip.setOnClickListener { select(t) }
+            tabStrip.addv(chip, WRAP, WRAP, 0f, 0, 0, 6, 0)
+        }
+        val plus = act.tv("＋", 18f, P.accent, true)
+        plus.gravity = Gravity.CENTER
+        plus.setPadding(dp(14), dp(4), dp(14), dp(4))
+        plus.background = shape(P.card, dp(18).toFloat(), P.line, dp(1))
+        plus.setOnClickListener { newTab(null, null) }
+        tabStrip.addv(plus, WRAP, WRAP)
+    }
+
+    private fun refreshNav() {
+        val w = active?.web
+        btnBack.alpha = if (w != null && w.canGoBack()) 1f else 0.35f
+        btnFwd.alpha = if (w != null && w.canGoForward()) 1f else 0.35f
+    }
+
+    private fun refreshChapterBar() {
+        val id = active?.workId
+        val w = if (id != null) act.store.get(id) else null
+        if (w == null) {
+            chapGroup.visibility = View.GONE
+        } else {
+            chapGroup.visibility = View.VISIBLE
+            chapText.text = "Cap. ${fmtNum(w.current)}"
+        }
+    }
+
+    private fun bumpChapter(delta: Int) {
+        val id = active?.workId ?: return
+        val w = act.store.get(id) ?: return
+        val v = if (delta > 0) Math.floor(w.current) + 1 else Math.max(0.0, Math.ceil(w.current) - 1)
+        w.setChapter(v)
+        act.store.save()
+        refreshChapterBar()
+    }
+
+    // ---------- abas ----------
+    private fun configure(web: WebView, tab: BrowserTab) {
+        val s = web.settings
+        s.javaScriptEnabled = true
+        s.domStorageEnabled = true
+        s.loadWithOverviewMode = true
+        s.useWideViewPort = true
+        s.setSupportZoom(true)
+        s.builtInZoomControls = true
+        s.displayZoomControls = false
+        s.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        s.javaScriptCanOpenWindowsAutomatically = false
+        s.setSupportMultipleWindows(false)
+        s.allowFileAccess = false
+        s.textZoom = act.prefs.zoom
+        val cm = CookieManager.getInstance()
+        cm.setAcceptCookie(true)
+        cm.setAcceptThirdPartyCookies(web, true)
+
+        web.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val u = request?.url?.toString() ?: return false
+                val ok = u.startsWith("http://") || u.startsWith("https://") ||
+                    u.startsWith("about:") || u.startsWith("data:") || u.startsWith("blob:")
+                return !ok
+            }
+
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                if (url != null) tab.url = url
+                if (tab === active) {
+                    if (!urlField.hasFocus()) urlField.setText(tab.url)
+                    refreshNav()
+                }
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                if (url != null) tab.url = url
+                val t = view?.title
+                tab.title = if (!t.isNullOrBlank()) t else tab.url
+                if (tab.url.startsWith("http")) act.prefs.addHistory(tab.title, tab.url)
+                track(tab, tab.url)
+                if (tab === active) {
+                    if (!urlField.hasFocus()) urlField.setText(tab.url)
+                    refreshNav()
+                }
+                refreshTabs()
+            }
+
+            override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                if (url != null) {
+                    tab.url = url
+                    track(tab, url)
+                    if (tab === active && !urlField.hasFocus()) urlField.setText(url)
+                }
+                if (tab === active) refreshNav()
+            }
+        }
+
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                if (tab === active) {
+                    progress.progress = newProgress
+                    progress.visibility = if (newProgress in 1..99 && !fullscreen) View.VISIBLE else View.GONE
+                }
+            }
+
+            override fun onReceivedTitle(view: WebView?, title: String?) {
+                if (!title.isNullOrBlank()) {
+                    tab.title = title
+                    refreshTabs()
+                }
+            }
+        }
+
+        web.setDownloadListener { url, _, _, _, _ -> openExternal(url) }
+    }
+
+    private fun track(tab: BrowserTab, url: String?) {
+        val id = tab.workId ?: return
+        val u = url ?: return
+        if (!u.startsWith("http")) return
+        val w = act.store.get(id) ?: return
+        val host = hostOf(u)
+        if (w.links.none { sameSite(hostOf(it.url), host) }) return
+        if (w.lastUrl != u) {
+            w.lastUrl = u
+            w.lastRead = System.currentTimeMillis()
+            act.store.save()
+        }
+    }
+
+    fun newTab(url: String?, workId: String?) {
+        val web = WebView(act)
+        val tab = BrowserTab(web, workId)
+        configure(web, tab)
+        tabs.add(tab)
+        select(tab)
+        val target = url ?: act.prefs.homeUrl
+        tab.url = target
+        urlField.setText(target)
+        web.loadUrl(target)
+    }
+
+    private fun select(t: BrowserTab) {
+        active = t
+        (t.web.parent as? ViewGroup)?.removeView(t.web)
+        webHolder.removeAllViews()
+        webHolder.addView(t.web, FrameLayout.LayoutParams(MATCH, MATCH))
+        urlField.setText(t.url)
+        progress.visibility = View.GONE
+        refreshTabs()
+        refreshNav()
+        refreshChapterBar()
+    }
+
+    private fun disposeWeb(w: WebView) {
+        (w.parent as? ViewGroup)?.removeView(w)
+        w.stopLoading()
+        w.destroy()
+    }
+
+    private fun closeTab(t: BrowserTab) {
+        val idx = tabs.indexOf(t)
+        if (idx < 0) return
+        tabs.removeAt(idx)
+        if (t === active) {
+            if (tabs.isEmpty()) {
+                active = null
+                webHolder.removeAllViews()
+                disposeWeb(t.web)
+                refreshTabs()
+                close()
+                return
+            }
+            select(tabs[Math.min(idx, tabs.size - 1)])
+        }
+        disposeWeb(t.web)
+        refreshTabs()
+    }
+
+    private fun closeAll() {
+        val copy = ArrayList(tabs)
+        tabs.clear()
+        active = null
+        webHolder.removeAllViews()
+        for (t in copy) disposeWeb(t.web)
+        refreshTabs()
+        close()
+    }
+
+    // ---------- abrir / fechar ----------
+    fun open(url: String?, workId: String?, reuse: Boolean) {
+        isOpen = true
+        view.visibility = View.VISIBLE
+        view.bringToFront()
+        if (url == null) {
+            val a = active
+            if (tabs.isEmpty()) newTab(null, null) else if (a != null) select(a)
+            return
+        }
+        if (reuse && workId != null) {
+            val ex = tabs.firstOrNull { it.workId == workId }
+            if (ex != null) {
+                select(ex)
+                return
+            }
+        }
+        newTab(url, workId)
+    }
+
+    fun close() {
+        exitFullscreen()
+        view.hideKeyboard()
+        isOpen = false
+        view.visibility = View.GONE
+        act.render()
+    }
+
+    fun onBack() {
+        if (fullscreen) {
+            exitFullscreen()
+            return
+        }
+        val w = active?.web
+        if (w != null && w.canGoBack()) w.goBack() else close()
+    }
+
+    fun pause() {
+        active?.web?.onPause()
+    }
+
+    fun resume() {
+        active?.web?.onResume()
+    }
+
+    fun destroy() {
+        for (t in tabs) disposeWeb(t.web)
+        tabs.clear()
+        active = null
+    }
+
+    // ---------- entrada de endereço ----------
+    private fun resolveInput(text: String): String {
+        val t = text.trim()
+        if (t.isEmpty()) return ""
+        if (t.contains("://")) return t
+        if (!t.contains(" ") && t.contains(".")) return "https://$t"
+        return "https://www.google.com/search?q=" + URLEncoder.encode(t, "UTF-8")
+    }
+
+    private fun go(input: String) {
+        val u = resolveInput(input)
+        if (u.isEmpty()) return
+        val a = active
+        if (a == null) newTab(u, null) else a.web.loadUrl(u)
+    }
+
+    private fun openExternal(url: String?) {
+        if (url.isNullOrBlank()) return
+        try {
+            act.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            act.toast("Não consegui abrir no navegador externo")
+        }
+    }
+
+    // ---------- menu ----------
+    private fun showMenu() {
+        val items = listOf(
+            "➕ Nova aba",
+            "🌐 Abrir no navegador externo",
+            "🔎 Aumentar texto (+)",
+            "🔍 Diminuir texto (−)",
+            "⛶ Tela cheia",
+            "🕘 Histórico",
+            "📋 Copiar endereço",
+            "🗑 Fechar todas as abas",
+            "❓ Ajuda do navegador"
+        )
+        act.listDialog("Navegador", items) { i ->
+            when (i) {
+                0 -> newTab(null, null)
+                1 -> openExternal(active?.url)
+                2 -> setZoom(act.prefs.zoom + 10)
+                3 -> setZoom(act.prefs.zoom - 10)
+                4 -> toggleFullscreen()
+                5 -> showHistory()
+                6 -> {
+                    val u = active?.url ?: ""
+                    if (u.isNotBlank()) {
+                        val cb = act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cb.setPrimaryClip(ClipData.newPlainText("url", u))
+                        act.toast("Endereço copiado")
+                    }
+                }
+                7 -> act.confirmDialog("Fechar abas", "Fechar todas as abas e sair do navegador?") { closeAll() }
+                8 -> AlertDialog.Builder(act).setTitle("❓ Navegador")
+                    .setMessage(browserHelpText()).setPositiveButton("Entendi", null).show()
+                else -> {}
+            }
+        }
+    }
+
+    fun setZoom(v: Int) {
+        val z = v.coerceIn(50, 300)
+        act.prefs.zoom = z
+        for (t in tabs) t.web.settings.textZoom = z
+        act.toast("Texto: $z%")
+    }
+
+    private fun showHistory() {
+        val h = act.prefs.history()
+        if (h.isEmpty()) {
+            act.toast("Histórico vazio")
+            return
+        }
+        val labels = h.map { (if (it.title.isBlank()) it.url else it.title).take(60) + "\n" + it.url.take(70) }
+            .toTypedArray()
+        AlertDialog.Builder(act).setTitle("🕘 Histórico")
+            .setItems(labels) { _, i -> go(h[i].url) }
+            .setNeutralButton("Limpar") { _, _ -> act.prefs.clearHistory() }
+            .setNegativeButton("Fechar", null).show()
+    }
+
+    // ---------- tela cheia ----------
+    private fun toggleFullscreen() {
+        fullscreen = !fullscreen
+        applyFullscreen()
+    }
+
+    private fun exitFullscreen() {
+        if (fullscreen) {
+            fullscreen = false
+            applyFullscreen()
+        }
+    }
+
+    private fun applyFullscreen() {
+        val vis = if (fullscreen) View.GONE else View.VISIBLE
+        topBar.visibility = vis
+        tabScroll.visibility = vis
+        bottomBar.visibility = vis
+        if (fullscreen) progress.visibility = View.GONE
+        fsButton.visibility = if (fullscreen) View.VISIBLE else View.GONE
+        val c = WindowCompat.getInsetsController(act.window, act.window.decorView)
+        if (fullscreen) {
+            c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            c.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            c.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+}
