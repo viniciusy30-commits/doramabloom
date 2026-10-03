@@ -1,12 +1,16 @@
 package com.example.mangashelf
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
+import android.graphics.drawable.StateListDrawable
 import android.net.Uri
 import android.text.InputType
 import android.util.LruCache
@@ -15,14 +19,17 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 import java.io.FileOutputStream
 
@@ -31,13 +38,22 @@ const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
 object P {
     var dark = false
-    val accent: Int = 0xFF7C5CFF.toInt()
-    val accent2: Int = 0xFFFF6B9A.toInt()
-    val bg: Int get() = if (dark) 0xFF000000.toInt() else 0xFFF6F5FB.toInt()
-    val card: Int get() = if (dark) 0xFF121214.toInt() else 0xFFFFFFFF.toInt()
-    val text: Int get() = if (dark) 0xFFF4F4F5.toInt() else 0xFF15131F.toInt()
-    val sub: Int get() = if (dark) 0xFFA1A1A8.toInt() else 0xFF6B6880.toInt()
-    val line: Int get() = if (dark) 0xFF2A2A2E.toInt() else 0xFFE4E1F0.toInt()
+    // vermelho suave (estilo OneReader, em vermelho)
+    val accent: Int get() = if (dark) 0xFFFF5566.toInt() else 0xFFE02D3C.toInt()
+    val accentDeep: Int get() = if (dark) 0xFFE5283C.toInt() else 0xFFC81E2F.toInt()
+    val onAccent: Int get() = 0xFFFFFFFF.toInt()
+    val accentSoft: Int get() = if (dark) 0xFF2A1015.toInt() else 0xFFFFEDEE.toInt()
+    val accentTile: Int get() = if (dark) 0xFF3D1821.toInt() else 0xFFFFD6DA.toInt()
+    val accentLine: Int get() = if (dark) 0xFF74232F.toInt() else 0xFFF6B4BA.toInt()
+    val heroEnd: Int get() = if (dark) 0xFF40131B.toInt() else 0xFFFFD0D5.toInt()
+    val accent2: Int = 0xFFFF6B81.toInt() // coração (favorito)
+    val star: Int = 0xFFFFB02E.toInt() // estrela da nota
+    val bg: Int get() = if (dark) 0xFF0B0B0F.toInt() else 0xFFFAF6F6.toInt()
+    val card: Int get() = if (dark) 0xFF14141A.toInt() else 0xFFFFFFFF.toInt()
+    val card2: Int get() = if (dark) 0xFF1C1C24.toInt() else 0xFFF5EEEE.toInt()
+    val text: Int get() = if (dark) 0xFFF5F5F7.toInt() else 0xFF1B1416.toInt()
+    val sub: Int get() = if (dark) 0xFF9A9AA6.toInt() else 0xFF7A6B6D.toInt()
+    val line: Int get() = if (dark) 0xFF272730.toInt() else 0xFFEBDFE0.toInt()
 }
 
 /** Efeito discreto de toque: encolhe um pouquinho ao pressionar. Não bloqueia o clique. */
@@ -60,6 +76,12 @@ fun shape(color: Int, radius: Float, stroke: Int = 0, strokeW: Int = 0): Gradien
     g.cornerRadius = radius
     if (strokeW > 0) g.setStroke(strokeW, stroke)
     return g
+}
+
+/** Dá efeito de ondinha suave (laranja) ao toque, respeitando os cantos arredondados. */
+fun Context.rippled(content: Drawable, radius: Float): Drawable {
+    val c = ColorStateList.valueOf((P.accent and 0x00FFFFFF) or 0x33000000)
+    return RippleDrawable(c, content, shape(Color.WHITE, radius))
 }
 
 fun Context.vbox(): LinearLayout {
@@ -95,36 +117,130 @@ fun Context.tv(t: CharSequence, size: Float = 14f, color: Int = P.text, bold: Bo
     return x
 }
 
-fun Context.lbl(t: String): TextView = tv(t, 12f, P.sub, true)
+fun Context.lbl(t: String): TextView {
+    val x = tv(t, 11.5f, P.sub, true)
+    x.letterSpacing = 0.08f
+    return x
+}
 
-fun Context.pill(t: String, bg: Int = P.accent, fg: Int = Color.WHITE, size: Float = 14f, onClick: () -> Unit): TextView {
+fun Context.pill(
+    t: String, bg: Int = P.accent, fg: Int = P.onAccent, size: Float = 14f,
+    icon: Ic? = null, onClick: () -> Unit
+): TextView {
     val x = tv(t, size, fg, true)
     x.gravity = Gravity.CENTER
-    x.setPadding(dp(16), dp(11), dp(16), dp(11))
-    x.background = shape(bg, dp(26).toFloat())
+    x.setPadding(dp(18), dp(13), dp(18), dp(13))
+    val r = dp(26).toFloat()
+    val base: GradientDrawable = if (bg == P.accent) {
+        val g = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(bg, P.accentDeep))
+        g.cornerRadius = r
+        g
+    } else shape(bg, r)
+    x.background = rippled(base, r)
+    if (icon != null) x.setIconText(icon, t)
     x.setOnClickListener { onClick() }
     x.pressFx()
     return x
 }
 
-fun Context.outlinePill(t: String, size: Float = 13f, onClick: () -> Unit): TextView {
+fun Context.outlinePill(t: String, size: Float = 13f, icon: Ic? = null, onClick: () -> Unit): TextView {
     val x = tv(t, size, P.text, true)
     x.gravity = Gravity.CENTER
-    x.setPadding(dp(10), dp(11), dp(10), dp(11))
-    x.background = shape(P.card, dp(26).toFloat(), P.line, dp(1))
+    x.setPadding(dp(12), dp(12), dp(12), dp(12))
+    val r = dp(26).toFloat()
+    x.background = rippled(shape(P.card, r, P.line, dp(1)), r)
+    if (icon != null) x.setIconText(icon, t)
     x.setOnClickListener { onClick() }
     x.pressFx()
     return x
 }
 
-fun Context.chip(t: String, selected: Boolean, onClick: () -> Unit): TextView {
-    val x = tv(t, 13f, if (selected) Color.WHITE else P.text, selected)
-    x.setPadding(dp(12), dp(7), dp(12), dp(7))
-    x.background = if (selected) shape(P.accent, dp(20).toFloat())
-    else shape(P.card, dp(20).toFloat(), P.line, dp(1))
+fun Context.chip(t: String, selected: Boolean, icon: Ic? = null, onClick: () -> Unit): TextView {
+    val x = tv(t, 13f, if (selected) P.accent else P.text, selected)
+    x.setPadding(dp(14), dp(8), dp(14), dp(8))
+    val r = dp(20).toFloat()
+    x.background = rippled(
+        if (selected) shape(P.accentSoft, r, P.accent, dp(1)) else shape(P.card, r, P.line, dp(1)), r
+    )
+    if (icon != null) x.setIconText(icon, t, false, 16)
     x.setOnClickListener { onClick() }
     x.pressFx()
     return x
+}
+
+/** Botão redondo só com ícone. */
+fun Context.roundBtn(ic: Ic, boxDp: Int = 40, iconDp: Int = 20, color: Int = P.text, filled: Boolean = true, onClick: () -> Unit): IconView {
+    val v = IconView(this, ic, color, iconDp)
+    val r = dp(boxDp).toFloat()
+    v.background = rippled(
+        if (filled) shape(P.card, r, P.line, dp(1)) else shape(Color.TRANSPARENT, r), r
+    )
+    v.setOnClickListener { onClick() }
+    v.pressFx()
+    return v
+}
+
+/** Quadradinho arredondado com ícone (usado em títulos e cartões). */
+fun Context.iconTile(ic: Ic, iconDp: Int = 20): FrameLayout {
+    val f = FrameLayout(this)
+    f.background = shape(P.accentTile, dp(13).toFloat())
+    f.addView(IconView(this, ic, P.accent, iconDp), FrameLayout.LayoutParams(dp(iconDp + 8), dp(iconDp + 8), Gravity.CENTER))
+    return f
+}
+
+/** Botão grande de destaque (ex.: Continuar lendo). */
+fun Context.heroButton(caption: String, label: String, ic: Ic, onClick: () -> Unit): LinearLayout {
+    val row = hbox()
+    row.setPadding(dp(14), dp(12), dp(16), dp(12))
+    val r = dp(18).toFloat()
+    val g = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(P.accentSoft, P.heroEnd))
+    g.cornerRadius = r
+    g.setStroke(dp(1), P.accentLine)
+    row.background = rippled(g, r)
+    row.addv(iconTile(ic, 22), dp(46), dp(46), 0f, 0, 0, 14, 0)
+    val col = vbox()
+    val cap = tv(caption, 10.5f, P.accent, true)
+    cap.letterSpacing = 0.1f
+    col.addv(cap)
+    col.addv(tv(label, 17f, P.text, true), MATCH, WRAP, 0f, 0, 1, 0, 0)
+    row.addv(col, 0, WRAP, 1f)
+    row.addv(IconView(this, Ic.ArrowRight, P.accent, 20), dp(22), dp(22))
+    row.setOnClickListener { onClick() }
+    row.pressFx()
+    return row
+}
+
+/** Título de seção com ícone. */
+fun Context.sectionTitle(ic: Ic, t: String, size: Float = 18f): LinearLayout {
+    val row = hbox()
+    row.addv(IconView(this, ic, P.accent, 20), dp(22), dp(22), 0f, 0, 0, 9, 0)
+    row.addv(tv(t, size, P.text, true), 0, WRAP, 1f)
+    return row
+}
+
+/** Campo de busca com lupa. Retorna o contêiner e o campo de texto. */
+fun Context.searchBox(hint: String, value: String): Pair<LinearLayout, EditText> {
+    val box = hbox()
+    box.setPadding(dp(14), 0, dp(12), 0)
+    val r = dp(16).toFloat()
+    fun bgOf(focused: Boolean) = shape(P.card, r, if (focused) P.accent else P.line, dp(1))
+    box.background = bgOf(false)
+    box.addv(IconView(this, Ic.Search, P.sub, 20), dp(22), dp(22), 0f, 0, 0, 10, 0)
+    val e = EditText(this)
+    e.hint = hint
+    e.setHintTextColor(P.sub)
+    e.setTextColor(P.text)
+    e.textSize = 15f
+    e.setSingleLine(true)
+    e.inputType = InputType.TYPE_CLASS_TEXT
+    e.imeOptions = EditorInfo.IME_ACTION_SEARCH
+    e.background = null
+    e.setPadding(0, dp(13), 0, dp(13))
+    e.highlightColor = (P.accent and 0x00FFFFFF) or 0x55000000
+    e.setText(value)
+    e.setOnFocusChangeListener { _, f -> box.background = bgOf(f) }
+    box.addv(e, 0, WRAP, 1f)
+    return Pair(box, e)
 }
 
 fun Context.inputField(
@@ -145,8 +261,13 @@ fun Context.inputField(
         e.inputType = input
         e.setSingleLine(true)
     }
-    e.setPadding(dp(12), dp(10), dp(12), dp(10))
-    e.background = shape(P.card, dp(12).toFloat(), P.line, dp(1))
+    e.setPadding(dp(14), dp(12), dp(14), dp(12))
+    val r = dp(14).toFloat()
+    val bgSel = StateListDrawable()
+    bgSel.addState(intArrayOf(android.R.attr.state_focused), shape(P.card, r, P.accent, dp(1)))
+    bgSel.addState(intArrayOf(), shape(P.card, r, P.line, dp(1)))
+    e.background = bgSel
+    e.highlightColor = (P.accent and 0x00FFFFFF) or 0x55000000
     return e
 }
 
@@ -167,7 +288,7 @@ fun Context.toast(m: String) {
 }
 
 fun Context.confirmDialog(title: String, msg: String, yes: String = "Sim", onYes: () -> Unit) {
-    AlertDialog.Builder(this).setTitle(title).setMessage(msg)
+    MaterialAlertDialogBuilder(this).setTitle(title).setMessage(msg)
         .setPositiveButton(yes) { _, _ -> onYes() }
         .setNegativeButton("Cancelar", null).show()
 }
@@ -180,14 +301,37 @@ fun Context.inputDialog(
     box.setPadding(dp(20), dp(8), dp(20), 0)
     val et = inputField(hint, initial, 1, input)
     box.addView(et, MATCH, WRAP)
-    AlertDialog.Builder(this).setTitle(title).setView(box)
+    MaterialAlertDialogBuilder(this).setTitle(title).setView(box)
         .setPositiveButton("OK") { _, _ -> onOk(et.text.toString()) }
         .setNegativeButton("Cancelar", null).show()
 }
 
 fun Context.listDialog(title: String, items: List<String>, onPick: (Int) -> Unit) {
-    AlertDialog.Builder(this).setTitle(title)
+    MaterialAlertDialogBuilder(this).setTitle(title)
         .setItems(items.toTypedArray()) { _, i -> onPick(i) }.show()
+}
+
+/** Lista de opções com ícone ao lado de cada linha. */
+fun Context.iconListDialog(title: String, items: List<Pair<Ic, String>>, onPick: (Int) -> Unit) {
+    val col = vbox()
+    col.setPadding(dp(8), dp(4), dp(8), dp(8))
+    lateinit var dlg: AlertDialog
+    items.forEachIndexed { i, item ->
+        val row = hbox()
+        row.setPadding(dp(14), dp(13), dp(14), dp(13))
+        row.background = rippled(shape(Color.TRANSPARENT, dp(14).toFloat()), dp(14).toFloat())
+        row.addv(IconView(this, item.first, P.accent, 20), dp(22), dp(22), 0f, 0, 0, 14, 0)
+        row.addv(tv(item.second, 15f, P.text), 0, WRAP, 1f)
+        row.setOnClickListener {
+            dlg.dismiss()
+            onPick(i)
+        }
+        col.addv(row)
+    }
+    val sv = ScrollView(this)
+    sv.addView(col)
+    dlg = MaterialAlertDialogBuilder(this).setTitle(title).setView(sv).create()
+    dlg.show()
 }
 
 fun View.hideKeyboard() {
@@ -244,12 +388,12 @@ fun downloadBytes(url: String, maxBytes: Int = 8000000): ByteArray? = try {
 // ---------- Capas ----------
 
 private val COVER_COLORS = listOf(
-    Pair(0xFF7C5CFF.toInt(), 0xFFFF6B9A.toInt()),
-    Pair(0xFF3B82F6.toInt(), 0xFF22D3EE.toInt()),
-    Pair(0xFFF97316.toInt(), 0xFFEF4444.toInt()),
-    Pair(0xFF10B981.toInt(), 0xFF3B82F6.toInt()),
-    Pair(0xFFEC4899.toInt(), 0xFF8B5CF6.toInt()),
-    Pair(0xFFF59E0B.toInt(), 0xFFEC4899.toInt())
+    Pair(0xFFE02D3C.toInt(), 0xFF7F1D1D.toInt()),
+    Pair(0xFFEF6C3B.toInt(), 0xFF9A3412.toInt()),
+    Pair(0xFF3B82F6.toInt(), 0xFF1E3A8A.toInt()),
+    Pair(0xFF10B981.toInt(), 0xFF065F46.toInt()),
+    Pair(0xFFEC4899.toInt(), 0xFF9D174D.toInt()),
+    Pair(0xFF64748B.toInt(), 0xFF1E293B.toInt())
 )
 
 object Covers {

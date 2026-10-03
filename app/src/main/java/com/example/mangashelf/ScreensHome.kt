@@ -21,10 +21,9 @@ fun MainActivity.workCard(w: Work, play: Boolean): View {
     box.addView(coverView(store, w), FrameLayout.LayoutParams(MATCH, WRAP))
 
     if (w.favorite) {
-        val h = tv("♥", 13f, Color.WHITE, true)
-        h.setPadding(dp(6), dp(2), dp(6), dp(2))
-        h.background = shape(P.accent2, dp(10).toFloat())
-        val lp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END)
+        val h = IconView(this, Ic.HeartSolid, P.accent2, 13)
+        h.background = shape(0x99000000.toInt(), dp(12).toFloat())
+        val lp = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.TOP or Gravity.END)
         lp.setMargins(0, dp(6), dp(6), 0)
         box.addView(h, lp)
     }
@@ -36,12 +35,11 @@ fun MainActivity.workCard(w: Work, play: Boolean): View {
     box.addView(badge, blp)
 
     if (play) {
-        val p = tv("▶", 14f, Color.WHITE, true)
-        p.gravity = Gravity.CENTER
+        val p = IconView(this, Ic.PlaySolid, P.onAccent, 14)
         p.background = shape(P.accent, dp(18).toFloat())
         p.setOnClickListener {
             if (!continueReading(w)) {
-                toast("Salve um site em LINKS primeiro 🔗")
+                toast("Salve um site em Links primeiro")
                 go(Route("detail", w.id))
             }
         }
@@ -68,12 +66,13 @@ fun MainActivity.workCard(w: Work, play: Boolean): View {
     return col
 }
 
-private fun MainActivity.rail(col: LinearLayout, title: String, list: List<Work>, filter: String?, play: Boolean = false) {
+private fun MainActivity.rail(col: LinearLayout, ic: Ic, title: String, list: List<Work>, filter: String?, play: Boolean = false) {
     if (list.isEmpty()) return
     val head = hbox()
-    head.addv(tv(title, 18f, P.text, true), 0, WRAP, 1f)
+    head.addv(sectionTitle(ic, title), 0, WRAP, 1f)
     if (filter != null) {
-        val more = tv("Ver tudo ›", 13f, P.accent, true)
+        val more = tv("", 13f, P.accent, true)
+        more.setIconText(Ic.ChevronRight, "Ver tudo", true, 16)
         more.setPadding(dp(8), dp(4), 0, dp(4))
         more.setOnClickListener {
             fStatus = filter
@@ -102,24 +101,20 @@ fun MainActivity.buildHome(): View {
     scroll.addView(col)
 
     val head = hbox()
+    head.addv(iconTile(Ic.BookOpen, 24), dp(48), dp(48), 0f, 0, 0, 12, 0)
     val titles = vbox()
-    titles.addv(tv("📖 Minha Estante", 26f, P.text, true))
+    titles.addv(tv("Minha Estante", 24f, P.text, true))
     titles.addv(tv("${store.works.size} obras na sua biblioteca", 13f, P.sub), MATCH, WRAP, 0f, 0, 2, 0, 0)
     head.addv(titles, 0, WRAP, 1f)
-    val web = tv("🌐", 24f)
-    web.setPadding(dp(10), dp(6), dp(10), dp(6))
-    web.setOnClickListener { openInBrowser(null, null, false) }
-    head.addv(web, WRAP, WRAP)
-    val help = tv("❓", 22f)
-    help.setPadding(dp(6), dp(6), dp(2), dp(6))
-    help.setOnClickListener { go(Route("tutorial")) }
-    head.addv(help, WRAP, WRAP)
+    head.addv(roundBtn(Ic.Globe, 42, 20) { openInBrowser(null, null, false) }, dp(42), dp(42), 0f, 0, 0, 8, 0)
+    head.addv(roundBtn(Ic.Help, 42, 20) { go(Route("tutorial")) }, dp(42), dp(42))
     col.addv(head)
 
     val sf = hbox()
-    sf.background = shape(P.card, dp(14).toFloat(), P.line, dp(1))
-    sf.setPadding(dp(14), dp(12), dp(14), dp(12))
-    sf.addv(tv("🔍  Pesquisar obras…", 14f, P.sub), WRAP, WRAP)
+    sf.background = rippled(shape(P.card, dp(16).toFloat(), P.line, dp(1)), dp(16).toFloat())
+    sf.setPadding(dp(14), dp(14), dp(14), dp(14))
+    sf.addv(IconView(this, Ic.Search, P.sub, 20), dp(22), dp(22), 0f, 0, 0, 10, 0)
+    sf.addv(tv("Pesquisar obras…", 14f, P.sub), WRAP, WRAP)
     sf.setOnClickListener {
         fQuery = ""
         focusSearch = true
@@ -129,27 +124,28 @@ fun MainActivity.buildHome(): View {
 
     if (store.works.isEmpty()) {
         val card = vbox()
-        card.background = shape(P.card, dp(18).toFloat(), P.line, dp(1))
+        card.background = shape(P.card, dp(22).toFloat(), P.line, dp(1))
         card.setPadding(dp(18), dp(20), dp(18), dp(20))
-        card.addv(tv("Sua estante está vazia 📚", 18f, P.text, true))
+        card.addv(iconTile(Ic.Library, 24), dp(48), dp(48), 0f, 0, 0, 0, 12)
+        card.addv(tv("Sua estante está vazia", 18f, P.text, true))
         card.addv(
             tv("Cadastre sua primeira obra e acompanhe seu progresso. Ao tocar em Continuar lendo, o site abre aqui dentro, no navegador com abas.", 14f, P.sub),
             MATCH, WRAP, 0f, 0, 6, 0, 14
         )
-        card.addv(pill("➕  Adicionar primeira obra") { goTop("add") })
-        card.addv(outlinePill("❓  Como usar o app") { go(Route("tutorial")) }, MATCH, WRAP, 0f, 0, 10, 0, 0)
+        card.addv(pill("Adicionar primeira obra", icon = Ic.Plus) { goTop("add") })
+        card.addv(outlinePill("Como usar o app", icon = Ic.Help) { go(Route("tutorial")) }, MATCH, WRAP, 0f, 0, 10, 0, 0)
         col.addv(card, MATCH, WRAP, 0f, 0, 18, 0, 0)
         return scroll
     }
 
     val reading = store.works.filter { it.status == STATUS_READING }
     val cont = reading.filter { it.lastRead > 0 }.sortedByDescending { it.lastRead }
-    rail(col, "▶ Continuar lendo", cont, null, true)
-    rail(col, "📖 Lendo", reading.sortedBy { it.title.lowercase() }, STATUS_READING)
-    rail(col, "🔖 Quero ler", store.works.filter { it.status == STATUS_PLAN }, STATUS_PLAN)
-    rail(col, "✅ Concluídos", store.works.filter { it.status == STATUS_DONE }, STATUS_DONE)
-    rail(col, "⏸ Pausados", store.works.filter { it.status == STATUS_PAUSED }, STATUS_PAUSED)
-    rail(col, "♥ Favoritos", store.works.filter { it.favorite }, FAV)
+    rail(col, Ic.PlaySolid, "Continuar lendo", cont, null, true)
+    rail(col, Ic.BookOpen, "Lendo", reading.sortedBy { it.title.lowercase() }, STATUS_READING)
+    rail(col, Ic.Bookmark, "Quero ler", store.works.filter { it.status == STATUS_PLAN }, STATUS_PLAN)
+    rail(col, Ic.CheckCircle, "Concluídos", store.works.filter { it.status == STATUS_DONE }, STATUS_DONE)
+    rail(col, Ic.Pause, "Pausados", store.works.filter { it.status == STATUS_PAUSED }, STATUS_PAUSED)
+    rail(col, Ic.Heart, "Favoritos", store.works.filter { it.favorite }, FAV)
     return scroll
 }
 
@@ -201,16 +197,13 @@ fun MainActivity.buildLibrary(): View {
     root.setPadding(dp(12), dp(14), dp(12), 0)
 
     val head = hbox()
-    head.addv(tv("📚 Biblioteca", 22f, P.text, true), 0, WRAP, 1f)
+    head.addv(sectionTitle(Ic.Library, "Biblioteca", 22f), 0, WRAP, 1f)
     val countTv = tv("", 13f, P.sub, true)
     head.addv(countTv, WRAP, WRAP)
     root.addv(head, MATCH, WRAP, 0f, 4, 0, 4, 8)
 
-    val search = inputField(
-        "🔍 Pesquisar título, autor, tag…", fQuery, 1,
-        android.text.InputType.TYPE_CLASS_TEXT
-    )
-    root.addv(search, MATCH, WRAP, 0f, 0, 0, 0, 8)
+    val (searchWrap, search) = searchBox("Pesquisar título, autor, tag…", fQuery)
+    root.addv(searchWrap, MATCH, WRAP, 0f, 0, 0, 0, 10)
 
     val chipScroll = HorizontalScrollView(this)
     chipScroll.isHorizontalScrollBarEnabled = false
@@ -235,7 +228,7 @@ fun MainActivity.buildLibrary(): View {
     rv.setPadding(0, dp(6), 0, dp(12))
     rv.adapter = adapter
 
-    val empty = tv("Nenhuma obra encontrada.\nAjuste os filtros ou adicione uma obra em ➕.", 14f, P.sub)
+    val empty = tv("Nenhuma obra encontrada.\nAjuste os filtros ou adicione uma obra em Adicionar.", 14f, P.sub)
     empty.gravity = Gravity.CENTER
     empty.setPadding(dp(20), dp(40), dp(20), dp(20))
 
@@ -250,9 +243,9 @@ fun MainActivity.buildLibrary(): View {
         adapter.notifyDataSetChanged()
         countTv.text = "${items.size} obra" + (if (items.size == 1) "" else "s")
         empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
-        typeBtn.text = "Tipo: $fType ▾"
-        genreBtn.text = "Gênero: $fGenre ▾"
-        sortBtn.text = "↕ $fSort"
+        typeBtn.setIconText(Ic.ChevronDown, "Tipo: $fType", true, 16)
+        genreBtn.setIconText(Ic.ChevronDown, "Gênero: $fGenre", true, 16)
+        sortBtn.setIconText(Ic.Sort, fSort, false, 16)
     }
 
     fun buildChips() {

@@ -1,6 +1,7 @@
 package com.example.mangashelf
 
 import android.content.res.Configuration
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
@@ -14,6 +15,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.WindowCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -79,8 +81,8 @@ class MainActivity : AppCompatActivity() {
 
         if (!prefs.tutorialSeen) {
             prefs.tutorialSeen = true
-            AlertDialog.Builder(this)
-                .setTitle("Bem-vindo! 📖")
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Bem-vindo!")
                 .setMessage("Quer ver um tutorial rápido de como usar o app?")
                 .setPositiveButton("Ver agora") { _, _ -> go(Route("tutorial")) }
                 .setNegativeButton("Depois", null)
@@ -200,29 +202,47 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildNav() {
         navBar.removeAllViews()
-        navBar.setBackgroundColor(P.card)
+        val ld = android.graphics.drawable.LayerDrawable(
+            arrayOf(
+                android.graphics.drawable.ColorDrawable(P.line),
+                android.graphics.drawable.ColorDrawable(P.card)
+            )
+        )
+        ld.setLayerInset(1, 0, dp(1), 0, 0)
+        navBar.background = ld
+        navBar.setPadding(dp(6), dp(8), dp(6), dp(8))
         val items = listOf(
-            Triple("home", "🏠", "Início"),
-            Triple("library", "📚", "Biblioteca"),
-            Triple("add", "➕", "Adicionar"),
-            Triple("stats", "📊", "Estatísticas"),
-            Triple("settings", "⚙️", "Config.")
+            Triple("home", Ic.Home, "Início"),
+            Triple("library", Ic.Library, "Biblioteca"),
+            Triple("add", Ic.Plus, "Adicionar"),
+            Triple("stats", Ic.Chart, "Estatísticas"),
+            Triple("settings", Ic.Sliders, "Config.")
         )
         val cur = stack.firstOrNull()?.name ?: "home"
-        for ((key, emoji, label) in items) {
+        for ((key, ic, label) in items) {
+            val sel = key == cur
+            val special = key == "add"
+            val color = if (special) P.accent else if (sel) P.text else P.sub
+            val r = dp(16).toFloat()
             val col = vbox()
-            col.gravity = Gravity.CENTER
-            col.setPadding(0, dp(8), 0, dp(8))
-            val e = tv(emoji, 20f)
-            e.gravity = Gravity.CENTER
-            e.alpha = if (key == cur) 1f else 0.55f
-            val l = tv(label, 10.5f, if (key == cur) P.accent else P.sub, key == cur)
+            col.gravity = Gravity.CENTER_HORIZONTAL
+            col.setPadding(0, dp(5), 0, dp(7))
+            col.background = when {
+                sel -> rippled(shape(P.card2, r, P.line, dp(1)), r)
+                special -> rippled(shape(P.accentSoft, r, P.accentLine, dp(1)), r)
+                else -> rippled(shape(Color.TRANSPARENT, r), r)
+            }
+            val bar = View(this)
+            bar.background = shape(P.accent, dp(2).toFloat())
+            bar.visibility = if (sel) View.VISIBLE else View.INVISIBLE
+            col.addv(bar, dp(18), dp(2), 0f, 0, 0, 0, 5)
+            col.addv(IconView(this, ic, color, 22), dp(24), dp(24))
+            val l = tv(label, 10.5f, color, sel)
             l.maxLines = 1
-            col.addv(e, WRAP, WRAP)
-            col.addv(l, WRAP, WRAP)
+            col.addv(l, WRAP, WRAP, 0f, 0, 3, 0, 0)
             col.setOnClickListener { goTop(key) }
             col.pressFx()
-            navBar.addv(col, 0, WRAP, 1f)
+            navBar.addv(col, 0, WRAP, 1f, 2, 0, 2, 0)
         }
     }
 
@@ -270,7 +290,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val s = store.exportJson().toString()
                 contentResolver.openOutputStream(uri)?.use { it.write(s.toByteArray(Charsets.UTF_8)) }
-                runOnUiThread { toast("Backup salvo ✅") }
+                runOnUiThread { toast("Backup salvo") }
             } catch (e: Exception) {
                 runOnUiThread { toast("Erro ao salvar: ${e.message}") }
             }
@@ -290,7 +310,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun askImportMode(txt: String, n: Int) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Restaurar backup")
             .setMessage("O arquivo tem $n obras. Como importar?")
             .setPositiveButton("Mesclar") { _, _ -> doImport(txt, false) }
@@ -300,7 +320,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doImport(txt: String, replace: Boolean) {
-        val dlg = AlertDialog.Builder(this).setTitle("Importando…").setMessage("Aguarde um instante.")
+        val dlg = MaterialAlertDialogBuilder(this).setTitle("Importando…").setMessage("Aguarde um instante.")
             .setCancelable(false).create()
         dlg.show()
         Thread {
@@ -309,7 +329,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     dlg.dismiss()
                     render()
-                    toast("$count obras importadas ✅")
+                    toast("$count obras importadas")
                 }
             } catch (e: Exception) {
                 runOnUiThread {

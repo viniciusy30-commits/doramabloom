@@ -31,6 +31,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.net.URLEncoder
 
 class BrowserTab(val web: WebView, var workId: String?) {
@@ -53,9 +54,9 @@ class BrowserController(private val act: MainActivity) {
     private lateinit var bottomBar: LinearLayout
     private lateinit var urlField: EditText
     private lateinit var progress: ProgressBar
-    private lateinit var fsButton: TextView
-    private lateinit var btnBack: TextView
-    private lateinit var btnFwd: TextView
+    private lateinit var fsButton: View
+    private lateinit var btnBack: View
+    private lateinit var btnFwd: View
     private lateinit var chapGroup: LinearLayout
     private lateinit var chapText: TextView
 
@@ -66,9 +67,10 @@ class BrowserController(private val act: MainActivity) {
 
     private fun dp(v: Int): Int = act.dp(v)
 
-    private fun iconBtn(t: String, onClick: () -> Unit): TextView {
-        val x = act.tv(t, 20f, P.text, true)
-        x.gravity = Gravity.CENTER
+    private fun iconBtn(ic: Ic, onClick: () -> Unit): IconView {
+        val x = IconView(act, ic, P.text, 22)
+        val r = dp(22).toFloat()
+        x.background = act.rippled(shape(Color.TRANSPARENT, r), r)
         x.setOnClickListener { onClick() }
         return x
     }
@@ -88,7 +90,7 @@ class BrowserController(private val act: MainActivity) {
         topBar.gravity = Gravity.CENTER_VERTICAL
         topBar.setBackgroundColor(P.card)
         topBar.setPadding(dp(6), dp(6), dp(6), dp(6))
-        val closeBtn = iconBtn("✕") { close() }
+        val closeBtn = iconBtn(Ic.Close) { close() }
         urlField = EditText(act)
         urlField.setSingleLine(true)
         urlField.textSize = 14f
@@ -99,7 +101,11 @@ class BrowserController(private val act: MainActivity) {
         urlField.imeOptions = EditorInfo.IME_ACTION_GO
         urlField.setSelectAllOnFocus(true)
         urlField.setPadding(dp(14), 0, dp(14), 0)
-        urlField.background = shape(P.bg, dp(20).toFloat(), P.line, dp(1))
+        val ub = android.graphics.drawable.StateListDrawable()
+        ub.addState(intArrayOf(android.R.attr.state_focused), shape(P.bg, dp(20).toFloat(), P.accent, dp(1)))
+        ub.addState(intArrayOf(), shape(P.bg, dp(20).toFloat(), P.line, dp(1)))
+        urlField.background = ub
+        urlField.highlightColor = (P.accent and 0x00FFFFFF) or 0x55000000
         urlField.setOnEditorActionListener { v, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_GO) {
                 go(urlField.text.toString())
@@ -110,7 +116,7 @@ class BrowserController(private val act: MainActivity) {
                 false
             }
         }
-        val menu = iconBtn("⋮") { showMenu() }
+        val menu = iconBtn(Ic.More) { showMenu() }
         topBar.addv(closeBtn, dp(40), dp(40))
         topBar.addv(urlField, 0, dp(40), 1f, 4, 0, 4, 0)
         topBar.addv(menu, dp(40), dp(40))
@@ -139,15 +145,15 @@ class BrowserController(private val act: MainActivity) {
         bottomBar.gravity = Gravity.CENTER_VERTICAL
         bottomBar.setBackgroundColor(P.card)
         bottomBar.setPadding(dp(6), dp(4), dp(6), dp(4))
-        btnBack = iconBtn("◀") {
+        btnBack = iconBtn(Ic.ChevronLeft) {
             val w = active?.web
             if (w != null && w.canGoBack()) w.goBack()
         }
-        btnFwd = iconBtn("▶") {
+        btnFwd = iconBtn(Ic.ChevronRight) {
             val w = active?.web
             if (w != null && w.canGoForward()) w.goForward()
         }
-        val reload = iconBtn("⟳") { active?.web?.reload() }
+        val reload = iconBtn(Ic.Refresh) { active?.web?.reload() }
         bottomBar.addv(btnBack, dp(44), dp(44))
         bottomBar.addv(btnFwd, dp(44), dp(44))
         bottomBar.addv(reload, dp(44), dp(44))
@@ -159,16 +165,17 @@ class BrowserController(private val act: MainActivity) {
         chapGroup.background = shape(P.bg, dp(22).toFloat(), P.line, dp(1))
         chapText = act.tv("Cap. 0", 13f, P.text, true)
         chapText.gravity = Gravity.CENTER
-        chapGroup.addv(iconBtn("−") { bumpChapter(-1) }, dp(40), dp(40))
+        chapGroup.addv(iconBtn(Ic.Minus) { bumpChapter(-1) }, dp(40), dp(40))
         chapGroup.addv(chapText, WRAP, WRAP, 0f, 4, 0, 4, 0)
-        chapGroup.addv(iconBtn("+") { bumpChapter(1) }, dp(40), dp(40))
+        val chapPlus = iconBtn(Ic.Plus) { bumpChapter(1) }
+        chapPlus.color = P.accent
+        chapGroup.addv(chapPlus, dp(40), dp(40))
         bottomBar.addv(chapGroup, WRAP, WRAP)
         col.addv(bottomBar)
 
         view.addView(col, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        fsButton = act.tv("⤡", 20f, Color.WHITE, true)
-        fsButton.gravity = Gravity.CENTER
+        fsButton = IconView(act, Ic.Minimize, Color.WHITE, 22)
         fsButton.background = shape(0x99000000.toInt(), dp(22).toFloat())
         fsButton.setOnClickListener { toggleFullscreen() }
         val flp = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.BOTTOM)
@@ -208,26 +215,23 @@ class BrowserController(private val act: MainActivity) {
             chip.orientation = LinearLayout.HORIZONTAL
             chip.gravity = Gravity.CENTER_VERTICAL
             chip.setPadding(dp(12), dp(6), dp(4), dp(6))
-            chip.background = if (sel) shape(P.accent, dp(18).toFloat())
+            chip.background = if (sel) shape(P.accentSoft, dp(18).toFloat(), P.accent, dp(1))
             else shape(P.card, dp(18).toFloat(), P.line, dp(1))
-            val title = act.tv(t.title.ifBlank { "Nova aba" }, 12f, if (sel) Color.WHITE else P.text, sel)
+            val title = act.tv(t.title.ifBlank { "Nova aba" }, 12f, if (sel) P.text else P.sub, sel)
             title.maxLines = 1
             title.ellipsize = TextUtils.TruncateAt.END
             title.maxWidth = dp(120)
             chip.addv(title, WRAP, WRAP)
-            val x = act.tv("✕", 13f, if (sel) Color.WHITE else P.sub, true)
-            x.setPadding(dp(10), dp(2), dp(8), dp(2))
+            val x = IconView(act, Ic.Close, if (sel) P.accent else P.sub, 14)
             x.setOnClickListener { closeTab(t) }
-            chip.addv(x, WRAP, WRAP)
+            chip.addv(x, dp(28), dp(24), 0f, 2, 0, 0, 0)
             chip.setOnClickListener { select(t) }
             tabStrip.addv(chip, WRAP, WRAP, 0f, 0, 0, 6, 0)
         }
-        val plus = act.tv("＋", 18f, P.accent, true)
-        plus.gravity = Gravity.CENTER
-        plus.setPadding(dp(14), dp(4), dp(14), dp(4))
-        plus.background = shape(P.card, dp(18).toFloat(), P.line, dp(1))
+        val plus = IconView(act, Ic.Plus, P.accent, 18)
+        plus.background = act.rippled(shape(P.card, dp(18).toFloat(), P.line, dp(1)), dp(18).toFloat())
         plus.setOnClickListener { newTab(null, null) }
-        tabStrip.addv(plus, WRAP, WRAP)
+        tabStrip.addv(plus, dp(44), dp(34))
     }
 
     private fun refreshNav() {
@@ -497,18 +501,18 @@ class BrowserController(private val act: MainActivity) {
     // ---------- menu ----------
     private fun showMenu() {
         val items = listOf(
-            "➕ Nova aba",
-            "🌐 Abrir no navegador externo",
-            "🔎 Aumentar texto (+)",
-            "🔍 Diminuir texto (−)",
-            "⛶ Tela cheia",
-            "🕘 Histórico",
-            "📋 Copiar endereço",
-            "🗑 Fechar todas as abas",
-            "❓ Ajuda do navegador",
-            if (act.prefs.webDark) "🌓 Sites no escuro: ligado (tocar p/ desligar)" else "🌓 Sites no escuro: desligado (tocar p/ ligar)"
+            Pair(Ic.Plus, "Nova aba"),
+            Pair(Ic.External, "Abrir no navegador externo"),
+            Pair(Ic.ZoomIn, "Aumentar texto"),
+            Pair(Ic.ZoomOut, "Diminuir texto"),
+            Pair(Ic.Maximize, "Tela cheia"),
+            Pair(Ic.Clock, "Histórico"),
+            Pair(Ic.Copy, "Copiar endereço"),
+            Pair(Ic.Trash, "Fechar todas as abas"),
+            Pair(Ic.Help, "Ajuda do navegador"),
+            Pair(Ic.Moon, if (act.prefs.webDark) "Sites no escuro: ligado (tocar p/ desligar)" else "Sites no escuro: desligado (tocar p/ ligar)")
         )
-        act.listDialog("Navegador", items) { i ->
+        act.iconListDialog("Navegador", items) { i ->
             when (i) {
                 0 -> newTab(null, null)
                 1 -> openExternal(active?.url)
@@ -525,7 +529,7 @@ class BrowserController(private val act: MainActivity) {
                     }
                 }
                 7 -> act.confirmDialog("Fechar abas", "Fechar todas as abas e sair do navegador?") { closeAll() }
-                8 -> AlertDialog.Builder(act).setTitle("❓ Navegador")
+                8 -> MaterialAlertDialogBuilder(act).setTitle("Ajuda do navegador")
                     .setMessage(browserHelpText()).setPositiveButton("Entendi", null).show()
                 9 -> {
                     act.prefs.webDark = !act.prefs.webDark
@@ -555,7 +559,7 @@ class BrowserController(private val act: MainActivity) {
         }
         val labels = h.map { (if (it.title.isBlank()) it.url else it.title).take(60) + "\n" + it.url.take(70) }
             .toTypedArray()
-        AlertDialog.Builder(act).setTitle("🕘 Histórico")
+        MaterialAlertDialogBuilder(act).setTitle("Histórico")
             .setItems(labels) { _, i -> go(h[i].url) }
             .setNeutralButton("Limpar") { _, _ -> act.prefs.clearHistory() }
             .setNegativeButton("Fechar", null).show()

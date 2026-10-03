@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
@@ -33,19 +34,15 @@ fun MainActivity.buildDetail(id: String): View {
     scroll.addView(col)
 
     val top = hbox()
-    val back = tv("←", 26f, P.text, true)
-    back.setPadding(dp(4), dp(4), dp(18), dp(4))
-    back.setOnClickListener { pop() }
-    top.addv(back, WRAP, WRAP)
+    top.addv(roundBtn(Ic.ChevronLeft, 42, 22) { pop() }, dp(42), dp(42))
     top.addv(View(this), 0, 0, 1f)
-    val fav = tv(if (w.favorite) "♥" else "♡", 28f, if (w.favorite) P.accent2 else P.sub, true)
-    fav.setPadding(dp(10), dp(2), dp(4), dp(2))
-    fav.setOnClickListener {
-        w.favorite = !w.favorite
-        store.save()
-        render()
-    }
-    top.addv(fav, WRAP, WRAP)
+    top.addv(
+        roundBtn(if (w.favorite) Ic.HeartSolid else Ic.Heart, 42, 20, if (w.favorite) P.accent2 else P.sub) {
+            w.favorite = !w.favorite
+            store.save()
+            render()
+        }, dp(42), dp(42)
+    )
     col.addv(top)
 
     // cabeçalho
@@ -56,17 +53,23 @@ fun MainActivity.buildDetail(id: String): View {
     info.setPadding(dp(14), 0, 0, 0)
     info.addv(tv(w.title, 22f, P.text, true))
     if (w.altTitle.isNotBlank()) info.addv(tv(w.altTitle, 13f, P.sub), MATCH, WRAP, 0f, 0, 2, 0, 0)
-    if (w.author.isNotBlank()) info.addv(tv("✍️ ${w.author}", 13f, P.sub), MATCH, WRAP, 0f, 0, 6, 0, 0)
+    if (w.author.isNotBlank()) {
+        val ar = hbox()
+        ar.addv(IconView(this, Ic.Person, P.sub, 15), dp(16), dp(16), 0f, 0, 0, 6, 0)
+        ar.addv(tv(w.author, 13f, P.sub), 0, WRAP, 1f)
+        info.addv(ar, MATCH, WRAP, 0f, 0, 6, 0, 0)
+    }
     val chips = FlowLayout(this)
     chips.hGap = dp(6)
     chips.vGap = dp(6)
     val typeChip = tv(w.type, 12f, P.accent, true)
-    typeChip.setPadding(dp(10), dp(5), dp(10), dp(5))
-    typeChip.background = shape(P.card, dp(16).toFloat(), P.accent, dp(1))
+    typeChip.setPadding(dp(12), dp(6), dp(12), dp(6))
+    typeChip.background = shape(P.accentSoft, dp(16).toFloat(), P.accentLine, dp(1))
     chips.addView(typeChip)
-    val statusChip = tv(w.status + " ▾", 12f, Color.WHITE, true)
-    statusChip.setPadding(dp(10), dp(5), dp(10), dp(5))
-    statusChip.background = shape(P.accent, dp(16).toFloat())
+    val statusChip = tv("", 12f, P.text, true)
+    statusChip.setIconText(Ic.ChevronDown, w.status, true, 14)
+    statusChip.setPadding(dp(12), dp(6), dp(12), dp(6))
+    statusChip.background = rippled(shape(P.card2, dp(16).toFloat(), P.line, dp(1)), dp(16).toFloat())
     statusChip.setOnClickListener {
         listDialog("Status", STATUSES) { i ->
             w.status = STATUSES[i]
@@ -77,15 +80,23 @@ fun MainActivity.buildDetail(id: String): View {
     }
     chips.addView(statusChip)
     info.addv(chips, MATCH, WRAP, 0f, 0, 10, 0, 0)
-    val rating = tv(if (w.rating > 0) "★ ${fmtNum(w.rating)} / 10" else "☆ Sem nota", 14f, if (w.rating > 0) P.accent2 else P.sub, true)
+    val rating = hbox()
+    rating.addv(
+        IconView(this, if (w.rating > 0) Ic.StarSolid else Ic.Star, if (w.rating > 0) P.star else P.sub, 16),
+        dp(18), dp(18), 0f, 0, 0, 6, 0
+    )
+    rating.addv(
+        tv(if (w.rating > 0) "${fmtNum(w.rating)} / 10" else "Sem nota", 14f, if (w.rating > 0) P.text else P.sub, true),
+        WRAP, WRAP
+    )
     info.addv(rating, MATCH, WRAP, 0f, 0, 10, 0, 0)
     head.addv(info, 0, WRAP, 1f)
     col.addv(head, MATCH, WRAP, 0f, 0, 6, 0, 0)
 
     // progresso
     val card = vbox()
-    card.background = shape(P.card, dp(18).toFloat(), P.line, dp(1))
-    card.setPadding(dp(16), dp(14), dp(16), dp(16))
+    card.background = shape(P.card, dp(22).toFloat(), P.line, dp(1))
+    card.setPadding(dp(16), dp(16), dp(16), dp(18))
     val chapRow = hbox()
     chapRow.gravity = Gravity.CENTER
     val chapterTv = tv("", 30f, P.text, true)
@@ -102,7 +113,7 @@ fun MainActivity.buildDetail(id: String): View {
         pctTv.text = if (w.total > 0 || w.status == STATUS_DONE) "${w.progress()}%" else "—"
         progHolder.removeAllViews()
         progHolder.addView(progressBar(w.progress(), 8), FrameLayout.LayoutParams(MATCH, WRAP))
-        statusChip.text = w.status + " ▾"
+        statusChip.setIconText(Ic.ChevronDown, w.status, true, 14)
         lastTv.text = "Última leitura: " + fmtDate(w.lastRead)
     }
 
@@ -112,14 +123,11 @@ fun MainActivity.buildDetail(id: String): View {
         refresh()
     }
 
-    val minus = tv("−", 28f, P.text, true)
-    minus.gravity = Gravity.CENTER
-    minus.background = shape(P.bg, dp(26).toFloat(), P.line, dp(1))
-    minus.setOnClickListener { change(Math.max(0.0, Math.ceil(w.current) - 1)) }
-    val plus = tv("+", 28f, Color.WHITE, true)
-    plus.gravity = Gravity.CENTER
-    plus.background = shape(P.accent, dp(26).toFloat())
+    val minus = roundBtn(Ic.Minus, 52, 24) { change(Math.max(0.0, Math.ceil(w.current) - 1)) }
+    val plus = IconView(this, Ic.Plus, P.onAccent, 24)
+    plus.background = rippled(shape(P.accent, dp(26).toFloat()), dp(26).toFloat())
     plus.setOnClickListener { change(Math.floor(w.current) + 1) }
+    plus.pressFx()
     val mid = vbox()
     mid.gravity = Gravity.CENTER
     mid.addv(chapterTv, WRAP, WRAP)
@@ -146,17 +154,17 @@ fun MainActivity.buildDetail(id: String): View {
     col.addv(card, MATCH, WRAP, 0f, 0, 14, 0, 0)
     refresh()
 
-    col.addv(pill("▶  CONTINUAR LENDO", P.accent, Color.WHITE, 16f) {
+    col.addv(heroButton("COMEÇAR AGORA", "Continuar lendo", Ic.PlaySolid) {
         if (!continueReading(w)) {
-            toast("Salve um site primeiro 🔗")
+            toast("Salve um site primeiro")
             showLinksDialog(w) { render() }
         }
     }, MATCH, WRAP, 0f, 0, 14, 0, 0)
 
     val row = hbox()
-    row.addv(outlinePill("📑 CAPÍTULOS", 12f) { showChaptersDialog(w) { render() } }, 0, WRAP, 1f, 0, 0, 6, 0)
-    row.addv(outlinePill("🔗 LINKS (${w.links.size})", 12f) { showLinksDialog(w) { render() } }, 0, WRAP, 1f, 0, 0, 6, 0)
-    row.addv(outlinePill("✏️ EDITAR", 12f) { go(Route("add", w.id)) }, 0, WRAP, 1f)
+    row.addv(outlinePill("Capítulos", 12f, Ic.Rows) { showChaptersDialog(w) { render() } }, 0, WRAP, 1f, 0, 0, 6, 0)
+    row.addv(outlinePill("Links (${w.links.size})", 12f, Ic.Chain) { showLinksDialog(w) { render() } }, 0, WRAP, 1f, 0, 0, 6, 0)
+    row.addv(outlinePill("Editar", 12f, Ic.Pen) { go(Route("add", w.id)) }, 0, WRAP, 1f)
     col.addv(row, MATCH, WRAP, 0f, 0, 10, 0, 0)
 
     fun section(title: String, body: View) {
@@ -220,10 +228,11 @@ class ChapterAdapter(private val act: MainActivity, private val w: Work, var cou
         val isRead = w.read.contains(n)
         val isCur = w.current.toInt() == n
         holder.t.text = n.toString()
-        holder.t.setTextColor(if (isRead) Color.WHITE else P.text)
-        holder.t.typeface = if (isCur) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-        holder.t.background = if (isRead) shape(P.accent, act.dp(8).toFloat())
-        else shape(P.card, act.dp(8).toFloat(), if (isCur) P.accent2 else P.line, act.dp(if (isCur) 2 else 1))
+        holder.t.setTextColor(if (isRead) P.accent else P.text)
+        holder.t.typeface = if (isCur || isRead) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+        val bw = act.dp(if (isCur) 2 else 1)
+        holder.t.background = if (isRead) shape(P.accentSoft, act.dp(10).toFloat(), if (isCur) P.accent else P.accentLine, bw)
+        else shape(P.card, act.dp(10).toFloat(), if (isCur) P.accent else P.line, bw)
         holder.t.setOnClickListener {
             if (w.read.contains(n)) w.read.remove(n) else w.read.add(n)
             act.store.save()
@@ -249,12 +258,12 @@ fun MainActivity.showChaptersDialog(w: Work, onClose: () -> Unit) {
     val box = vbox()
     box.setPadding(dp(12), dp(4), dp(12), 0)
     box.addv(
-        tv("Toque para marcar/desmarcar como lido. Segure um número para defini-lo como capítulo atual (borda rosa).", 12f, P.sub),
+        tv("Toque para marcar/desmarcar como lido. Segure um número para defini-lo como capítulo atual (contorno laranja mais grosso).", 12f, P.sub),
         MATCH, WRAP, 0f, 0, 0, 0, 8
     )
     val counter = tv("", 13f, P.text, true)
     fun upd() {
-        counter.text = "✔ ${w.read.size} lidos" + (if (w.total > 0) " de ${w.total}" else "") + " · atual: ${fmtNum(w.current)}"
+        counter.text = "${w.read.size} lidos" + (if (w.total > 0) " de ${w.total}" else "") + " · atual: ${fmtNum(w.current)}"
     }
     upd()
     box.addv(counter, MATCH, WRAP, 0f, 0, 0, 0, 8)
@@ -284,7 +293,7 @@ fun MainActivity.showChaptersDialog(w: Work, onClose: () -> Unit) {
     rv.adapter = ad
     rv.scrollToPosition(Math.max(0, w.current.toInt() - 4))
     box.addv(rv, MATCH, (resources.displayMetrics.heightPixels * 0.5).toInt())
-    val dlg = AlertDialog.Builder(this).setTitle("📑 Capítulos")
+    val dlg = MaterialAlertDialogBuilder(this).setTitle("Capítulos")
         .setView(box).setPositiveButton("Fechar", null).create()
     dlg.setOnDismissListener { onClose() }
     dlg.show()
@@ -299,7 +308,7 @@ fun MainActivity.editLinkDialog(link: Link?, onSave: (String, String) -> Unit) {
     val url = inputField("Endereço (https://…)", link?.url ?: "", 1, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
     box.addv(name)
     box.addv(url, MATCH, WRAP, 0f, 0, 8, 0, 0)
-    AlertDialog.Builder(this).setTitle(if (link == null) "Adicionar site" else "Editar site")
+    MaterialAlertDialogBuilder(this).setTitle(if (link == null) "Adicionar site" else "Editar site")
         .setView(box)
         .setPositiveButton("Salvar") { _, _ ->
             val u = normalizeUrl(url.text.toString())
@@ -318,7 +327,7 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
     body.setPadding(dp(16), dp(8), dp(16), dp(8))
     val sv = ScrollView(this)
     sv.addView(body)
-    val dlg = AlertDialog.Builder(this).setTitle("🔗 Links de leitura")
+    val dlg = MaterialAlertDialogBuilder(this).setTitle("Links de leitura")
         .setView(sv).setPositiveButton("Fechar", null).create()
 
     fun fix() {
@@ -334,9 +343,12 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
         )
         for (l in w.links.toList()) {
             val item = vbox()
-            item.background = shape(P.card, dp(14).toFloat(), P.line, dp(1))
+            item.background = shape(P.card, dp(18).toFloat(), P.line, dp(1))
             item.setPadding(dp(12), dp(10), dp(12), dp(10))
-            item.addv(tv((if (l.primary) "⭐ " else "") + l.label, 15f, P.text, true))
+            val tr = hbox()
+            if (l.primary) tr.addv(IconView(this, Ic.StarSolid, P.star, 15), dp(16), dp(16), 0f, 0, 0, 6, 0)
+            tr.addv(tv(l.label, 15f, P.text, true), 0, WRAP, 1f)
+            item.addv(tr)
             val u = tv(l.url, 12f, P.sub)
             u.maxLines = 2
             u.ellipsize = TextUtils.TruncateAt.END
@@ -362,7 +374,7 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
                     fill()
                 }
             }, 0, WRAP, 1f, 0, 0, 4, 0)
-            r.addv(outlinePill("🗑", 12f) {
+            r.addv(outlinePill("", 12f, Ic.Trash) {
                 confirmDialog("Excluir link", "Remover \"${l.label}\"?") {
                     w.links.remove(l)
                     if (w.lastUrl.isNotEmpty() && sameSite(hostOf(w.lastUrl), hostOf(l.url)) &&
@@ -375,7 +387,7 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
             item.addv(r)
             body.addv(item, MATCH, WRAP, 0f, 0, 0, 0, 10)
         }
-        body.addv(pill("＋ Adicionar site") {
+        body.addv(pill("Adicionar site", icon = Ic.Plus) {
             editLinkDialog(null) { n, uu ->
                 w.links.add(Link(n, uu, w.links.isEmpty()))
                 fix()
@@ -403,23 +415,25 @@ fun MainActivity.buildForm(editId: String?): View {
     scroll.addView(col)
 
     val head = hbox()
-    if (isEdit) {
-        val back = tv("←", 26f, P.text, true)
-        back.setPadding(dp(4), dp(4), dp(16), dp(4))
-        back.setOnClickListener { pop() }
-        head.addv(back, WRAP, WRAP)
-    }
-    head.addv(tv(if (isEdit) "✏️ Editar obra" else "➕ Adicionar obra", 22f, P.text, true), 0, WRAP, 1f)
+    if (isEdit) head.addv(roundBtn(Ic.ChevronLeft, 42, 22) { pop() }, dp(42), dp(42), 0f, 0, 0, 12, 0)
+    head.addv(
+        sectionTitle(if (isEdit) Ic.Pen else Ic.Plus, if (isEdit) "Editar obra" else "Adicionar obra", 22f),
+        0, WRAP, 1f
+    )
     col.addv(head)
 
     val help = tv(
-        if (isEdit) "💡 Altere o que quiser e toque em Salvar. Os sites de leitura são editados na página da obra, no botão LINKS."
-        else "💡 Só o nome é obrigatório. Cole o endereço do site de leitura e, depois, o botão Continuar lendo abre ele aqui dentro do app.",
+        if (isEdit) "Altere o que quiser e toque em Salvar. Os sites de leitura são editados na página da obra, no botão Links."
+        else "Só o nome é obrigatório. Cole o endereço do site de leitura e, depois, o botão Continuar lendo abre ele aqui dentro do app.",
         12f, P.sub
     )
-    help.setPadding(dp(12), dp(10), dp(12), dp(10))
-    help.background = shape(P.card, dp(12).toFloat(), P.line, dp(1))
-    col.addv(help, MATCH, WRAP, 0f, 0, 10, 0, 6)
+    val helpBox = hbox()
+    helpBox.gravity = Gravity.TOP
+    helpBox.setPadding(dp(14), dp(12), dp(14), dp(12))
+    helpBox.background = shape(P.accentSoft, dp(16).toFloat(), P.accentLine, dp(1))
+    helpBox.addv(IconView(this, Ic.Bulb, P.accent, 18), dp(20), dp(20), 0f, 0, 1, 10, 0)
+    helpBox.addv(help, 0, WRAP, 1f)
+    col.addv(helpBox, MATCH, WRAP, 0f, 0, 12, 0, 6)
 
     // capa
     var pending: Bitmap? = null
@@ -452,7 +466,7 @@ fun MainActivity.buildForm(editId: String?): View {
     coverRow.addv(coverHolder, dp(110), WRAP)
     val coverBtns = vbox()
     coverBtns.setPadding(dp(12), 0, 0, 0)
-    coverBtns.addv(outlinePill("🖼 Escolher da galeria", 12f) {
+    coverBtns.addv(outlinePill("Escolher da galeria", 12f, Ic.Picture) {
         pickImage { uri ->
             val b = Covers.decodeUri(this, uri, 1000)
             if (b == null) {
@@ -464,7 +478,7 @@ fun MainActivity.buildForm(editId: String?): View {
             }
         }
     })
-    coverBtns.addv(outlinePill("🔗 Usar link de imagem", 12f) {
+    coverBtns.addv(outlinePill("Usar link de imagem", 12f, Ic.Chain) {
         inputDialog("Link da imagem da capa", "https://…/capa.jpg", "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI) { s ->
             val u = normalizeUrl(s)
             if (u.isEmpty()) return@inputDialog
@@ -484,7 +498,7 @@ fun MainActivity.buildForm(editId: String?): View {
             }.start()
         }
     }, MATCH, WRAP, 0f, 0, 8, 0, 0)
-    coverBtns.addv(outlinePill("🗑 Remover capa", 12f) {
+    coverBtns.addv(outlinePill("Remover capa", 12f, Ic.Trash) {
         pending = null
         removeCover = true
         drawCover()
@@ -589,9 +603,13 @@ fun MainActivity.buildForm(editId: String?): View {
     var favorite = w.favorite
     val favChip = tv("", 14f, P.text, true)
     fun styleFav() {
-        favChip.text = if (favorite) "♥ Nos favoritos" else "♡ Marcar como favorita"
-        favChip.setTextColor(if (favorite) Color.WHITE else P.text)
-        favChip.background = if (favorite) shape(P.accent2, dp(20).toFloat()) else shape(P.card, dp(20).toFloat(), P.line, dp(1))
+        favChip.setIconText(
+            if (favorite) Ic.HeartSolid else Ic.Heart,
+            if (favorite) "Nos favoritos" else "Marcar como favorita", false, 18
+        )
+        favChip.setTextColor(if (favorite) P.accent2 else P.text)
+        favChip.background = if (favorite) shape(0x22FF6B81, dp(22).toFloat(), P.accent2, dp(1))
+        else shape(P.card, dp(22).toFloat(), P.line, dp(1))
     }
     favChip.gravity = Gravity.CENTER
     favChip.setPadding(dp(14), dp(10), dp(14), dp(10))
@@ -606,7 +624,7 @@ fun MainActivity.buildForm(editId: String?): View {
     fun splitList(s: String): MutableList<String> =
         s.split(",").map { it.trim().removePrefix("#") }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.toMutableList()
 
-    col.addv(pill("💾  SALVAR", P.accent, Color.WHITE, 16f) {
+    col.addv(pill("Salvar", P.accent, P.onAccent, 16f, Ic.Check) {
         val title = titleF.text.toString().trim()
         if (title.isEmpty()) {
             toast("Digite o nome da obra")
@@ -649,7 +667,7 @@ fun MainActivity.buildForm(editId: String?): View {
     }, MATCH, WRAP, 0f, 0, 20, 0, 0)
 
     if (isEdit) {
-        col.addv(outlinePill("🗑  Excluir obra") {
+        col.addv(outlinePill("Excluir obra", 13f, Ic.Trash) {
             confirmDialog("Excluir obra", "Excluir \"${w.title}\" definitivamente? Isso não pode ser desfeito.", "Excluir") {
                 store.delete(w)
                 popN(2)
