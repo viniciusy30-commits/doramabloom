@@ -28,3 +28,4 @@ jobs:
         with:
           name: MangaShelf-APK
           path: app/build/outputs/apk/debug/*.apk
+          
