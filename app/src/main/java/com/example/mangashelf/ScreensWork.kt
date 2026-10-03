@@ -200,7 +200,7 @@ fun MainActivity.buildDetail(id: String): View {
 
 // ---------------- Capítulos ----------------
 
-class ChapterAdapter(private val act: MainActivity, private val w: Work, var count: Int) :
+class ChapterAdapter(private val act: MainActivity, private val w: Work, var count: Int, private val onChange: () -> Unit = {}) :
     RecyclerView.Adapter<ChapterAdapter.VH>() {
 
     class VH(val t: TextView) : RecyclerView.ViewHolder(t)
@@ -221,17 +221,20 @@ class ChapterAdapter(private val act: MainActivity, private val w: Work, var cou
         val isCur = w.current.toInt() == n
         holder.t.text = n.toString()
         holder.t.setTextColor(if (isRead) Color.WHITE else P.text)
+        holder.t.typeface = if (isCur) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
         holder.t.background = if (isRead) shape(P.accent, act.dp(8).toFloat())
         else shape(P.card, act.dp(8).toFloat(), if (isCur) P.accent2 else P.line, act.dp(if (isCur) 2 else 1))
         holder.t.setOnClickListener {
             if (w.read.contains(n)) w.read.remove(n) else w.read.add(n)
             act.store.save()
             notifyItemChanged(position)
+            onChange()
         }
         holder.t.setOnLongClickListener {
             w.setChapter(n.toDouble())
             act.store.save()
             notifyDataSetChanged()
+            onChange()
             act.toast("Capítulo atual: $n")
             true
         }
@@ -249,17 +252,25 @@ fun MainActivity.showChaptersDialog(w: Work, onClose: () -> Unit) {
         tv("Toque para marcar/desmarcar como lido. Segure um número para defini-lo como capítulo atual (borda rosa).", 12f, P.sub),
         MATCH, WRAP, 0f, 0, 0, 0, 8
     )
-    val ad = ChapterAdapter(this, w, n)
+    val counter = tv("", 13f, P.text, true)
+    fun upd() {
+        counter.text = "✔ ${w.read.size} lidos" + (if (w.total > 0) " de ${w.total}" else "") + " · atual: ${fmtNum(w.current)}"
+    }
+    upd()
+    box.addv(counter, MATCH, WRAP, 0f, 0, 0, 0, 8)
+    val ad = ChapterAdapter(this, w, n) { upd() }
     val btns = hbox()
     btns.addv(outlinePill("Marcar até o atual", 12f) {
         for (i in 1..w.current.toInt()) w.read.add(i)
         store.save()
         ad.notifyDataSetChanged()
+        upd()
     }, 0, WRAP, 1f, 0, 0, 6, 0)
     btns.addv(outlinePill("Limpar", 12f) {
         w.read.clear()
         store.save()
         ad.notifyDataSetChanged()
+        upd()
     }, 0, WRAP, 1f, 0, 0, 6, 0)
     if (w.total <= 0) {
         btns.addv(outlinePill("+30", 12f) {
@@ -271,6 +282,7 @@ fun MainActivity.showChaptersDialog(w: Work, onClose: () -> Unit) {
     val rv = RecyclerView(this)
     rv.layoutManager = GridLayoutManager(this, 6)
     rv.adapter = ad
+    rv.scrollToPosition(Math.max(0, w.current.toInt() - 4))
     box.addv(rv, MATCH, (resources.displayMetrics.heightPixels * 0.5).toInt())
     val dlg = AlertDialog.Builder(this).setTitle("📑 Capítulos")
         .setView(box).setPositiveButton("Fechar", null).create()

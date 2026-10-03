@@ -266,6 +266,10 @@ class Prefs(ctx: Context) {
         get() = sp.getString("homeUrl", "https://www.google.com") ?: "https://www.google.com"
         set(v) { sp.edit().putString("homeUrl", v).apply() }
 
+    var webDark: Boolean
+        get() = sp.getBoolean("webDark", true)
+        set(v) { sp.edit().putBoolean("webDark", v).apply() }
+
     var tutorialSeen: Boolean
         get() = sp.getBoolean("tutorialSeen", false)
         set(v) { sp.edit().putBoolean("tutorialSeen", v).apply() }

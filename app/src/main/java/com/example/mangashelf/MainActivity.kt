@@ -165,6 +165,8 @@ class MainActivity : AppCompatActivity() {
         finish()
     }
 
+    private var lastKey = ""
+
     fun render() {
         P.dark = isDarkNow()
         window.statusBarColor = P.bg
@@ -186,6 +188,13 @@ class MainActivity : AppCompatActivity() {
             else -> buildHome()
         }
         contentFrame.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
+        val key = r.name + "|" + (r.arg ?: "")
+        if (key != lastKey) {
+            lastKey = key
+            v.alpha = 0f
+            v.translationY = dp(8).toFloat()
+            v.animate().alpha(1f).translationY(0f).setDuration(180).start()
+        }
         buildNav()
     }
 
@@ -212,6 +221,7 @@ class MainActivity : AppCompatActivity() {
             col.addv(e, WRAP, WRAP)
             col.addv(l, WRAP, WRAP)
             col.setOnClickListener { goTop(key) }
+            col.pressFx()
             navBar.addv(col, 0, WRAP, 1f)
         }
     }

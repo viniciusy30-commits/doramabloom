@@ -11,6 +11,7 @@ import android.net.Uri
 import android.text.InputType
 import android.util.LruCache
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
@@ -32,11 +33,23 @@ object P {
     var dark = false
     val accent: Int = 0xFF7C5CFF.toInt()
     val accent2: Int = 0xFFFF6B9A.toInt()
-    val bg: Int get() = if (dark) 0xFF0E0D14.toInt() else 0xFFF6F5FB.toInt()
-    val card: Int get() = if (dark) 0xFF1A1824.toInt() else 0xFFFFFFFF.toInt()
-    val text: Int get() = if (dark) 0xFFF2F0FA.toInt() else 0xFF15131F.toInt()
-    val sub: Int get() = if (dark) 0xFF9A97B0.toInt() else 0xFF6B6880.toInt()
-    val line: Int get() = if (dark) 0xFF2A2738.toInt() else 0xFFE4E1F0.toInt()
+    val bg: Int get() = if (dark) 0xFF000000.toInt() else 0xFFF6F5FB.toInt()
+    val card: Int get() = if (dark) 0xFF121214.toInt() else 0xFFFFFFFF.toInt()
+    val text: Int get() = if (dark) 0xFFF4F4F5.toInt() else 0xFF15131F.toInt()
+    val sub: Int get() = if (dark) 0xFFA1A1A8.toInt() else 0xFF6B6880.toInt()
+    val line: Int get() = if (dark) 0xFF2A2A2E.toInt() else 0xFFE4E1F0.toInt()
+}
+
+/** Efeito discreto de toque: encolhe um pouquinho ao pressionar. Não bloqueia o clique. */
+fun View.pressFx() {
+    setOnTouchListener { v, e ->
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(90).start()
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                v.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
+        }
+        false
+    }
 }
 
 fun Context.dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
@@ -90,6 +103,7 @@ fun Context.pill(t: String, bg: Int = P.accent, fg: Int = Color.WHITE, size: Flo
     x.setPadding(dp(16), dp(11), dp(16), dp(11))
     x.background = shape(bg, dp(26).toFloat())
     x.setOnClickListener { onClick() }
+    x.pressFx()
     return x
 }
 
@@ -99,6 +113,7 @@ fun Context.outlinePill(t: String, size: Float = 13f, onClick: () -> Unit): Text
     x.setPadding(dp(10), dp(11), dp(10), dp(11))
     x.background = shape(P.card, dp(26).toFloat(), P.line, dp(1))
     x.setOnClickListener { onClick() }
+    x.pressFx()
     return x
 }
 
@@ -108,6 +123,7 @@ fun Context.chip(t: String, selected: Boolean, onClick: () -> Unit): TextView {
     x.background = if (selected) shape(P.accent, dp(20).toFloat())
     else shape(P.card, dp(20).toFloat(), P.line, dp(1))
     x.setOnClickListener { onClick() }
+    x.pressFx()
     return x
 }
 

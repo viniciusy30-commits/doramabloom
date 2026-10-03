@@ -8,6 +8,7 @@ import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
@@ -182,8 +183,21 @@ class BrowserController(private val act: MainActivity) {
         applyFullscreen()
     }
 
+    /** Escurece os sites quando o app está no tema escuro (e a opção está ligada). */
+    @Suppress("DEPRECATION")
+    private fun applyWebTheme(web: WebView) {
+        web.setBackgroundColor(P.bg)
+        val on = P.dark && act.prefs.webDark
+        if (Build.VERSION.SDK_INT >= 33) {
+            web.settings.isAlgorithmicDarkeningAllowed = on
+        } else if (Build.VERSION.SDK_INT >= 29) {
+            web.settings.forceDark = if (on) WebSettings.FORCE_DARK_ON else WebSettings.FORCE_DARK_OFF
+        }
+    }
+
     fun retheme() {
         buildChrome()
+        for (t in tabs) applyWebTheme(t.web)
     }
 
     private fun refreshTabs() {
@@ -257,6 +271,7 @@ class BrowserController(private val act: MainActivity) {
         s.setSupportMultipleWindows(false)
         s.allowFileAccess = false
         s.textZoom = act.prefs.zoom
+        applyWebTheme(web)
         val cm = CookieManager.getInstance()
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(web, true)
@@ -395,7 +410,14 @@ class BrowserController(private val act: MainActivity) {
     // ---------- abrir / fechar ----------
     fun open(url: String?, workId: String?, reuse: Boolean) {
         isOpen = true
-        view.visibility = View.VISIBLE
+        view.animate().cancel()
+        if (view.visibility != View.VISIBLE) {
+            view.alpha = 0f
+            view.visibility = View.VISIBLE
+            view.animate().alpha(1f).setDuration(170).start()
+        } else {
+            view.alpha = 1f
+        }
         view.bringToFront()
         if (url == null) {
             val a = active
@@ -416,7 +438,11 @@ class BrowserController(private val act: MainActivity) {
         exitFullscreen()
         view.hideKeyboard()
         isOpen = false
-        view.visibility = View.GONE
+        view.animate().cancel()
+        view.animate().alpha(0f).setDuration(140).withEndAction {
+            view.visibility = View.GONE
+            view.alpha = 1f
+        }.start()
         act.render()
     }
 
@@ -479,7 +505,8 @@ class BrowserController(private val act: MainActivity) {
             "🕘 Histórico",
             "📋 Copiar endereço",
             "🗑 Fechar todas as abas",
-            "❓ Ajuda do navegador"
+            "❓ Ajuda do navegador",
+            if (act.prefs.webDark) "🌓 Sites no escuro: ligado (tocar p/ desligar)" else "🌓 Sites no escuro: desligado (tocar p/ ligar)"
         )
         act.listDialog("Navegador", items) { i ->
             when (i) {
@@ -500,6 +527,14 @@ class BrowserController(private val act: MainActivity) {
                 7 -> act.confirmDialog("Fechar abas", "Fechar todas as abas e sair do navegador?") { closeAll() }
                 8 -> AlertDialog.Builder(act).setTitle("❓ Navegador")
                     .setMessage(browserHelpText()).setPositiveButton("Entendi", null).show()
+                9 -> {
+                    act.prefs.webDark = !act.prefs.webDark
+                    for (t in tabs) {
+                        applyWebTheme(t.web)
+                        t.web.reload()
+                    }
+                    act.toast(if (act.prefs.webDark) "Sites escurecidos no tema escuro" else "Sites com o visual original")
+                }
                 else -> {}
             }
         }

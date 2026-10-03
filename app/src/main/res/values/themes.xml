@@ -1,3 +1,14 @@
 <resources>
-    <style name="Theme.MangaShelf" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.MangaShelf" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#7C5CFF</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorOnSurface">#15131F</item>
+        <item name="colorOnSurfaceVariant">#6B6880</item>
+        <item name="colorSurfaceContainer">#FFFFFF</item>
+        <item name="colorSurfaceContainerHigh">#FFFFFF</item>
+        <item name="colorSurfaceContainerHighest">#F1EFF8</item>
+        <item name="android:colorBackground">#F6F5FB</item>
+        <item name="android:windowBackground">#F6F5FB</item>
+    </style>
 </resources>

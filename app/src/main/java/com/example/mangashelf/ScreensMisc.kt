@@ -118,6 +118,20 @@ fun MainActivity.buildSettings(): View {
         }, WRAP, WRAP, 0f, 0, 0, 8, 0)
     }
     ap.addv(themeRow)
+    ap.addv(tv("Sites no modo escuro", 13f, P.sub), MATCH, WRAP, 0f, 0, 14, 0, 8)
+    val wdRow = hbox()
+    wdRow.addv(chip("Escurecer sites", prefs.webDark) {
+        prefs.webDark = true
+        themeChanged()
+        render()
+    }, WRAP, WRAP, 0f, 0, 0, 8, 0)
+    wdRow.addv(chip("Deixar como o site é", !prefs.webDark) {
+        prefs.webDark = false
+        themeChanged()
+        render()
+    }, WRAP, WRAP, 0f, 0, 0, 8, 0)
+    ap.addv(wdRow)
+    ap.addv(tv("Vale só quando o app está no tema escuro, dentro do navegador interno.", 11f, P.sub), MATCH, WRAP, 0f, 0, 6, 0, 0)
 
     // navegador
     val nv = settingsCard(col, "Navegador interno")
