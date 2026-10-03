@@ -301,7 +301,7 @@ fun MainActivity.buildLibrary(): View {
         focusSearch = false
         search.requestFocus()
         search.postDelayed({
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(search, 0)
         }, 250)
     }
