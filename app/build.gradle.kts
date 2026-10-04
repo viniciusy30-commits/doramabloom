@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mangashelf"
+    namespace = "com.doramabloom.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.mangashelf"
+        applicationId = "com.doramabloom.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 1
+        versionName = "1.0"
     }
 
     buildTypes {

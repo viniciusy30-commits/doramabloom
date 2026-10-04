@@ -1,4 +1,4 @@
-# MangaDeck
+# Dorama Bloom 🌸
 
-App Android para organizar mangás, manhwas, manhuas e webtoons, com navegador interno de abas.
-Gere o APK em Actions > Build APK > Run workflow.
+App Android fofinho para organizar doramas: capas, notas em coraçõezinhos, episódios, status, favoritos, resenhas, estatísticas e temas diferentes para cada gênero.
+Tudo fica salvo no próprio celular. Gere o APK em Actions > Build APK > Run workflow.
