@@ -42,6 +42,7 @@ class Work(
     var links: MutableList<Link> = mutableListOf(),
     var lastUrl: String = "",
     var lastRead: Long = 0L,
+    var lastScroll: Int = 0,
     var read: MutableSet<Int> = mutableSetOf(),
     var created: Long = System.currentTimeMillis()
 )
@@ -96,6 +97,7 @@ fun Work.toJson(): JSONObject {
     o.put("links", la)
     o.put("lastUrl", lastUrl)
     o.put("lastRead", lastRead)
+    o.put("lastScroll", lastScroll)
     o.put("read", JSONArray(read.toList()))
     o.put("created", created)
     return o
@@ -119,6 +121,7 @@ fun workFromJson(o: JSONObject): Work {
     w.cover = o.optString("cover", "")
     w.lastUrl = o.optString("lastUrl", "")
     w.lastRead = o.optLong("lastRead", 0L)
+    w.lastScroll = o.optInt("lastScroll", 0)
     w.created = o.optLong("created", System.currentTimeMillis())
     o.optJSONArray("genres")?.let { a -> for (i in 0 until a.length()) w.genres.add(a.getString(i)) }
     o.optJSONArray("tags")?.let { a -> for (i in 0 until a.length()) w.tags.add(a.getString(i)) }
@@ -205,7 +208,7 @@ class Store(private val ctx: Context) {
             arr.put(o)
         }
         val root = JSONObject()
-        root.put("app", "MangaShelf")
+        root.put("app", "MangaDeck")
         root.put("version", 1)
         root.put("exported", System.currentTimeMillis())
         root.put("works", arr)
@@ -269,6 +272,11 @@ class Prefs(ctx: Context) {
     var webDark: Boolean
         get() = sp.getBoolean("webDark", true)
         set(v) { sp.edit().putBoolean("webDark", v).apply() }
+
+    /** Abas abertas do navegador (JSON), para retomar exatamente de onde parou. */
+    var browserState: String
+        get() = sp.getString("browserState", "") ?: ""
+        set(v) { sp.edit().putString("browserState", v).apply() }
 
     var tutorialSeen: Boolean
         get() = sp.getBoolean("tutorialSeen", false)

@@ -203,7 +203,7 @@ fun MainActivity.buildSettings(): View {
     // ajuda
     val hp = settingsCard(col, "Ajuda", Ic.Help)
     hp.addv(outlinePill("Ver tutorial", 13f, Ic.Help) { go(Route("tutorial")) })
-    hp.addv(tv("Manga Shelf 1.0 — sua biblioteca pessoal de leitura.", 12f, P.sub), MATCH, WRAP, 0f, 0, 12, 0, 0)
+    hp.addv(tv("MangaDeck 1.1 — sua biblioteca pessoal de leitura.", 12f, P.sub), MATCH, WRAP, 0f, 0, 12, 0, 0)
     return scroll
 }
 

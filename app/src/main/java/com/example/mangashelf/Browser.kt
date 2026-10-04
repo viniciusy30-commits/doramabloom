@@ -9,6 +9,11 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
+import org.json.JSONArray
+import org.json.JSONObject
 import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
@@ -37,6 +42,12 @@ import java.net.URLEncoder
 class BrowserTab(val web: WebView, var workId: String?) {
     var title: String = "Nova aba"
     var url: String = ""
+    /** Aba restaurada que ainda não carregou (carrega só quando for aberta). */
+    var pendingUrl: String? = null
+    var pendingScroll: Int = 0
+    /** Posição de rolagem que ainda precisa ser reaplicada depois que a página carregar. */
+    var wantScroll: Int = 0
+    var tries: Int = 0
 }
 
 class BrowserController(private val act: MainActivity) {
@@ -60,9 +71,102 @@ class BrowserController(private val act: MainActivity) {
     private lateinit var chapGroup: LinearLayout
     private lateinit var chapText: TextView
 
+    private val handler = Handler(Looper.getMainLooper())
+
     init {
         view.visibility = View.GONE
         buildChrome()
+    }
+
+    // ---------- lembrar de onde parou ----------
+    /** Grava abas, endereço e posição de rolagem. [persistWork] também guarda a rolagem na obra. */
+    fun saveState(persistWork: Boolean) {
+        try {
+            if (tabs.isEmpty()) {
+                act.prefs.browserState = ""
+                return
+            }
+            val arr = JSONArray()
+            var workChanged = false
+            for (t in tabs) {
+                val pending = t.pendingUrl != null
+                val u = t.pendingUrl ?: t.url
+                val y = if (pending) t.pendingScroll else if (t.wantScroll > 0) t.wantScroll else t.web.scrollY
+                val o = JSONObject()
+                o.put("u", u)
+                o.put("t", t.title)
+                o.put("w", t.workId ?: "")
+                o.put("y", y)
+                arr.put(o)
+                if (persistWork && !pending) {
+                    val id = t.workId
+                    val w = if (id != null) act.store.get(id) else null
+                    if (w != null && w.lastUrl == u && w.lastScroll != y) {
+                        w.lastScroll = y
+                        workChanged = true
+                    }
+                }
+            }
+            val root = JSONObject()
+            root.put("tabs", arr)
+            root.put("active", Math.max(0, tabs.indexOf(active)))
+            root.put("open", isOpen)
+            act.prefs.browserState = root.toString()
+            if (workChanged) act.store.save()
+        } catch (e: Exception) {
+            // ignora
+        }
+    }
+
+    /** Recria as abas salvas. Só a aba ativa carrega agora; as outras carregam quando você abri-las. */
+    fun restore(json: String) {
+        val root = JSONObject(json)
+        val arr = root.getJSONArray("tabs")
+        if (arr.length() == 0) return
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            val u = o.optString("u", "")
+            if (u.isBlank()) continue
+            val wid = o.optString("w", "").ifBlank { null }
+            val web = WebView(act)
+            val tab = BrowserTab(web, wid)
+            configure(web, tab)
+            tab.url = u
+            tab.title = o.optString("t", "").ifBlank { u }
+            tab.pendingUrl = u
+            tab.pendingScroll = o.optInt("y", 0)
+            tabs.add(tab)
+        }
+        if (tabs.isEmpty()) return
+        val idx = root.optInt("active", 0).coerceIn(0, tabs.size - 1)
+        val wasOpen = root.optBoolean("open", false)
+        isOpen = wasOpen
+        select(tabs[idx])
+        if (wasOpen) {
+            view.visibility = View.VISIBLE
+            view.alpha = 1f
+            view.bringToFront()
+        }
+    }
+
+    private fun startScrollRestore(tab: BrowserTab) {
+        if (tab.wantScroll <= 0) return
+        tab.tries = 0
+        handler.removeCallbacksAndMessages(tab)
+        val step = object : Runnable {
+            override fun run() {
+                val y = tab.wantScroll
+                if (y <= 0) return
+                tab.web.scrollTo(0, y)
+                tab.tries++
+                if (tab.web.scrollY >= y - 8 || tab.tries >= 24) {
+                    tab.wantScroll = 0
+                } else {
+                    handler.postAtTime(this, tab, android.os.SystemClock.uptimeMillis() + 350)
+                }
+            }
+        }
+        handler.postAtTime(step, tab, android.os.SystemClock.uptimeMillis() + 250)
     }
 
     private fun dp(v: Int): Int = act.dp(v)
@@ -307,6 +411,8 @@ class BrowserController(private val act: MainActivity) {
                     refreshNav()
                 }
                 refreshTabs()
+                startScrollRestore(tab)
+                saveState(false)
             }
 
             override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
@@ -336,6 +442,11 @@ class BrowserController(private val act: MainActivity) {
         }
 
         web.setDownloadListener { url, _, _, _, _ -> openExternal(url) }
+        // se você encostar na tela, para de reposicionar a rolagem
+        web.setOnTouchListener { _, e ->
+            if (e.actionMasked == MotionEvent.ACTION_DOWN) tab.wantScroll = 0
+            false
+        }
     }
 
     private fun track(tab: BrowserTab, url: String?) {
@@ -347,6 +458,7 @@ class BrowserController(private val act: MainActivity) {
         if (w.links.none { sameSite(hostOf(it.url), host) }) return
         if (w.lastUrl != u) {
             w.lastUrl = u
+            w.lastScroll = 0
             w.lastRead = System.currentTimeMillis()
             act.store.save()
         }
@@ -361,7 +473,10 @@ class BrowserController(private val act: MainActivity) {
         val target = url ?: act.prefs.homeUrl
         tab.url = target
         urlField.setText(target)
+        val wk = if (workId != null) act.store.get(workId) else null
+        if (wk != null && wk.lastUrl == target) tab.wantScroll = wk.lastScroll
         web.loadUrl(target)
+        saveState(false)
     }
 
     private fun select(t: BrowserTab) {
@@ -374,6 +489,18 @@ class BrowserController(private val act: MainActivity) {
         refreshTabs()
         refreshNav()
         refreshChapterBar()
+        val pend = t.pendingUrl
+        if (pend != null) {
+            t.pendingUrl = null
+            t.wantScroll = t.pendingScroll
+            t.web.loadUrl(pend)
+        }
+        saveState(false)
+    }
+
+    private fun disposeTab(t: BrowserTab) {
+        handler.removeCallbacksAndMessages(t)
+        disposeWeb(t.web)
     }
 
     private fun disposeWeb(w: WebView) {
@@ -390,15 +517,16 @@ class BrowserController(private val act: MainActivity) {
             if (tabs.isEmpty()) {
                 active = null
                 webHolder.removeAllViews()
-                disposeWeb(t.web)
+                disposeTab(t)
                 refreshTabs()
                 close()
                 return
             }
             select(tabs[Math.min(idx, tabs.size - 1)])
         }
-        disposeWeb(t.web)
+        disposeTab(t)
         refreshTabs()
+        saveState(false)
     }
 
     private fun closeAll() {
@@ -406,7 +534,7 @@ class BrowserController(private val act: MainActivity) {
         tabs.clear()
         active = null
         webHolder.removeAllViews()
-        for (t in copy) disposeWeb(t.web)
+        for (t in copy) disposeTab(t)
         refreshTabs()
         close()
     }
@@ -442,6 +570,7 @@ class BrowserController(private val act: MainActivity) {
         exitFullscreen()
         view.hideKeyboard()
         isOpen = false
+        saveState(true)
         view.animate().cancel()
         view.animate().alpha(0f).setDuration(140).withEndAction {
             view.visibility = View.GONE
@@ -460,6 +589,7 @@ class BrowserController(private val act: MainActivity) {
     }
 
     fun pause() {
+        saveState(true)
         active?.web?.onPause()
     }
 
@@ -468,7 +598,7 @@ class BrowserController(private val act: MainActivity) {
     }
 
     fun destroy() {
-        for (t in tabs) disposeWeb(t.web)
+        for (t in tabs) disposeTab(t)
         tabs.clear()
         active = null
     }

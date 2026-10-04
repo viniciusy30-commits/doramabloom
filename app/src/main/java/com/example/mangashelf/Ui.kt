@@ -38,23 +38,38 @@ const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
 object P {
     var dark = false
-    // vermelho suave (estilo OneReader, em vermelho)
-    val accent: Int get() = if (dark) 0xFFFF5566.toInt() else 0xFFE02D3C.toInt()
-    val accentDeep: Int get() = if (dark) 0xFFE5283C.toInt() else 0xFFC81E2F.toInt()
+    // rosa-framboesa suave (menos chapado), com versões translúcidas
+    val accent: Int get() = if (dark) 0xFFF0707E.toInt() else 0xFFD94F63.toInt()
+    val accentDeep: Int get() = if (dark) 0xFFD9506A.toInt() else 0xFFBF3A52.toInt()
     val onAccent: Int get() = 0xFFFFFFFF.toInt()
-    val accentSoft: Int get() = if (dark) 0xFF2A1015.toInt() else 0xFFFFEDEE.toInt()
-    val accentTile: Int get() = if (dark) 0xFF3D1821.toInt() else 0xFFFFD6DA.toInt()
-    val accentLine: Int get() = if (dark) 0xFF74232F.toInt() else 0xFFF6B4BA.toInt()
-    val heroEnd: Int get() = if (dark) 0xFF40131B.toInt() else 0xFFFFD0D5.toInt()
-    val accent2: Int = 0xFFFF6B81.toInt() // coração (favorito)
+    val accentSoft: Int get() = if (dark) 0x26F0707E.toInt() else 0x1ED94F63.toInt()
+    val accentTile: Int get() = if (dark) 0x38F0707E.toInt() else 0x2ED94F63.toInt()
+    val accentLine: Int get() = if (dark) 0x66F0707E.toInt() else 0x55D94F63.toInt()
+    val heroEnd: Int get() = if (dark) 0x40D9506A.toInt() else 0x33D9506A.toInt()
+    val accent2: Int = 0xFFFF7FA8.toInt() // coração (favorito)
     val star: Int = 0xFFFFB02E.toInt() // estrela da nota
-    val bg: Int get() = if (dark) 0xFF0B0B0F.toInt() else 0xFFFAF6F6.toInt()
-    val card: Int get() = if (dark) 0xFF14141A.toInt() else 0xFFFFFFFF.toInt()
-    val card2: Int get() = if (dark) 0xFF1C1C24.toInt() else 0xFFF5EEEE.toInt()
+    val bg: Int get() = if (dark) 0xFF09090C.toInt() else 0xFFFBF7F8.toInt()
+    val card: Int get() = if (dark) 0xFF121217.toInt() else 0xFFFFFFFF.toInt()
+    val card2: Int get() = if (dark) 0xFF1B1B22.toInt() else 0xFFF6EFF0.toInt()
     val text: Int get() = if (dark) 0xFFF5F5F7.toInt() else 0xFF1B1416.toInt()
-    val sub: Int get() = if (dark) 0xFF9A9AA6.toInt() else 0xFF7A6B6D.toInt()
-    val line: Int get() = if (dark) 0xFF272730.toInt() else 0xFFEBDFE0.toInt()
+    val sub: Int get() = if (dark) 0xFF9C9CA8.toInt() else 0xFF7A6B6D.toInt()
+    val line: Int get() = if (dark) 0xFF2A2A33.toInt() else 0xFFEBDFE0.toInt()
+
+    // "vidro": cartões levemente translúcidos com brilho no topo
+    val glassTop: Int get() = if (dark) 0x22FFFFFF else 0xFFFFFFFF.toInt()
+    val glassBottom: Int get() = if (dark) 0x0AFFFFFF else 0xFFFFF6F7.toInt()
+    val glassLine: Int get() = if (dark) 0x2EFFFFFF else 0xFFEBDFE0.toInt()
+
+    // cor de cada categoria (usadas só para separar as seções)
+    val cReading: Int get() = if (dark) 0xFF74A9FF.toInt() else 0xFF3F7FE0.toInt()
+    val cPlan: Int get() = if (dark) 0xFFF5B85C.toInt() else 0xFFD9902B.toInt()
+    val cDone: Int get() = if (dark) 0xFF5FD4A0.toInt() else 0xFF2FA878.toInt()
+    val cPaused: Int get() = if (dark) 0xFFB69CFF.toInt() else 0xFF8A68E0.toInt()
+    val cFav: Int get() = if (dark) 0xFFFF7FA8.toInt() else 0xFFE0507F.toInt()
 }
+
+/** Mesma cor com outra transparência (a = 0..255). */
+fun tint(c: Int, a: Int): Int = (c and 0x00FFFFFF) or (a shl 24)
 
 /** Efeito discreto de toque: encolhe um pouquinho ao pressionar. Não bloqueia o clique. */
 fun View.pressFx() {
@@ -72,6 +87,14 @@ fun Context.dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toIn
 
 fun shape(color: Int, radius: Float, stroke: Int = 0, strokeW: Int = 0): GradientDrawable {
     val g = GradientDrawable()
+    if (strokeW > 0 && color == P.card && stroke == P.line) {
+        // todo cartão do app vira "vidro": degradê translúcido + borda de luz
+        g.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM)
+        g.setColors(intArrayOf(P.glassTop, P.glassBottom))
+        g.cornerRadius = radius
+        g.setStroke(strokeW, P.glassLine)
+        return g
+    }
     g.setColor(color)
     g.cornerRadius = radius
     if (strokeW > 0) g.setStroke(strokeW, stroke)
@@ -134,6 +157,7 @@ fun Context.pill(
     val base: GradientDrawable = if (bg == P.accent) {
         val g = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(bg, P.accentDeep))
         g.cornerRadius = r
+        g.setStroke(dp(1), tint(Color.WHITE, 0x38))
         g
     } else shape(bg, r)
     x.background = rippled(base, r)
@@ -181,10 +205,11 @@ fun Context.roundBtn(ic: Ic, boxDp: Int = 40, iconDp: Int = 20, color: Int = P.t
 }
 
 /** Quadradinho arredondado com ícone (usado em títulos e cartões). */
-fun Context.iconTile(ic: Ic, iconDp: Int = 20): FrameLayout {
+fun Context.iconTile(ic: Ic, iconDp: Int = 20, color: Int = P.accent): FrameLayout {
     val f = FrameLayout(this)
-    f.background = shape(P.accentTile, dp(13).toFloat())
-    f.addView(IconView(this, ic, P.accent, iconDp), FrameLayout.LayoutParams(dp(iconDp + 8), dp(iconDp + 8), Gravity.CENTER))
+    f.background = if (color == P.accent) shape(P.accentTile, dp(13).toFloat())
+    else shape(tint(color, 0x30), dp(13).toFloat(), tint(color, 0x55), dp(1))
+    f.addView(IconView(this, ic, color, iconDp), FrameLayout.LayoutParams(dp(iconDp + 8), dp(iconDp + 8), Gravity.CENTER))
     return f
 }
 
@@ -388,12 +413,12 @@ fun downloadBytes(url: String, maxBytes: Int = 8000000): ByteArray? = try {
 // ---------- Capas ----------
 
 private val COVER_COLORS = listOf(
-    Pair(0xFFE02D3C.toInt(), 0xFF7F1D1D.toInt()),
-    Pair(0xFFEF6C3B.toInt(), 0xFF9A3412.toInt()),
-    Pair(0xFF3B82F6.toInt(), 0xFF1E3A8A.toInt()),
-    Pair(0xFF10B981.toInt(), 0xFF065F46.toInt()),
-    Pair(0xFFEC4899.toInt(), 0xFF9D174D.toInt()),
-    Pair(0xFF64748B.toInt(), 0xFF1E293B.toInt())
+    Pair(0xFFE8788A.toInt(), 0xFF7A3046.toInt()),
+    Pair(0xFFF0966A.toInt(), 0xFF8A4A32.toInt()),
+    Pair(0xFF7FA6F0.toInt(), 0xFF2F4A86.toInt()),
+    Pair(0xFF5CC9A0.toInt(), 0xFF1F6650.toInt()),
+    Pair(0xFFD888D0.toInt(), 0xFF6E3470.toInt()),
+    Pair(0xFF8796B0.toInt(), 0xFF2A3347.toInt())
 )
 
 object Covers {
@@ -488,6 +513,13 @@ fun Context.coverView(store: Store, w: Work, radiusDp: Int = 12): CoverFrame {
         t.gravity = Gravity.CENTER
         f.addView(t, FrameLayout.LayoutParams(MATCH, MATCH))
     }
+    // brilho no topo e sombra suave embaixo (dá profundidade)
+    val gloss = View(this)
+    gloss.background = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(0x2EFFFFFF, 0x00000000, 0x00000000, 0x55000000)
+    )
+    f.addView(gloss, FrameLayout.LayoutParams(MATCH, MATCH))
     return f
 }
 

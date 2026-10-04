@@ -78,6 +78,7 @@ class MainActivity : AppCompatActivity() {
 
         stack.add(Route("home"))
         render()
+        restoreBrowser()
 
         if (!prefs.tutorialSeen) {
             prefs.tutorialSeen = true
@@ -247,6 +248,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---------- navegador interno ----------
+    /** Reabre as abas (e o site aberto) exatamente de onde você parou na última vez. */
+    private fun restoreBrowser() {
+        val saved = prefs.browserState
+        if (saved.isBlank() || browser != null) return
+        try {
+            val b = BrowserController(this)
+            b.restore(saved)
+            browser = b
+            rootFrame.addView(b.view, FrameLayout.LayoutParams(MATCH, MATCH))
+            if (b.isOpen) b.view.bringToFront()
+        } catch (e: Exception) {
+            prefs.browserState = ""
+        }
+    }
+
     fun openInBrowser(url: String?, workId: String?, reuse: Boolean) {
         var b = browser
         if (b == null) {
@@ -276,7 +292,7 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- backup ----------
     fun exportBackup() {
-        val name = "mangashelf-backup-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()) + ".json"
+        val name = "mangadeck-backup-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date()) + ".json"
         createBackupLauncher.launch(name)
     }
 

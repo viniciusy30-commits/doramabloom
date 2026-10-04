@@ -1,22 +1,22 @@
 <resources>
     <style name="Theme.MangaShelf" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">#FF5566</item>
+        <item name="colorPrimary">#F0707E</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#40131B</item>
-        <item name="colorOnPrimaryContainer">#FFD0D5</item>
-        <item name="colorSurface">#14141A</item>
+        <item name="colorPrimaryContainer">#3A1822</item>
+        <item name="colorOnPrimaryContainer">#FFD6DC</item>
+        <item name="colorSurface">#121217</item>
         <item name="colorOnSurface">#F5F5F7</item>
         <item name="colorOnSurfaceVariant">#9A9AA6</item>
-        <item name="colorSurfaceContainer">#14141A</item>
+        <item name="colorSurfaceContainer">#121217</item>
         <item name="colorSurfaceContainerHigh">#1C1C24</item>
         <item name="colorSurfaceContainerHighest">#23232B</item>
         <item name="colorOutline">#272730</item>
-        <item name="colorControlActivated">#FF5566</item>
-        <item name="colorControlHighlight">#33FF5566</item>
-        <item name="android:colorBackground">#0B0B0F</item>
-        <item name="android:windowBackground">#0B0B0F</item>
-        <item name="android:textColorHighlight">#55FF5566</item>
-        <item name="android:colorEdgeEffect">#FF5566</item>
+        <item name="colorControlActivated">#F0707E</item>
+        <item name="colorControlHighlight">#33F0707E</item>
+        <item name="android:colorBackground">#09090C</item>
+        <item name="android:windowBackground">#09090C</item>
+        <item name="android:textColorHighlight">#55F0707E</item>
+        <item name="android:colorEdgeEffect">#F0707E</item>
         <item name="android:defaultFocusHighlightEnabled">false</item>
     </style>
 </resources>
