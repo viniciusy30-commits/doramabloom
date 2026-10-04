@@ -10,7 +10,9 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.SurfaceTexture
 import android.graphics.Shader
 import android.graphics.Outline
 import android.graphics.Typeface
@@ -20,12 +22,18 @@ import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
 import android.net.Uri
 import android.text.InputType
+import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
+import android.os.Build
 import android.util.LruCache
 import android.view.Gravity
+import android.view.Surface
+import android.view.TextureView
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.ViewTreeObserver
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -523,6 +531,121 @@ object Covers {
         null
     }
 
+    const val MAX_ANIM_BYTES = 15L * 1024 * 1024
+
+    class Picked(val poster: Bitmap, val anim: File?)
+
+    private fun shrink(src: Bitmap, maxSide: Int): Bitmap {
+        val sc = Math.min(1f, maxSide.toFloat() / Math.max(src.width, src.height).toFloat())
+        if (sc >= 1f) return src
+        return Bitmap.createScaledBitmap(
+            src, Math.max(1, (src.width * sc).toInt()), Math.max(1, (src.height * sc).toInt()), true
+        )
+    }
+
+    /** Copia o arquivo escolhido para o cache (até 15 MB). Devolve null se for grande demais. */
+    private fun copyToCache(ctx: Context, uri: Uri, ext: String): File? {
+        val out = File(ctx.cacheDir, "pending_cover." + ext)
+        try {
+            var total = 0L
+            ctx.contentResolver.openInputStream(uri)?.use { ins ->
+                FileOutputStream(out).use { os ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = ins.read(buf)
+                        if (n < 0) break
+                        total += n
+                        if (total > MAX_ANIM_BYTES) {
+                            out.delete()
+                            return null
+                        }
+                        os.write(buf, 0, n)
+                    }
+                }
+            } ?: return null
+            return out
+        } catch (e: Exception) {
+            out.delete()
+            return null
+        }
+    }
+
+    /** Foto, GIF ou vídeo: devolve o quadro estático (poster) e, se for animado, o arquivo temporário. */
+    fun loadPicked(ctx: Context, uri: Uri): Picked? {
+        val mime = ctx.contentResolver.getType(uri) ?: ""
+        try {
+            if (mime.startsWith("video/")) {
+                val ext = when {
+                    mime.contains("webm") -> "webm"
+                    mime.contains("3gpp") -> "3gp"
+                    else -> "mp4"
+                }
+                val tmp = copyToCache(ctx, uri, ext) ?: return null
+                var frame: Bitmap? = null
+                val r = MediaMetadataRetriever()
+                try {
+                    r.setDataSource(tmp.path)
+                    frame = r.getFrameAtTime(300000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        ?: r.getFrameAtTime(0L)
+                } catch (e: Exception) {
+                    frame = null
+                } finally {
+                    try { r.release() } catch (e: Exception) { }
+                }
+                if (frame == null) {
+                    tmp.delete()
+                    return null
+                }
+                return Picked(shrink(frame, 1000), tmp)
+            }
+            val poster = decodeUri(ctx, uri, 1000) ?: return null
+            val isGif = mime == "image/gif"
+            val isWebp = mime == "image/webp"
+            if ((isGif || isWebp) && Build.VERSION.SDK_INT >= 28) {
+                val tmp = copyToCache(ctx, uri, if (isGif) "gif" else "webp")
+                if (tmp != null && animatedDrawable(tmp, true) != null) return Picked(poster, tmp)
+                tmp?.delete()
+            }
+            return Picked(poster, null)
+        } catch (e: Throwable) {
+            return null
+        }
+    }
+
+    /** Só Android 9+: abre GIF/WebP animado. Com checkOnly=true usa amostragem para só conferir. */
+    fun animatedDrawable(f: File, checkOnly: Boolean = false, maxSide: Int = 0): Drawable? {
+        if (Build.VERSION.SDK_INT < 28) return null
+        return try {
+            val src = android.graphics.ImageDecoder.createSource(f)
+            val d = android.graphics.ImageDecoder.decodeDrawable(src) { dec, info, _ ->
+                if (checkOnly) {
+                    dec.setTargetSampleSize(4)
+                } else if (maxSide > 0) {
+                    val big = Math.max(info.size.width, info.size.height)
+                    val n = big / maxSide
+                    if (n >= 2) dec.setTargetSampleSize(n)
+                }
+            }
+            if (d is android.graphics.drawable.AnimatedImageDrawable) {
+                if (!checkOnly) {
+                    d.repeatCount = android.graphics.drawable.AnimatedImageDrawable.REPEAT_INFINITE
+                    d.start()
+                }
+                d
+            } else null
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    /** Move o arquivo temporário escolhido para a pasta de capas. */
+    fun saveAnim(store: Store, workId: String, tmp: File): String {
+        val name = workId + "_" + System.currentTimeMillis() + "_a." + tmp.extension
+        tmp.copyTo(File(store.coversDir, name), true)
+        tmp.delete()
+        return name
+    }
+
     fun save(store: Store, workId: String, src: Bitmap): String {
         val maxSide = 700
         val sc = Math.min(1f, maxSide.toFloat() / Math.max(src.width, src.height).toFloat())
@@ -559,7 +682,14 @@ fun Context.coverView(store: Store, w: Work, radiusDp: Int = 12): CoverFrame {
         }
     }
     val bmp = if (w.cover.isNotEmpty()) Covers.get(store, w.cover) else null
-    if (bmp != null) {
+    val animFile: File? = if (bmp != null && w.coverAnim.isNotEmpty() && (this as? MainActivity)?.prefs?.animCovers == true)
+        File(store.coversDir, w.coverAnim).takeIf { it.exists() } else null
+    if (bmp != null && animFile != null) {
+        f.addView(
+            AnimFrame(this, bmp, animFile, false, true, true, 420),
+            FrameLayout.LayoutParams(MATCH, MATCH)
+        )
+    } else if (bmp != null) {
         val iv = ImageView(this)
         iv.scaleType = ImageView.ScaleType.CENTER_CROP
         iv.setImageBitmap(bmp)
@@ -688,4 +818,245 @@ class FadeCover(
         c.drawRect(0f, 0f, w, h, fade)
         c.restoreToCount(layer)
     }
+}
+
+
+/** Vídeo mudo em loop. Pausa quando a tela some e libera o player ao sair. */
+class LoopVideoView(ctx: Context, private val path: String) : TextureView(ctx), TextureView.SurfaceTextureListener {
+    private var mp: MediaPlayer? = null
+    private var surf: Surface? = null
+    private var ready = false
+
+    init {
+        surfaceTextureListener = this
+        isOpaque = false
+    }
+
+    override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
+        try {
+            val s = Surface(st)
+            surf = s
+            val m = MediaPlayer()
+            m.setDataSource(path)
+            m.setSurface(s)
+            m.isLooping = true
+            m.setVolume(0f, 0f)
+            m.setOnPreparedListener { p ->
+                ready = true
+                if (windowVisibility == View.VISIBLE) p.start()
+            }
+            m.setOnErrorListener { _, _, _ -> true }
+            m.prepareAsync()
+            mp = m
+        } catch (e: Exception) {
+            mp = null
+        }
+    }
+
+    fun stop() {
+        try { mp?.release() } catch (e: Exception) { }
+        try { surf?.release() } catch (e: Exception) { }
+        mp = null
+        surf = null
+        ready = false
+    }
+
+    override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {}
+
+    override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+        try { mp?.release() } catch (e: Exception) { }
+        try { surf?.release() } catch (e: Exception) { }
+        mp = null
+        surf = null
+        ready = false
+        return true
+    }
+
+    override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        val m = mp ?: return
+        if (!ready) return
+        try {
+            if (visibility == View.VISIBLE) m.start() else m.pause()
+        } catch (e: Exception) { }
+    }
+}
+
+/**
+ * Controla quem está animando. Em listas há um limite (vídeos gastam decodificador do aparelho);
+ * quem não conseguir vaga fica com o quadro parado. Com o navegador aberto tudo pausa.
+ */
+object AnimGate {
+    var paused = false
+    private val playing = ArrayList<AnimFrame>()
+    private const val MAX_LIST = 8
+    private const val MAX_LIST_VIDEOS = 3
+
+    fun claim(f: AnimFrame): Boolean {
+        if (paused) return false
+        if (playing.contains(f)) return true
+        if (f.counted) {
+            if (playing.count { it.counted } >= MAX_LIST) return false
+            if (f.isVideo && playing.count { it.counted && it.isVideo } >= MAX_LIST_VIDEOS) return false
+        }
+        playing.add(f)
+        return true
+    }
+
+    fun release(f: AnimFrame) {
+        playing.remove(f)
+    }
+
+    /** Navegador abriu: para todas as animações e libera a memória. */
+    fun pauseAll() {
+        paused = true
+        for (f in ArrayList(playing)) f.stopMedia()
+    }
+
+    /** Navegador fechou: as telas são recriadas e as animações voltam. */
+    fun resume() {
+        paused = false
+    }
+}
+
+/** Quadro da capa: mostra a imagem parada e, se possível, toca GIF/vídeo por cima. */
+class AnimFrame(
+    ctx: Context,
+    private val poster: Bitmap,
+    private val media: File,
+    private val fadeBottom: Boolean,
+    private val centerV: Boolean,
+    val counted: Boolean,
+    private val maxSide: Int
+) : ViewGroup(ctx) {
+    private val ar = poster.height.toFloat() / poster.width.toFloat()
+    private val fade = Paint()
+    private val posterView = ImageView(ctx)
+    private var video: LoopVideoView? = null
+    private var gif: ImageView? = null
+    val isVideo: Boolean = media.extension.lowercase().let { it != "gif" && it != "webp" }
+
+    init {
+        fade.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        posterView.scaleType = ImageView.ScaleType.FIT_XY
+        posterView.setImageBitmap(poster)
+        addView(posterView)
+    }
+
+    private fun childW(w: Int, h: Int): Int = if (w * ar < h) (h / ar).toInt() else w
+    private fun childH(w: Int, h: Int): Int = Math.max(h, (w * ar).toInt())
+
+    override fun onMeasure(wSpec: Int, hSpec: Int) {
+        val w = View.MeasureSpec.getSize(wSpec)
+        val h = View.MeasureSpec.getSize(hSpec)
+        setMeasuredDimension(w, h)
+        val cw = childW(w, h)
+        val ch = childH(w, h)
+        for (i in 0 until childCount) {
+            getChildAt(i).measure(
+                View.MeasureSpec.makeMeasureSpec(cw, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(ch, View.MeasureSpec.EXACTLY)
+            )
+        }
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        val w = r - l
+        val h = b - t
+        val cw = childW(w, h)
+        val ch = childH(w, h)
+        val x = (w - cw) / 2
+        val y = if (centerV) (h - ch) / 2 else 0
+        for (i in 0 until childCount) getChildAt(i).layout(x, y, x + cw, y + ch)
+    }
+
+    override fun dispatchDraw(c: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (!fadeBottom || w <= 0f || h <= 0f) {
+            super.dispatchDraw(c)
+            return
+        }
+        val layer = c.saveLayer(0f, 0f, w, h, null)
+        super.dispatchDraw(c)
+        fade.shader = LinearGradient(0f, h * 0.45f, 0f, h, 0xFF000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, fade)
+        c.restoreToCount(layer)
+    }
+
+    fun startMedia() {
+        if (!isAttachedToWindow || video != null || gif != null) return
+        if (!AnimGate.claim(this)) return
+        if (isVideo) {
+            val v = LoopVideoView(context, media.path)
+            video = v
+            addView(v)
+        } else {
+            val d = Covers.animatedDrawable(media, false, maxSide)
+            if (d == null) {
+                AnimGate.release(this)
+                return
+            }
+            val iv = ImageView(context)
+            iv.scaleType = ImageView.ScaleType.FIT_XY
+            iv.setImageDrawable(d)
+            gif = iv
+            addView(iv)
+        }
+    }
+
+    fun stopMedia() {
+        val v = video
+        if (v != null) {
+            v.stop()
+            removeView(v)
+            video = null
+        }
+        val g = gif
+        if (g != null) {
+            (g.drawable as? android.graphics.drawable.Animatable)?.stop()
+            g.setImageDrawable(null)
+            removeView(g)
+            gif = null
+        }
+        AnimGate.release(this)
+    }
+
+    private val scrollListener = ViewTreeObserver.OnScrollChangedListener { check() }
+
+    private fun visibleNow(): Boolean {
+        if (!isShown || width <= 0 || height <= 0) return false
+        val r = Rect()
+        if (!getGlobalVisibleRect(r)) return false
+        return r.width() > width / 3 && r.height() > height / 3
+    }
+
+    /** Só anima quem está aparecendo na tela; ao rolar, quem sai para e quem entra começa. */
+    fun check() {
+        val playing = video != null || gif != null
+        val vis = visibleNow()
+        if (vis && !playing) startMedia() else if (!vis && playing) stopMedia()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        viewTreeObserver.addOnScrollChangedListener(scrollListener)
+        post { check() }
+    }
+
+    override fun onDetachedFromWindow() {
+        if (viewTreeObserver.isAlive) viewTreeObserver.removeOnScrollChangedListener(scrollListener)
+        stopMedia()
+        super.onDetachedFromWindow()
+    }
+}
+
+/** Capa animada (GIF/vídeo) do topo da obra: sem limite de quantidade, dissolve embaixo. */
+fun Context.animHero(store: Store, w: Work, poster: Bitmap?, enabled: Boolean): View? {
+    if (!enabled || w.coverAnim.isEmpty() || poster == null) return null
+    val f = File(store.coversDir, w.coverAnim)
+    if (!f.exists()) return null
+    return AnimFrame(this, poster, f, true, false, false, 1000)
 }

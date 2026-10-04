@@ -39,6 +39,7 @@ class Work(
     var notes: String = "",
     var favorite: Boolean = false,
     var cover: String = "",
+    var coverAnim: String = "",
     var links: MutableList<Link> = mutableListOf(),
     var lastUrl: String = "",
     var lastRead: Long = 0L,
@@ -86,6 +87,7 @@ fun Work.toJson(): JSONObject {
     o.put("notes", notes)
     o.put("favorite", favorite)
     o.put("cover", cover)
+    o.put("coverAnim", coverAnim)
     val la = JSONArray()
     for (l in links) {
         val lo = JSONObject()
@@ -119,6 +121,7 @@ fun workFromJson(o: JSONObject): Work {
     w.notes = o.optString("notes", "")
     w.favorite = o.optBoolean("favorite", false)
     w.cover = o.optString("cover", "")
+    w.coverAnim = o.optString("coverAnim", "")
     w.lastUrl = o.optString("lastUrl", "")
     w.lastRead = o.optLong("lastRead", 0L)
     w.lastScroll = o.optInt("lastScroll", 0)
@@ -188,22 +191,32 @@ class Store(private val ctx: Context) {
     fun delete(w: Work) {
         works.remove(w)
         deleteCoverFile(w.cover)
+        deleteCoverFile(w.coverAnim)
         save()
     }
 
     fun deleteAll() {
-        for (w in works) deleteCoverFile(w.cover)
+        for (w in works) { deleteCoverFile(w.cover); deleteCoverFile(w.coverAnim) }
         works.clear()
         save()
     }
 
     fun exportJson(): JSONObject {
         val arr = JSONArray()
+        var animBudget = 40L * 1024 * 1024 // limite p/ não estourar a memória no backup
         for (w in works) {
             val o = w.toJson()
             if (w.cover.isNotEmpty()) {
                 val f = File(coversDir, w.cover)
                 if (f.exists()) o.put("coverData", Base64.encodeToString(f.readBytes(), Base64.NO_WRAP))
+            }
+            if (w.coverAnim.isNotEmpty()) {
+                val f = File(coversDir, w.coverAnim)
+                if (f.exists() && f.length() <= animBudget) {
+                    animBudget -= f.length()
+                    o.put("animData", Base64.encodeToString(f.readBytes(), Base64.NO_WRAP))
+                    o.put("animExt", f.extension)
+                }
             }
             arr.put(o)
         }
@@ -223,6 +236,18 @@ class Store(private val ctx: Context) {
             val w = workFromJson(o)
             val data = o.optString("coverData", "")
             w.cover = ""
+            w.coverAnim = ""
+            val anim = o.optString("animData", "")
+            if (anim.isNotEmpty()) {
+                try {
+                    val ext = o.optString("animExt", "mp4").ifEmpty { "mp4" }
+                    val an = w.id + "_" + System.currentTimeMillis() + "_a." + ext
+                    File(coversDir, an).writeBytes(Base64.decode(anim, Base64.DEFAULT))
+                    w.coverAnim = an
+                } catch (e: Exception) {
+                    w.coverAnim = ""
+                }
+            }
             if (data.isNotEmpty()) {
                 try {
                     val name = w.id + "_" + System.currentTimeMillis() + ".jpg"
@@ -235,13 +260,14 @@ class Store(private val ctx: Context) {
             incoming.add(w)
         }
         if (replace) {
-            for (w in works) deleteCoverFile(w.cover)
+            for (w in works) { deleteCoverFile(w.cover); deleteCoverFile(w.coverAnim) }
             works.clear()
         } else {
             for (inc in incoming) {
                 val old = works.firstOrNull { it.id == inc.id }
                 if (old != null) {
                     deleteCoverFile(old.cover)
+                    deleteCoverFile(old.coverAnim)
                     works.remove(old)
                 }
             }
@@ -268,6 +294,11 @@ class Prefs(ctx: Context) {
     var homeUrl: String
         get() = sp.getString("homeUrl", "https://www.google.com") ?: "https://www.google.com"
         set(v) { sp.edit().putString("homeUrl", v).apply() }
+
+    /** Capas animadas (GIF/vídeo). Desligado = mostra só 1 quadro, como imagem. */
+    var animCovers: Boolean
+        get() = sp.getBoolean("animCovers", true)
+        set(v) { sp.edit().putBoolean("animCovers", v).apply() }
 
     var webDark: Boolean
         get() = sp.getBoolean("webDark", true)

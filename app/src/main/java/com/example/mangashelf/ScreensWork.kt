@@ -38,8 +38,9 @@ fun MainActivity.buildDetail(id: String): View {
     val hero = FrameLayout(this)
     val bmp = if (w.cover.isNotEmpty()) Covers.get(store, w.cover) else null
     val pal = coverPalette(w.title)
+    val animTop: View? = animHero(store, w, bmp, prefs.animCovers)
     hero.addView(
-        FadeCover(this, bmp, pal.first, pal.second, w.title.trim().take(1).uppercase().ifEmpty { "?" }),
+        animTop ?: FadeCover(this, bmp, pal.first, pal.second, w.title.trim().take(1).uppercase().ifEmpty { "?" }),
         FrameLayout.LayoutParams(MATCH, MATCH)
     )
 
@@ -540,9 +541,19 @@ fun MainActivity.buildForm(editId: String?): View {
 
     // capa
     var pending: Bitmap? = null
+    var pendingAnim: java.io.File? = null
     var removeCover = false
     val coverHolder = FrameLayout(this)
     val titleF = inputField("Nome da obra *", w.title)
+
+    fun addAnimTag(box: FrameLayout) {
+        val tag = tv("ANIMADA", 9.5f, Color.WHITE, true)
+        tag.setPadding(dp(6), dp(2), dp(6), dp(2))
+        tag.background = shape(0xB3000000.toInt(), dp(8).toFloat())
+        val lp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END)
+        lp.setMargins(0, dp(6), dp(6), 0)
+        box.addView(tag, lp)
+    }
 
     fun drawCover() {
         coverHolder.removeAllViews()
@@ -555,11 +566,14 @@ fun MainActivity.buildForm(editId: String?): View {
             box.addView(iv, MATCH, MATCH)
             box.background = shape(P.line, dp(12).toFloat())
             box.clipToOutline = true
+            if (pendingAnim != null) addAnimTag(box)
             coverHolder.addView(box, FrameLayout.LayoutParams(MATCH, WRAP))
         } else if (removeCover) {
             coverHolder.addView(coverView(store, Work(title = titleF.text.toString())), FrameLayout.LayoutParams(MATCH, WRAP))
         } else {
-            coverHolder.addView(coverView(store, w), FrameLayout.LayoutParams(MATCH, WRAP))
+            val cv = coverView(store, w)
+            if (w.coverAnim.isNotEmpty()) addAnimTag(cv)
+            coverHolder.addView(cv, FrameLayout.LayoutParams(MATCH, WRAP))
         }
     }
     drawCover()
@@ -569,16 +583,24 @@ fun MainActivity.buildForm(editId: String?): View {
     coverRow.addv(coverHolder, dp(110), WRAP)
     val coverBtns = vbox()
     coverBtns.setPadding(dp(12), 0, 0, 0)
-    coverBtns.addv(outlinePill("Escolher da galeria", 12f, Ic.Picture) {
-        pickImage { uri ->
-            val b = Covers.decodeUri(this, uri, 1000)
-            if (b == null) {
-                toast("Não consegui abrir essa imagem")
-            } else {
-                pending = b
-                removeCover = false
-                drawCover()
-            }
+    coverBtns.addv(outlinePill("Foto, GIF ou vídeo", 12f, Ic.Picture) {
+        pickMedia { uri ->
+            toast("Carregando…")
+            Thread {
+                val pk = Covers.loadPicked(this, uri)
+                runOnUiThread {
+                    if (pk == null) {
+                        toast("Não consegui abrir esse arquivo (GIF e vídeo: até 15 MB)")
+                    } else {
+                        pending = pk.poster
+                        val old = pendingAnim
+                        if (old != null && old.path != pk.anim?.path) old.delete()
+                        pendingAnim = pk.anim
+                        removeCover = false
+                        drawCover()
+                    }
+                }
+            }.start()
         }
     })
     coverBtns.addv(outlinePill("Usar link de imagem", 12f, Ic.Chain) {
@@ -594,6 +616,8 @@ fun MainActivity.buildForm(editId: String?): View {
                         toast("Não consegui baixar essa imagem")
                     } else {
                         pending = b
+                        pendingAnim?.delete()
+                        pendingAnim = null
                         removeCover = false
                         drawCover()
                     }
@@ -603,6 +627,8 @@ fun MainActivity.buildForm(editId: String?): View {
     }, MATCH, WRAP, 0f, 0, 8, 0, 0)
     coverBtns.addv(outlinePill("Remover capa", 12f, Ic.Trash) {
         pending = null
+        pendingAnim?.delete()
+        pendingAnim = null
         removeCover = true
         drawCover()
     }, MATCH, WRAP, 0f, 0, 8, 0, 0)
@@ -756,9 +782,15 @@ fun MainActivity.buildForm(editId: String?): View {
         if (pb != null) {
             store.deleteCoverFile(w.cover)
             w.cover = Covers.save(store, w.id, pb)
+            store.deleteCoverFile(w.coverAnim)
+            w.coverAnim = ""
+            val pa = pendingAnim
+            if (pa != null) w.coverAnim = Covers.saveAnim(store, w.id, pa)
         } else if (removeCover) {
             store.deleteCoverFile(w.cover)
+            store.deleteCoverFile(w.coverAnim)
             w.cover = ""
+            w.coverAnim = ""
         }
         if (!isEdit) {
             val site = normalizeUrl(siteF?.text?.toString() ?: "")

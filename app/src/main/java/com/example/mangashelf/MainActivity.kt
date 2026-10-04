@@ -6,15 +6,19 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.webkit.CookieManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.WindowCompat
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -45,6 +49,12 @@ class MainActivity : AppCompatActivity() {
     private val pickImageLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             if (uri != null) pickCallback?.invoke(uri)
+        }
+    private var mediaCallback: ((Uri) -> Unit)? = null
+
+    private val pickMediaLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) mediaCallback?.invoke(uri)
         }
     private val createBackupLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -120,17 +130,20 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- navegação ----------
     fun go(r: Route) {
+        scrollSaved.remove(r.name + "|" + (r.arg ?: ""))
         stack.add(r)
         render()
     }
 
     fun goTop(name: String) {
+        scrollSaved.remove(name + "|")
         stack.clear()
         stack.add(Route(name))
         render()
     }
 
     fun reset(vararg routes: Route) {
+        for (r in routes) scrollSaved.remove(r.name + "|" + (r.arg ?: ""))
         stack.clear()
         for (r in routes) stack.add(r)
         render()
@@ -170,6 +183,37 @@ class MainActivity : AppCompatActivity() {
 
     private var lastKey = ""
 
+    // posição da rolagem por tela: ao recriar a tela (mudar status, fechar capítulos...) ela volta para onde estava
+    private val scrollSaved = HashMap<String, Int>()
+
+    private fun findScroller(v: View): View? {
+        if (v is ScrollView || v is RecyclerView) return v
+        if (v is ViewGroup) {
+            for (i in 0 until v.childCount) {
+                val f = findScroller(v.getChildAt(i))
+                if (f != null) return f
+            }
+        }
+        return null
+    }
+
+    private fun scrollOf(v: View): Int {
+        val s = findScroller(v) ?: return 0
+        return if (s is RecyclerView) s.computeVerticalScrollOffset() else s.scrollY
+    }
+
+    private fun restoreScroll(v: View, y: Int) {
+        if (y <= 0) return
+        val s = findScroller(v) ?: return
+        s.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (s.viewTreeObserver.isAlive) s.viewTreeObserver.removeOnPreDrawListener(this)
+                if (s is RecyclerView) s.scrollBy(0, y) else s.scrollTo(0, y)
+                return true
+            }
+        })
+    }
+
     fun render() {
         P.dark = isDarkNow()
         window.statusBarColor = P.bg
@@ -178,6 +222,8 @@ class MainActivity : AppCompatActivity() {
         c.isAppearanceLightStatusBars = !P.dark
         c.isAppearanceLightNavigationBars = !P.dark
         rootFrame.setBackgroundColor(P.bg)
+        val oldView = contentFrame.getChildAt(0)
+        if (oldView != null && lastKey.isNotEmpty()) scrollSaved[lastKey] = scrollOf(oldView)
         contentFrame.removeAllViews()
         val r = stack.last()
         val v: View = when (r.name) {
@@ -192,6 +238,8 @@ class MainActivity : AppCompatActivity() {
         }
         contentFrame.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
         val key = r.name + "|" + (r.arg ?: "")
+        val savedY = scrollSaved[key] ?: 0
+        if (savedY > 0) restoreScroll(v, savedY)
         if (key != lastKey) {
             lastKey = key
             v.alpha = 0f
@@ -285,6 +333,12 @@ class MainActivity : AppCompatActivity() {
         store.save()
         openInBrowser(target, w.id, true)
         return true
+    }
+
+    // ---------- seletor de foto, GIF ou vídeo ----------
+    fun pickMedia(cb: (Uri) -> Unit) {
+        mediaCallback = cb
+        pickMediaLauncher.launch(arrayOf("image/*", "video/*"))
     }
 
     // ---------- seletor de imagem ----------

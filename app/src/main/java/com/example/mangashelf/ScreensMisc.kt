@@ -142,6 +142,18 @@ fun MainActivity.buildSettings(): View {
     }, WRAP, WRAP, 0f, 0, 0, 8, 0)
     ap.addv(wdRow)
     ap.addv(tv("Vale só quando o app está no tema escuro, dentro do navegador interno.", 11f, P.sub), MATCH, WRAP, 0f, 0, 6, 0, 0)
+    ap.addv(tv("Capas animadas (GIF e vídeo)", 13f, P.sub), MATCH, WRAP, 0f, 0, 14, 0, 8)
+    val anRow = hbox()
+    anRow.addv(chip("Animar", prefs.animCovers) {
+        prefs.animCovers = true
+        render()
+    }, WRAP, WRAP, 0f, 0, 0, 8, 0)
+    anRow.addv(chip("Só 1 quadro (imagem)", !prefs.animCovers) {
+        prefs.animCovers = false
+        render()
+    }, WRAP, WRAP, 0f, 0, 0, 8, 0)
+    ap.addv(anRow)
+    ap.addv(tv("Desligado, a capa animada aparece parada, como uma foto. Economiza bateria.", 11f, P.sub), MATCH, WRAP, 0f, 0, 6, 0, 0)
 
     // navegador
     val nv = settingsCard(col, "Navegador interno", Ic.Globe)

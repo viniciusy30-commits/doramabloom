@@ -148,6 +148,7 @@ class BrowserController(private val act: MainActivity) {
         val idx = root.optInt("active", 0).coerceIn(0, tabs.size - 1)
         val wasOpen = root.optBoolean("open", false)
         isOpen = wasOpen
+        if (wasOpen) AnimGate.pauseAll()
         select(tabs[idx])
         if (wasOpen) {
             view.visibility = View.VISIBLE
@@ -554,6 +555,7 @@ class BrowserController(private val act: MainActivity) {
     // ---------- abrir / fechar ----------
     fun open(url: String?, workId: String?, reuse: Boolean) {
         isOpen = true
+        AnimGate.pauseAll() // capas animadas pausam enquanto você lê
         view.animate().cancel()
         if (view.visibility != View.VISIBLE) {
             view.alpha = 0f
@@ -587,6 +589,7 @@ class BrowserController(private val act: MainActivity) {
         exitFullscreen()
         view.hideKeyboard()
         isOpen = false
+        AnimGate.resume() // as capas animadas voltam ao navegar pelo app
         saveState(true)
         view.animate().cancel()
         view.animate().alpha(0f).setDuration(140).withEndAction {
