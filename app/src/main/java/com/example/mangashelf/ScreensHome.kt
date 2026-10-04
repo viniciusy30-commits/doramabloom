@@ -127,14 +127,27 @@ private fun MainActivity.highlightCard(w: Work): View {
     info.addv(btn, MATCH, WRAP, 0f, 0, 10, 0, 0)
 
     card.addv(info, 0, MATCH, 1f)
-    return card
+
+    val x = roundBtn(Ic.Close, 30, 15, P.sub) {
+        w.hideHighlight = true
+        store.save()
+        toast("Removida dos destaques")
+        render()
+    }
+    val wrap = FrameLayout(this)
+    wrap.addView(card, FrameLayout.LayoutParams(MATCH, WRAP))
+    val xlp = FrameLayout.LayoutParams(dp(30), dp(30), Gravity.TOP or Gravity.END)
+    xlp.setMargins(0, dp(8), dp(8), 0)
+    wrap.addView(x, xlp)
+    return wrap
 }
 
 /** Destaques: obras que estão sendo lidas, as mais recentes primeiro. */
 private fun MainActivity.highlights(col: LinearLayout) {
-    val reading = store.works.filter { it.status == STATUS_READING }
+    val allReading = store.works.filter { it.status == STATUS_READING }
+    val hidden = allReading.filter { it.hideHighlight }.sortedBy { it.title.lowercase() }
+    val reading = allReading.filter { !it.hideHighlight }
         .sortedWith(compareByDescending<Work> { it.lastRead }.thenByDescending { it.created })
-        .take(10)
 
     val head = hbox()
     head.gravity = Gravity.CENTER_VERTICAL
@@ -154,13 +167,26 @@ private fun MainActivity.highlights(col: LinearLayout) {
     }
     col.addv(head, MATCH, WRAP, 0f, 2, 20, 0, 10)
 
+    if (hidden.isNotEmpty()) {
+        val restore = tv("Ocultas dos destaques (${hidden.size})", 12.5f, P.sub, true)
+        restore.setPadding(dp(4), dp(2), dp(4), dp(8))
+        restore.setOnClickListener {
+            listDialog("Voltar para os destaques", hidden.map { it.title }) { i ->
+                hidden[i].hideHighlight = false
+                store.save()
+                render()
+            }
+        }
+        col.addv(restore, WRAP, WRAP)
+    }
+
     if (reading.isEmpty()) {
         val card = vbox()
         card.background = shape(P.card, dp(22).toFloat(), P.line, dp(1))
         card.setPadding(dp(18), dp(18), dp(18), dp(18))
-        card.addv(tv("Nenhuma obra em leitura", 16f, P.text, true))
+        card.addv(tv(if (hidden.isEmpty()) "Nenhuma obra em leitura" else "Nenhum destaque no momento", 16f, P.text, true))
         card.addv(
-            tv("Marque uma obra como Lendo para ela aparecer aqui em destaque, com botão de continuar.", 13.5f, P.sub),
+            tv(if (hidden.isEmpty()) "Marque uma obra como Lendo para ela aparecer aqui em destaque, com botão de continuar." else "Suas obras em leitura estão ocultas dos destaques. Toque em Ocultas dos destaques para trazer de volta.", 13.5f, P.sub),
             MATCH, WRAP, 0f, 0, 6, 0, 12
         )
         card.addv(outlinePill("Abrir Biblioteca", icon = Ic.Library) { goTop("library") })
@@ -168,15 +194,9 @@ private fun MainActivity.highlights(col: LinearLayout) {
         return
     }
 
-    val screenW = resources.displayMetrics.widthPixels
-    val avail = screenW - dp(32)
-    val cardW = if (reading.size == 1) avail else Math.min((avail * 0.9f).toInt(), dp(400))
-    val hs = HorizontalScrollView(this)
-    hs.isHorizontalScrollBarEnabled = false
-    val row = hbox()
-    for (w in reading) row.addv(highlightCard(w), cardW, WRAP, 0f, 0, 0, 12, 0)
-    hs.addView(row)
-    col.addv(hs, MATCH, WRAP)
+    val stack = vbox()
+    for (w in reading) stack.addv(highlightCard(w), MATCH, WRAP, 0f, 0, 0, 0, 12)
+    col.addv(stack, MATCH, WRAP)
 }
 
 /** Chip de status com a cor da categoria (mesmas cores da Início). */

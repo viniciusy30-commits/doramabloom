@@ -39,6 +39,7 @@ class Work(
     var tags: MutableList<String> = mutableListOf(),
     var notes: String = "",
     var favorite: Boolean = false,
+    var hideHighlight: Boolean = false,
     var cover: String = "",
     var coverAnim: String = "",
     var links: MutableList<Link> = mutableListOf(),
@@ -87,6 +88,7 @@ fun Work.toJson(): JSONObject {
     o.put("tags", JSONArray(tags))
     o.put("notes", notes)
     o.put("favorite", favorite)
+    o.put("hideHighlight", hideHighlight)
     o.put("cover", cover)
     o.put("coverAnim", coverAnim)
     val la = JSONArray()
@@ -121,6 +123,7 @@ fun workFromJson(o: JSONObject): Work {
     w.rating = o.optDouble("rating", 0.0)
     w.notes = o.optString("notes", "")
     w.favorite = o.optBoolean("favorite", false)
+    w.hideHighlight = o.optBoolean("hideHighlight", false)
     w.cover = o.optString("cover", "")
     w.coverAnim = o.optString("coverAnim", "")
     w.lastUrl = o.optString("lastUrl", "")
