@@ -440,7 +440,7 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
     fun fill() {
         body.removeAllViews()
         body.addv(
-            tv("Guarde aqui sites diferentes onde você lê esta obra, para lembrar depois. A estrela marca o principal. Dica: dentro do navegador, menu ⋮ > "Salvar site nos links desta obra".", 12f, P.sub),
+            tv("Guarde aqui sites diferentes onde você lê esta obra, para lembrar depois. A estrela marca o principal. Dica: dentro do navegador, menu ⋮ > Salvar site nos links desta obra.", 12f, P.sub),
             MATCH, WRAP, 0f, 0, 0, 0, 10
         )
         for (l in w.links.toList()) {
