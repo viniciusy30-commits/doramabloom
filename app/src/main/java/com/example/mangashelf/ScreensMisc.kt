@@ -149,21 +149,21 @@ fun MainActivity.buildSettings(): View {
     val zr = hbox()
     val zoomTv = tv("${prefs.zoom}%", 16f, P.text, true)
     zoomTv.gravity = Gravity.CENTER
-    val zm = outlinePill("", 18f, Ic.Minus) {
+    val zm = roundBtn(Ic.Minus, 48, 22) {
         val z = Math.max(50, prefs.zoom - 10)
         prefs.zoom = z
         zoomTv.text = "$z%"
         browser?.setZoom(z)
     }
-    val zp = outlinePill("", 18f, Ic.Plus) {
+    val zp = roundBtn(Ic.Plus, 48, 22, P.accent) {
         val z = Math.min(300, prefs.zoom + 10)
         prefs.zoom = z
         zoomTv.text = "$z%"
         browser?.setZoom(z)
     }
-    zr.addv(zm, dp(56), WRAP)
+    zr.addv(zm, dp(48), dp(48))
     zr.addv(zoomTv, 0, WRAP, 1f)
-    zr.addv(zp, dp(56), WRAP)
+    zr.addv(zp, dp(48), dp(48))
     nv.addv(zr)
     val homeTv = tv("Página inicial das novas abas:\n${prefs.homeUrl}", 13f, P.sub)
     nv.addv(homeTv, MATCH, WRAP, 0f, 0, 14, 0, 8)
@@ -203,7 +203,7 @@ fun MainActivity.buildSettings(): View {
     // ajuda
     val hp = settingsCard(col, "Ajuda", Ic.Help)
     hp.addv(outlinePill("Ver tutorial", 13f, Ic.Help) { go(Route("tutorial")) })
-    hp.addv(tv("MangaDeck 1.1 — sua biblioteca pessoal de leitura.", 12f, P.sub), MATCH, WRAP, 0f, 0, 12, 0, 0)
+    hp.addv(tv("MangaDeck 1.3 — sua biblioteca pessoal de leitura.", 12f, P.sub), MATCH, WRAP, 0f, 0, 12, 0, 0)
     return scroll
 }
 

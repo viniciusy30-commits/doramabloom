@@ -2,6 +2,7 @@ package com.example.mangashelf
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
@@ -28,49 +29,123 @@ fun MainActivity.buildDetail(id: String): View {
         return t
     }
     val scroll = ScrollView(this)
-    scroll.setBackgroundColor(P.bg)
+    scroll.setBackgroundColor(Color.TRANSPARENT)
+    scroll.isVerticalScrollBarEnabled = false
     val col = vbox()
-    col.setPadding(dp(16), dp(12), dp(16), dp(28))
     scroll.addView(col)
 
-    val top = hbox()
-    top.addv(roundBtn(Ic.ChevronLeft, 42, 22) { pop() }, dp(42), dp(42))
-    top.addv(View(this), 0, 0, 1f)
-    top.addv(
-        roundBtn(if (w.favorite) Ic.HeartSolid else Ic.Heart, 42, 20, if (w.favorite) P.accent2 else P.sub) {
+    // ---------- topo: capa grande dissolvendo no fundo, título por cima ----------
+    val hero = FrameLayout(this)
+    val bmp = if (w.cover.isNotEmpty()) Covers.get(store, w.cover) else null
+    val pal = coverPalette(w.title)
+    hero.addView(
+        FadeCover(this, bmp, pal.first, pal.second, w.title.trim().take(1).uppercase().ifEmpty { "?" }),
+        FrameLayout.LayoutParams(MATCH, MATCH)
+    )
+
+    fun glassCircle(ic: Ic, color: Int, onClick: () -> Unit): IconView {
+        val b = roundBtn(ic, 42, 21, color, true, onClick)
+        val r = dp(42).toFloat()
+        b.background = rippled(shape(0x73000000, r, 0x33FFFFFF, dp(1)), r)
+        return b
+    }
+
+    val topRow = hbox()
+    topRow.setPadding(dp(16), dp(12), dp(16), 0)
+    topRow.addv(glassCircle(Ic.ChevronLeft, Color.WHITE) { pop() }, dp(42), dp(42))
+    topRow.addv(View(this), 0, 0, 1f)
+    topRow.addv(
+        glassCircle(if (w.favorite) Ic.HeartSolid else Ic.Heart, if (w.favorite) P.accent2 else Color.WHITE) {
             w.favorite = !w.favorite
             store.save()
             render()
         }, dp(42), dp(42)
     )
-    col.addv(top)
+    hero.addView(topRow, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP))
 
-    // cabeçalho
-    val head = hbox()
-    head.gravity = Gravity.TOP
-    head.addv(coverView(store, w), dp(120), WRAP)
-    val info = vbox()
-    info.setPadding(dp(14), 0, 0, 0)
-    info.addv(tv(w.title, 22f, P.text, true))
-    if (w.altTitle.isNotBlank()) info.addv(tv(w.altTitle, 13f, P.sub), MATCH, WRAP, 0f, 0, 2, 0, 0)
-    if (w.author.isNotBlank()) {
-        val ar = hbox()
-        ar.addv(IconView(this, Ic.Person, P.sub, 15), dp(16), dp(16), 0f, 0, 0, 6, 0)
-        ar.addv(tv(w.author, 13f, P.sub), 0, WRAP, 1f)
-        info.addv(ar, MATCH, WRAP, 0f, 0, 6, 0, 0)
+    val titleBox = vbox()
+    titleBox.setPadding(dp(20), 0, dp(20), dp(14))
+    val typeTag = tv(w.type.uppercase(), 11.5f, P.accent, true)
+    typeTag.letterSpacing = 0.14f
+    titleBox.addv(typeTag)
+    val titleTv = tv(w.title, 30f, P.text, true)
+    titleTv.maxLines = 3
+    titleTv.ellipsize = TextUtils.TruncateAt.END
+    if (P.dark) titleTv.setShadowLayer(10f, 0f, 2f, 0xCC000000.toInt())
+    titleBox.addv(titleTv, MATCH, WRAP, 0f, 0, 4, 0, 0)
+    hero.addView(titleBox, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
+    col.addv(hero, MATCH, dp(400))
+
+    val body = vbox()
+    body.setPadding(dp(20), dp(2), dp(20), dp(28))
+    col.addv(body)
+
+    // ---------- dados ----------
+    fun metaRow(label: String, value: String) {
+        val r = hbox()
+        r.gravity = Gravity.TOP
+        r.addv(lbl(label), dp(104), WRAP)
+        r.addv(tv(value, 14f, P.text, true), 0, WRAP, 1f)
+        body.addv(r, MATCH, WRAP, 0f, 0, 0, 0, 8)
     }
-    val chips = FlowLayout(this)
-    chips.hGap = dp(6)
-    chips.vGap = dp(6)
-    val typeChip = tv(w.type, 12f, P.accent, true)
-    typeChip.setPadding(dp(12), dp(6), dp(12), dp(6))
-    typeChip.background = shape(P.accentSoft, dp(16).toFloat(), P.accentLine, dp(1))
-    chips.addView(typeChip)
-    val statusChip = tv("", 12f, P.text, true)
-    statusChip.setIconText(Ic.ChevronDown, w.status, true, 14)
-    statusChip.setPadding(dp(12), dp(6), dp(12), dp(6))
-    statusChip.background = rippled(shape(P.card2, dp(16).toFloat(), P.line, dp(1)), dp(16).toFloat())
-    statusChip.setOnClickListener {
+    if (w.altTitle.isNotBlank()) metaRow("TÍTULO ALT.", w.altTitle)
+    if (w.author.isNotBlank()) metaRow("AUTOR", w.author)
+
+    // faixa de números: nota | capítulo | progresso
+    val stats = hbox()
+    stats.background = shape(P.card, dp(18).toFloat(), P.line, dp(1))
+    stats.setPadding(dp(16), dp(14), dp(16), dp(14))
+    fun statCell(label: String, first: Boolean): TextView {
+        val c = vbox()
+        c.setPadding(if (first) 0 else dp(14), 0, 0, 0)
+        c.addv(lbl(label))
+        val v = tv("", 22f, P.text, true)
+        c.addv(v, WRAP, WRAP, 0f, 0, 4, 0, 0)
+        stats.addv(c, 0, WRAP, 1f)
+        return v
+    }
+    fun divider() {
+        val d = View(this)
+        d.setBackgroundColor(P.line)
+        stats.addv(d, dp(1), dp(42))
+    }
+    val ratingStat = statCell("NOTA", true)
+    divider()
+    val chapStat = statCell("CAPÍTULO", false)
+    divider()
+    val pctStat = statCell("PROGRESSO", false)
+    body.addv(stats, MATCH, WRAP, 0f, 0, 6, 0, 0)
+
+    if (w.genres.isNotEmpty()) {
+        val fl = FlowLayout(this)
+        fl.hGap = dp(8)
+        fl.vGap = dp(8)
+        for (g in w.genres) {
+            val c = tv(g, 13f, P.text, true)
+            c.setPadding(dp(14), dp(8), dp(14), dp(8))
+            c.background = shape(P.card, dp(18).toFloat(), P.line, dp(1))
+            fl.addView(c)
+        }
+        body.addv(fl, MATCH, WRAP, 0f, 0, 14, 0, 0)
+    }
+
+    // ---------- ação principal ----------
+    body.addv(
+        heroButton(if (w.lastUrl.isNotBlank()) "DE ONDE VOCÊ PAROU" else "ABRIR NO NAVEGADOR", "Continuar lendo", Ic.PlaySolid) {
+            continueReading(w)
+        }, MATCH, WRAP, 0f, 0, 16, 0, 0
+    )
+
+    // status + atalhos (capítulos, links, editar)
+    val sr = hbox()
+    val sc = statusColor(w.status)
+    val statusBtn = hbox()
+    statusBtn.setPadding(dp(16), 0, dp(14), 0)
+    statusBtn.background = rippled(shape(P.card, dp(16).toFloat(), P.line, dp(1)), dp(16).toFloat())
+    statusBtn.addv(IconView(this, statusIcon(w.status), sc, 20), dp(22), dp(22), 0f, 0, 0, 10, 0)
+    statusBtn.addv(tv(w.status, 15f, P.text, true), 0, WRAP, 1f)
+    statusBtn.addv(IconView(this, Ic.ChevronDown, sc, 20), dp(22), dp(22))
+    statusBtn.setOnClickListener {
         listDialog("Status", STATUSES) { i ->
             w.status = STATUSES[i]
             if (w.status == STATUS_DONE && w.total > 0) w.current = w.total.toDouble()
@@ -78,22 +153,34 @@ fun MainActivity.buildDetail(id: String): View {
             render()
         }
     }
-    chips.addView(statusChip)
-    info.addv(chips, MATCH, WRAP, 0f, 0, 10, 0, 0)
-    val rating = hbox()
-    rating.addv(
-        IconView(this, if (w.rating > 0) Ic.StarSolid else Ic.Star, if (w.rating > 0) P.star else P.sub, 16),
-        dp(18), dp(18), 0f, 0, 0, 6, 0
-    )
-    rating.addv(
-        tv(if (w.rating > 0) "${fmtNum(w.rating)} / 10" else "Sem nota", 14f, if (w.rating > 0) P.text else P.sub, true),
-        WRAP, WRAP
-    )
-    info.addv(rating, MATCH, WRAP, 0f, 0, 10, 0, 0)
-    head.addv(info, 0, WRAP, 1f)
-    col.addv(head, MATCH, WRAP, 0f, 0, 6, 0, 0)
+    statusBtn.pressFx()
+    sr.addv(statusBtn, 0, dp(52), 1f, 0, 0, 8, 0)
 
-    // progresso
+    fun squareBtn(ic: Ic, onClick: () -> Unit): IconView {
+        val v = IconView(this, ic, P.text, 22)
+        val r = dp(16).toFloat()
+        v.background = rippled(shape(P.card, r, P.line, dp(1)), r)
+        v.setOnClickListener { onClick() }
+        v.pressFx()
+        return v
+    }
+    sr.addv(squareBtn(Ic.Rows) { showChaptersDialog(w) { render() } }, dp(52), dp(52), 0f, 0, 0, 8, 0)
+    val linkWrap = FrameLayout(this)
+    linkWrap.addView(squareBtn(Ic.Chain) { showLinksDialog(w) { render() } }, FrameLayout.LayoutParams(MATCH, MATCH))
+    if (w.links.isNotEmpty()) {
+        val badge = tv(w.links.size.toString(), 10f, Color.WHITE, true)
+        badge.gravity = Gravity.CENTER
+        badge.background = shape(P.accentDeep, dp(9).toFloat(), P.bg, dp(1))
+        val blp = FrameLayout.LayoutParams(dp(18), dp(18), Gravity.TOP or Gravity.END)
+        blp.setMargins(0, dp(4), dp(4), 0)
+        linkWrap.addView(badge, blp)
+    }
+    sr.addv(linkWrap, dp(52), dp(52), 0f, 0, 0, 8, 0)
+    sr.addv(squareBtn(Ic.Pen) { go(Route("add", w.id)) }, dp(52), dp(52))
+    body.addv(sr, MATCH, WRAP, 0f, 0, 12, 0, 0)
+
+    // ---------- capítulo atual ----------
+    body.addv(tv("Capítulo atual", 15f, P.text, true), MATCH, WRAP, 0f, 0, 22, 0, 8)
     val card = vbox()
     card.background = shape(P.card, dp(22).toFloat(), P.line, dp(1))
     card.setPadding(dp(16), dp(16), dp(16), dp(18))
@@ -110,10 +197,14 @@ fun MainActivity.buildDetail(id: String): View {
     fun refresh() {
         chapterTv.text = fmtNum(w.current)
         totalTv.text = if (w.total > 0) "de ${w.total} capítulos · toque no número para digitar" else "capítulo atual · toque no número para digitar"
-        pctTv.text = if (w.total > 0 || w.status == STATUS_DONE) "${w.progress()}%" else "—"
+        val pct = if (w.total > 0 || w.status == STATUS_DONE) "${w.progress()}%" else "—"
+        pctTv.text = pct
+        pctStat.text = pct
+        chapStat.text = fmtNum(w.current) + (if (w.total > 0) " / ${w.total}" else "")
+        ratingStat.text = if (w.rating > 0) fmtNum(w.rating) else "—"
+        ratingStat.setTextColor(if (w.rating > 0) P.star else P.sub)
         progHolder.removeAllViews()
         progHolder.addView(progressBar(w.progress(), 8), FrameLayout.LayoutParams(MATCH, WRAP))
-        statusChip.setIconText(Ic.ChevronDown, w.status, true, 14)
         lastTv.text = "Última leitura: " + fmtDate(w.lastRead)
     }
 
@@ -151,39 +242,25 @@ fun MainActivity.buildDetail(id: String): View {
     card.addv(pr, MATCH, WRAP, 0f, 0, 14, 0, 6)
     card.addv(progHolder, MATCH, WRAP)
     card.addv(lastTv, MATCH, WRAP, 0f, 0, 10, 0, 0)
-    col.addv(card, MATCH, WRAP, 0f, 0, 14, 0, 0)
+    body.addv(card, MATCH, WRAP, 0f, 0, 0, 0, 0)
     refresh()
 
-    col.addv(heroButton("COMEÇAR AGORA", "Continuar lendo", Ic.PlaySolid) {
-        if (!continueReading(w)) {
-            toast("Salve um site primeiro")
-            showLinksDialog(w) { render() }
-        }
-    }, MATCH, WRAP, 0f, 0, 14, 0, 0)
-
-    val row = hbox()
-    row.addv(outlinePill("Capítulos", 12f, Ic.Rows) { showChaptersDialog(w) { render() } }, 0, WRAP, 1f, 0, 0, 6, 0)
-    row.addv(outlinePill("Links (${w.links.size})", 12f, Ic.Chain) { showLinksDialog(w) { render() } }, 0, WRAP, 1f, 0, 0, 6, 0)
-    row.addv(outlinePill("Editar", 12f, Ic.Pen) { go(Route("add", w.id)) }, 0, WRAP, 1f)
-    col.addv(row, MATCH, WRAP, 0f, 0, 10, 0, 0)
-
-    fun section(title: String, body: View) {
-        col.addv(tv(title, 15f, P.text, true), MATCH, WRAP, 0f, 0, 20, 0, 6)
-        col.addv(body)
+    fun section(title: String, v: View) {
+        body.addv(tv(title, 15f, P.text, true), MATCH, WRAP, 0f, 0, 22, 0, 6)
+        body.addv(v)
     }
 
-    if (w.synopsis.isNotBlank()) section("Sinopse", tv(w.synopsis, 14f, P.sub))
-    if (w.genres.isNotEmpty()) {
-        val fl = FlowLayout(this)
-        fl.hGap = dp(6)
-        fl.vGap = dp(6)
-        for (g in w.genres) {
-            val c = tv(g, 12f, P.text)
-            c.setPadding(dp(10), dp(5), dp(10), dp(5))
-            c.background = shape(P.card, dp(16).toFloat(), P.line, dp(1))
-            fl.addView(c)
+    if (w.synopsis.isNotBlank()) {
+        val syn = tv(w.synopsis, 14f, P.sub)
+        syn.setLineSpacing(0f, 1.15f)
+        var open = false
+        syn.maxLines = 5
+        syn.ellipsize = TextUtils.TruncateAt.END
+        syn.setOnClickListener {
+            open = !open
+            syn.maxLines = if (open) 100 else 5
         }
-        section("Gêneros", fl)
+        section("Sinopse", syn)
     }
     if (w.tags.isNotEmpty()) {
         val fl = FlowLayout(this)
@@ -203,7 +280,32 @@ fun MainActivity.buildDetail(id: String): View {
         u.ellipsize = TextUtils.TruncateAt.END
         section("Último endereço lido", u)
     }
-    return scroll
+
+    // fundo: a capa da obra, bem desfocada, com um véu para manter o texto legível
+    val root = FrameLayout(this)
+    root.setBackgroundColor(P.bg)
+    val bgView = ImageView(this)
+    bgView.scaleType = ImageView.ScaleType.CENTER_CROP
+    val blurred = if (w.cover.isNotEmpty()) Covers.blurred(store, w.cover) else null
+    if (blurred != null) {
+        bgView.setImageBitmap(blurred)
+        bgView.scaleX = 1.3f
+        bgView.scaleY = 1.3f
+    } else {
+        bgView.setImageDrawable(
+            GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(pal.first, pal.second))
+        )
+    }
+    bgView.alpha = if (P.dark) 0.9f else 0.75f
+    root.addView(bgView, FrameLayout.LayoutParams(MATCH, MATCH))
+    val veil = View(this)
+    veil.background = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(tint(P.bg, 0x4D), tint(P.bg, 0xA6), tint(P.bg, 0xE0), tint(P.bg, 0xF5))
+    )
+    root.addView(veil, FrameLayout.LayoutParams(MATCH, MATCH))
+    root.addView(scroll, FrameLayout.LayoutParams(MATCH, MATCH))
+    return root
 }
 
 // ---------------- Capítulos ----------------
@@ -338,7 +440,7 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
     fun fill() {
         body.removeAllViews()
         body.addv(
-            tv("Salve aqui os sites onde você lê esta obra. O site principal é o usado por padrão. Toque em Abrir para ler dentro do app.", 12f, P.sub),
+            tv("Guarde aqui sites diferentes onde você lê esta obra, para lembrar depois. A estrela marca o principal. Dica: dentro do navegador, menu ⋮ > "Salvar site nos links desta obra".", 12f, P.sub),
             MATCH, WRAP, 0f, 0, 0, 0, 10
         )
         for (l in w.links.toList()) {
@@ -354,27 +456,28 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
             u.ellipsize = TextUtils.TruncateAt.END
             item.addv(u, MATCH, WRAP, 0f, 0, 2, 0, 8)
             val r = hbox()
-            r.addv(pill("Abrir", P.accent, Color.WHITE, 12f) {
+            r.addv(pill("Abrir", P.accent, Color.WHITE, 13f, Ic.External) {
                 dlg.dismiss()
                 w.lastRead = System.currentTimeMillis()
                 store.save()
                 openInBrowser(l.url, w.id, false)
-            }, 0, WRAP, 1f, 0, 0, 4, 0)
-            r.addv(outlinePill("Principal", 12f) {
+            }, 0, WRAP, 1f, 0, 0, 8, 0)
+            r.addv(roundBtn(if (l.primary) Ic.StarSolid else Ic.Star, 42, 19, if (l.primary) P.star else P.sub) {
                 for (x in w.links) x.primary = false
                 l.primary = true
                 fix()
+                toast("Definido como site principal")
                 fill()
-            }, 0, WRAP, 1f, 0, 0, 4, 0)
-            r.addv(outlinePill("Editar", 12f) {
+            }, dp(42), dp(42), 0f, 0, 0, 6, 0)
+            r.addv(roundBtn(Ic.Pen, 42, 18) {
                 editLinkDialog(l) { n, uu ->
                     l.label = n
                     l.url = uu
                     fix()
                     fill()
                 }
-            }, 0, WRAP, 1f, 0, 0, 4, 0)
-            r.addv(outlinePill("", 12f, Ic.Trash) {
+            }, dp(42), dp(42), 0f, 0, 0, 6, 0)
+            r.addv(roundBtn(Ic.Trash, 42, 18, P.accent) {
                 confirmDialog("Excluir link", "Remover \"${l.label}\"?") {
                     w.links.remove(l)
                     if (w.lastUrl.isNotEmpty() && sameSite(hostOf(w.lastUrl), hostOf(l.url)) &&
@@ -383,7 +486,7 @@ fun MainActivity.showLinksDialog(w: Work, onClose: () -> Unit) {
                     fix()
                     fill()
                 }
-            }, 0, WRAP, 1f)
+            }, dp(42), dp(42))
             item.addv(r)
             body.addv(item, MATCH, WRAP, 0f, 0, 0, 0, 10)
         }

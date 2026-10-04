@@ -48,12 +48,17 @@ class BrowserTab(val web: WebView, var workId: String?) {
     /** Posição de rolagem que ainda precisa ser reaplicada depois que a página carregar. */
     var wantScroll: Int = 0
     var tries: Int = 0
+    var lastUsed: Long = 0L
 }
 
 class BrowserController(private val act: MainActivity) {
     val view = FrameLayout(act)
     private val tabs = ArrayList<BrowserTab>()
     private var active: BrowserTab? = null
+    /** Cada obra só enxerga as próprias abas. null = navegador geral (sem obra). */
+    private var scope: String? = null
+
+    private fun visibleTabs(): List<BrowserTab> = tabs.filter { it.workId == scope }
     var isOpen = false
         private set
     private var fullscreen = false
@@ -97,6 +102,7 @@ class BrowserController(private val act: MainActivity) {
                 o.put("t", t.title)
                 o.put("w", t.workId ?: "")
                 o.put("y", y)
+                o.put("lu", t.lastUsed)
                 arr.put(o)
                 if (persistWork && !pending) {
                     val id = t.workId
@@ -135,6 +141,7 @@ class BrowserController(private val act: MainActivity) {
             tab.title = o.optString("t", "").ifBlank { u }
             tab.pendingUrl = u
             tab.pendingScroll = o.optInt("y", 0)
+            tab.lastUsed = o.optLong("lu", 0L)
             tabs.add(tab)
         }
         if (tabs.isEmpty()) return
@@ -313,7 +320,7 @@ class BrowserController(private val act: MainActivity) {
 
     private fun refreshTabs() {
         tabStrip.removeAllViews()
-        for (t in tabs) {
+        for (t in visibleTabs()) {
             val sel = t === active
             val chip = LinearLayout(act)
             chip.orientation = LinearLayout.HORIZONTAL
@@ -334,7 +341,7 @@ class BrowserController(private val act: MainActivity) {
         }
         val plus = IconView(act, Ic.Plus, P.accent, 18)
         plus.background = act.rippled(shape(P.card, dp(18).toFloat(), P.line, dp(1)), dp(18).toFloat())
-        plus.setOnClickListener { newTab(null, null) }
+        plus.setOnClickListener { newTab(null, scope) }
         tabStrip.addv(plus, dp(44), dp(34))
     }
 
@@ -455,7 +462,8 @@ class BrowserController(private val act: MainActivity) {
         if (!u.startsWith("http")) return
         val w = act.store.get(id) ?: return
         val host = hostOf(u)
-        if (w.links.none { sameSite(hostOf(it.url), host) }) return
+        // páginas de busca / página inicial não contam como "onde parei"
+        if (host.contains("google.") || host.contains("bing.com") || host.contains("duckduckgo.com")) return
         if (w.lastUrl != u) {
             w.lastUrl = u
             w.lastScroll = 0
@@ -481,6 +489,8 @@ class BrowserController(private val act: MainActivity) {
 
     private fun select(t: BrowserTab) {
         active = t
+        scope = t.workId
+        t.lastUsed = System.currentTimeMillis()
         (t.web.parent as? ViewGroup)?.removeView(t.web)
         webHolder.removeAllViews()
         webHolder.addView(t.web, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -510,11 +520,12 @@ class BrowserController(private val act: MainActivity) {
     }
 
     private fun closeTab(t: BrowserTab) {
-        val idx = tabs.indexOf(t)
-        if (idx < 0) return
-        tabs.removeAt(idx)
+        val vis = visibleTabs()
+        val idx = vis.indexOf(t)
+        if (!tabs.remove(t)) return
         if (t === active) {
-            if (tabs.isEmpty()) {
+            val rest = visibleTabs()
+            if (rest.isEmpty()) {
                 active = null
                 webHolder.removeAllViews()
                 disposeTab(t)
@@ -522,16 +533,17 @@ class BrowserController(private val act: MainActivity) {
                 close()
                 return
             }
-            select(tabs[Math.min(idx, tabs.size - 1)])
+            select(rest[Math.max(0, Math.min(idx, rest.size - 1))])
         }
         disposeTab(t)
         refreshTabs()
         saveState(false)
     }
 
+    /** Fecha só as abas do contexto atual (da obra aberta, ou do navegador geral). */
     private fun closeAll() {
-        val copy = ArrayList(tabs)
-        tabs.clear()
+        val copy = ArrayList(visibleTabs())
+        tabs.removeAll(copy.toSet())
         active = null
         webHolder.removeAllViews()
         for (t in copy) disposeTab(t)
@@ -552,12 +564,17 @@ class BrowserController(private val act: MainActivity) {
         }
         view.bringToFront()
         if (url == null) {
+            // navegador geral: só abas que não pertencem a nenhuma obra
+            scope = null
             val a = active
-            if (tabs.isEmpty()) newTab(null, null) else if (a != null) select(a)
+            val pick = if (a != null && a.workId == null) a
+            else tabs.filter { it.workId == null }.maxByOrNull { it.lastUsed }
+            if (pick != null) select(pick) else newTab(null, null)
             return
         }
+        scope = workId
         if (reuse && workId != null) {
-            val ex = tabs.firstOrNull { it.workId == workId }
+            val ex = tabs.filter { it.workId == workId }.maxByOrNull { it.lastUsed }
             if (ex != null) {
                 select(ex)
                 return
@@ -616,7 +633,7 @@ class BrowserController(private val act: MainActivity) {
         val u = resolveInput(input)
         if (u.isEmpty()) return
         val a = active
-        if (a == null) newTab(u, null) else a.web.loadUrl(u)
+        if (a == null) newTab(u, scope) else a.web.loadUrl(u)
     }
 
     private fun openExternal(url: String?) {
@@ -638,10 +655,12 @@ class BrowserController(private val act: MainActivity) {
             Pair(Ic.Maximize, "Tela cheia"),
             Pair(Ic.Clock, "Histórico"),
             Pair(Ic.Copy, "Copiar endereço"),
-            Pair(Ic.Trash, "Fechar todas as abas"),
+            Pair(Ic.Trash, if (scope != null) "Fechar as abas desta obra" else "Fechar todas as abas"),
             Pair(Ic.Help, "Ajuda do navegador"),
             Pair(Ic.Moon, if (act.prefs.webDark) "Sites no escuro: ligado (tocar p/ desligar)" else "Sites no escuro: desligado (tocar p/ ligar)")
-        )
+        ).toMutableList()
+        val hasWork = active?.workId?.let { act.store.get(it) } != null
+        if (hasWork) items.add(Pair(Ic.Chain, "Salvar site nos links desta obra"))
         act.iconListDialog("Navegador", items) { i ->
             when (i) {
                 0 -> newTab(null, null)
@@ -658,7 +677,7 @@ class BrowserController(private val act: MainActivity) {
                         act.toast("Endereço copiado")
                     }
                 }
-                7 -> act.confirmDialog("Fechar abas", "Fechar todas as abas e sair do navegador?") { closeAll() }
+                7 -> act.confirmDialog("Fechar abas", if (scope != null) "Fechar todas as abas desta obra e sair do navegador?" else "Fechar todas as abas e sair do navegador?") { closeAll() }
                 8 -> MaterialAlertDialogBuilder(act).setTitle("Ajuda do navegador")
                     .setMessage(browserHelpText()).setPositiveButton("Entendi", null).show()
                 9 -> {
@@ -669,9 +688,29 @@ class BrowserController(private val act: MainActivity) {
                     }
                     act.toast(if (act.prefs.webDark) "Sites escurecidos no tema escuro" else "Sites com o visual original")
                 }
+                10 -> saveCurrentAsLink()
                 else -> {}
             }
         }
+    }
+
+    /** Guarda a página aberta nos links da obra (para lembrar de sites diferentes depois). */
+    private fun saveCurrentAsLink() {
+        val t = active ?: return
+        val w = t.workId?.let { act.store.get(it) } ?: return
+        val u = t.url
+        if (!u.startsWith("http")) {
+            act.toast("Abra um site primeiro")
+            return
+        }
+        if (w.links.any { it.url == u }) {
+            act.toast("Esse endereço já está nos links")
+            return
+        }
+        val label = hostOf(u).ifEmpty { t.title.ifBlank { "Site" } }
+        w.links.add(Link(label, u, w.links.isEmpty()))
+        act.store.save()
+        act.toast("Salvo nos links de ${w.title} (${w.links.size})")
     }
 
     fun setZoom(v: Int) {

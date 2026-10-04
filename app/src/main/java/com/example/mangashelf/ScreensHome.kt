@@ -40,10 +40,7 @@ fun MainActivity.workCard(w: Work, play: Boolean, showStatus: Boolean = true): V
         val p = IconView(this, Ic.PlaySolid, P.onAccent, 14)
         p.background = shape(P.accent, dp(18).toFloat())
         p.setOnClickListener {
-            if (!continueReading(w)) {
-                toast("Salve um site em Links primeiro")
-                go(Route("detail", w.id))
-            }
+            continueReading(w)
         }
         val plp = FrameLayout.LayoutParams(dp(36), dp(36), Gravity.BOTTOM or Gravity.END)
         plp.setMargins(0, 0, dp(6), dp(6))

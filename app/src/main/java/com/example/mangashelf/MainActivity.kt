@@ -273,10 +273,13 @@ class MainActivity : AppCompatActivity() {
         b.open(url, workId, reuse)
     }
 
-    /** Retorna false se a obra não tem nenhum link salvo. */
+    /** Abre o navegador direto: no último ponto, no link principal ou na página inicial. */
     fun continueReading(w: Work): Boolean {
-        val target = if (w.lastUrl.isNotBlank()) w.lastUrl else (w.mainLink()?.url ?: "")
-        if (target.isBlank()) return false
+        val target = when {
+            w.lastUrl.isNotBlank() -> w.lastUrl
+            w.mainLink() != null -> w.mainLink()!!.url
+            else -> prefs.homeUrl
+        }
         w.lastRead = System.currentTimeMillis()
         if (w.status == STATUS_PLAN) w.status = STATUS_READING
         store.save()

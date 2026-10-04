@@ -4,7 +4,14 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Outline
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
@@ -39,14 +46,14 @@ const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 object P {
     var dark = false
     // rosa-framboesa suave (menos chapado), com versões translúcidas
-    val accent: Int get() = if (dark) 0xFFF0707E.toInt() else 0xFFD94F63.toInt()
-    val accentDeep: Int get() = if (dark) 0xFFD9506A.toInt() else 0xFFBF3A52.toInt()
+    val accent: Int get() = if (dark) 0xFFEF4B57.toInt() else 0xFFD9343F.toInt()
+    val accentDeep: Int get() = if (dark) 0xFFC62A3A.toInt() else 0xFFB3222E.toInt()
     val onAccent: Int get() = 0xFFFFFFFF.toInt()
-    val accentSoft: Int get() = if (dark) 0x26F0707E.toInt() else 0x1ED94F63.toInt()
-    val accentTile: Int get() = if (dark) 0x38F0707E.toInt() else 0x2ED94F63.toInt()
-    val accentLine: Int get() = if (dark) 0x66F0707E.toInt() else 0x55D94F63.toInt()
-    val heroEnd: Int get() = if (dark) 0x40D9506A.toInt() else 0x33D9506A.toInt()
-    val accent2: Int = 0xFFFF7FA8.toInt() // coração (favorito)
+    val accentSoft: Int get() = if (dark) 0x2BEF4B57 else 0x1FD9343F
+    val accentTile: Int get() = if (dark) 0x40EF4B57 else 0x2ED9343F
+    val accentLine: Int get() = if (dark) 0x70EF4B57 else 0x59D9343F
+    val heroEnd: Int get() = if (dark) 0x4DC62A3A else 0x38C62A3A
+    val accent2: Int = 0xFFFF5964.toInt() // coração (favorito)
     val star: Int = 0xFFFFB02E.toInt() // estrela da nota
     val bg: Int get() = if (dark) 0xFF09090C.toInt() else 0xFFFBF7F8.toInt()
     val card: Int get() = if (dark) 0xFF121217.toInt() else 0xFFFFFFFF.toInt()
@@ -65,7 +72,7 @@ object P {
     val cPlan: Int get() = if (dark) 0xFFF5B85C.toInt() else 0xFFD9902B.toInt()
     val cDone: Int get() = if (dark) 0xFF5FD4A0.toInt() else 0xFF2FA878.toInt()
     val cPaused: Int get() = if (dark) 0xFFB69CFF.toInt() else 0xFF8A68E0.toInt()
-    val cFav: Int get() = if (dark) 0xFFFF7FA8.toInt() else 0xFFE0507F.toInt()
+    val cFav: Int get() = if (dark) 0xFFFF8A5C.toInt() else 0xFFE0602F.toInt()
 }
 
 /** Mesma cor com outra transparência (a = 0..255). */
@@ -155,7 +162,7 @@ fun Context.pill(
     x.setPadding(dp(18), dp(13), dp(18), dp(13))
     val r = dp(26).toFloat()
     val base: GradientDrawable = if (bg == P.accent) {
-        val g = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(bg, P.accentDeep))
+        val g = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(tint(bg, 0xEB), tint(P.accentDeep, 0xDB)))
         g.cornerRadius = r
         g.setStroke(dp(1), tint(Color.WHITE, 0x38))
         g
@@ -413,7 +420,7 @@ fun downloadBytes(url: String, maxBytes: Int = 8000000): ByteArray? = try {
 // ---------- Capas ----------
 
 private val COVER_COLORS = listOf(
-    Pair(0xFFE8788A.toInt(), 0xFF7A3046.toInt()),
+    Pair(0xFFE5606B.toInt(), 0xFF6E2230.toInt()),
     Pair(0xFFF0966A.toInt(), 0xFF8A4A32.toInt()),
     Pair(0xFF7FA6F0.toInt(), 0xFF2F4A86.toInt()),
     Pair(0xFF5CC9A0.toInt(), 0xFF1F6650.toInt()),
@@ -421,7 +428,59 @@ private val COVER_COLORS = listOf(
     Pair(0xFF8796B0.toInt(), 0xFF2A3347.toInt())
 )
 
+fun coverPalette(title: String): Pair<Int, Int> =
+    COVER_COLORS[(title.hashCode() and 0x7fffffff) % COVER_COLORS.size]
+
 object Covers {
+    private val blurCache = HashMap<String, Bitmap>()
+
+    /** Versão bem desfocada da capa (pequena, borrada por código e ampliada suavemente). */
+    fun blurred(store: Store, name: String): Bitmap? {
+        blurCache[name]?.let { return it }
+        val src = get(store, name) ?: return null
+        return try {
+            val w = 40
+            val h = Math.max(8, (src.height * w.toFloat() / src.width).toInt())
+            val small = Bitmap.createScaledBitmap(src, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
+            val px = IntArray(w * h)
+            small.getPixels(px, 0, w, 0, 0, w, h)
+            repeat(3) {
+                boxBlur(px, w, h, 3, true)
+                boxBlur(px, w, h, 3, false)
+            }
+            small.setPixels(px, 0, w, 0, 0, w, h)
+            val out = Bitmap.createScaledBitmap(small, w * 8, h * 8, true)
+            blurCache[name] = out
+            out
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    private fun boxBlur(px: IntArray, w: Int, h: Int, r: Int, horizontal: Boolean) {
+        val copy = px.copyOf()
+        val outer = if (horizontal) h else w
+        val inner = if (horizontal) w else h
+        for (o in 0 until outer) {
+            for (i in 0 until inner) {
+                var a = 0; var rr = 0; var g = 0; var b = 0; var n = 0
+                for (k in -r..r) {
+                    val j = i + k
+                    if (j < 0 || j >= inner) continue
+                    val idx = if (horizontal) o * w + j else j * w + o
+                    val c = copy[idx]
+                    a += c ushr 24
+                    rr += (c shr 16) and 0xFF
+                    g += (c shr 8) and 0xFF
+                    b += c and 0xFF
+                    n++
+                }
+                val dst = if (horizontal) o * w + i else i * w + o
+                px[dst] = ((a / n) shl 24) or ((rr / n) shl 16) or ((g / n) shl 8) or (b / n)
+            }
+        }
+    }
+
     private val cache = object : LruCache<String, Bitmap>(20 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
@@ -506,7 +565,7 @@ fun Context.coverView(store: Store, w: Work, radiusDp: Int = 12): CoverFrame {
         iv.setImageBitmap(bmp)
         f.addView(iv, MATCH, MATCH)
     } else {
-        val pal = COVER_COLORS[(w.title.hashCode() and 0x7fffffff) % COVER_COLORS.size]
+        val pal = coverPalette(w.title)
         f.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(pal.first, pal.second))
         val letter = w.title.trim().take(1).uppercase().ifEmpty { "?" }
         val t = tv(letter, 34f, Color.WHITE, true)
@@ -574,5 +633,59 @@ class FlowLayout(ctx: Context) : ViewGroup(ctx) {
             x += cw + hGap
             rowH = Math.max(rowH, ch)
         }
+    }
+}
+
+fun statusColor(s: String): Int = when (s) {
+    STATUS_READING -> P.cReading
+    STATUS_PLAN -> P.cPlan
+    STATUS_DONE -> P.cDone
+    STATUS_PAUSED -> P.cPaused
+    else -> P.accent
+}
+
+fun statusIcon(s: String): Ic = when (s) {
+    STATUS_READING -> Ic.BookOpen
+    STATUS_PLAN -> Ic.Bookmark
+    STATUS_DONE -> Ic.CheckCircle
+    STATUS_PAUSED -> Ic.Pause
+    else -> Ic.BookOpen
+}
+
+/** Capa grande no topo da obra: alinhada ao topo e dissolvendo suavemente para o fundo embaixo. */
+class FadeCover(
+    ctx: Context, private val bmp: Bitmap?, private val c1: Int, private val c2: Int, private val letter: String
+) : View(ctx) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val fade = Paint()
+    private val txt = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    init {
+        fade.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        txt.color = 0x33FFFFFF
+        txt.textAlign = Paint.Align.CENTER
+        txt.isFakeBoldText = true
+    }
+
+    override fun onDraw(c: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (w <= 0f || h <= 0f) return
+        val layer = c.saveLayer(0f, 0f, w, h, null)
+        if (bmp != null) {
+            val s = Math.max(w / bmp.width, h / bmp.height)
+            val dw = bmp.width * s
+            val dh = bmp.height * s
+            c.drawBitmap(bmp, null, RectF((w - dw) / 2f, 0f, (w - dw) / 2f + dw, dh), paint)
+        } else {
+            paint.shader = LinearGradient(0f, 0f, w, h, c1, c2, Shader.TileMode.CLAMP)
+            c.drawRect(0f, 0f, w, h, paint)
+            paint.shader = null
+            txt.textSize = h * 0.5f
+            c.drawText(letter, w / 2f, h * 0.55f, txt)
+        }
+        fade.shader = LinearGradient(0f, h * 0.45f, 0f, h, 0xFF000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
+        c.drawRect(0f, 0f, w, h, fade)
+        c.restoreToCount(layer)
     }
 }
