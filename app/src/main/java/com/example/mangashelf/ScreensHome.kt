@@ -2,7 +2,11 @@ package com.example.mangashelf
 
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextUtils
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -56,7 +60,15 @@ fun MainActivity.workCard(w: Work, play: Boolean, showStatus: Boolean = true): V
     if (w.total > 0 || w.status == STATUS_DONE) {
         col.addv(progressBar(w.progress(), 4), MATCH, WRAP, 0f, 2, 5, 2, 0)
     }
-    val sub = tv(if (showStatus) "${w.type} · ${w.status}" else w.type, 11f, P.sub)
+    val sub = tv(w.type, 11f, P.sub)
+    if (showStatus) {
+        val ss = SpannableStringBuilder("${w.type} · ")
+        val st = ss.length
+        ss.append(w.status)
+        ss.setSpan(ForegroundColorSpan(statusColor(w.status)), st, ss.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        ss.setSpan(StyleSpan(android.graphics.Typeface.BOLD), st, ss.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sub.text = ss
+    }
     sub.maxLines = 1
     sub.ellipsize = TextUtils.TruncateAt.END
     col.addv(sub, MATCH, WRAP, 0f, 2, 3, 2, 0)
@@ -65,66 +77,124 @@ fun MainActivity.workCard(w: Work, play: Boolean, showStatus: Boolean = true): V
     return col
 }
 
-/** Cada categoria vira um painel próprio: cor, ícone, contador e divisória. */
-private fun MainActivity.rail(
-    col: LinearLayout, ic: Ic, title: String, list: List<Work>, filter: String?,
-    color: Int, play: Boolean = false, showStatus: Boolean = false
-) {
-    if (list.isEmpty()) return
-    val panel = vbox()
-    val pr = dp(22).toFloat()
-    val bgG = GradientDrawable(
-        GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(tint(color, if (P.dark) 0x26 else 0x1F), tint(color, if (P.dark) 0x08 else 0x0A))
+/** Cartão de destaque: capa, nota, progresso e botão Continuar lendo. */
+private fun MainActivity.highlightCard(w: Work): View {
+    val sc = statusColor(w.status)
+    val card = hbox()
+    card.setPadding(dp(12), dp(12), dp(12), dp(12))
+    val r = dp(22).toFloat()
+    val bg = GradientDrawable(
+        GradientDrawable.Orientation.TL_BR,
+        intArrayOf(tint(P.accent, if (P.dark) 0x2E else 0x22), tint(P.accent, 0x0A))
     )
-    bgG.cornerRadius = pr
-    bgG.setStroke(dp(1), tint(color, if (P.dark) 0x4D else 0x44))
-    panel.background = bgG
-    panel.setPadding(dp(14), dp(14), 0, dp(14))
+    bg.cornerRadius = r
+    bg.setStroke(dp(1), tint(P.accent, if (P.dark) 0x55 else 0x44))
+    card.background = rippled(bg, r)
+    card.setOnClickListener { go(Route("detail", w.id)) }
+
+    card.addv(coverView(store, w), dp(104), WRAP, 0f, 0, 0, 12, 0)
+
+    val info = vbox()
+    val st = tv("${w.type} · ${w.status}", 11.5f, sc, true)
+    st.maxLines = 1
+    info.addv(st)
+    val title = tv(w.title, 16f, P.text, true)
+    title.maxLines = 2
+    title.ellipsize = TextUtils.TruncateAt.END
+    info.addv(title, MATCH, WRAP, 0f, 0, 3, 0, 0)
+
+    val meta = hbox()
+    meta.gravity = Gravity.CENTER_VERTICAL
+    meta.addv(IconView(this, Ic.StarSolid, if (w.rating > 0) P.star else P.sub, 15), dp(16), dp(16), 0f, 0, 0, 4, 0)
+    meta.addv(tv(if (w.rating > 0) "${fmtNum(w.rating)}/10" else "Sem nota", 12.5f, if (w.rating > 0) P.star else P.sub, true))
+    if (w.favorite) {
+        meta.addv(IconView(this, Ic.HeartSolid, P.accent2, 14), dp(15), dp(15), 0f, 10, 0, 0, 0)
+    }
+    info.addv(meta, MATCH, WRAP, 0f, 0, 6, 0, 0)
+
+    info.addv(tv(w.chapterText(), 12.5f, P.text, true), MATCH, WRAP, 0f, 0, 6, 0, 0)
+    if (w.total > 0) {
+        val pr = hbox()
+        pr.gravity = Gravity.CENTER_VERTICAL
+        pr.addv(progressBar(w.progress(), 5), 0, WRAP, 1f, 0, 0, 8, 0)
+        pr.addv(tv("${w.progress()}%", 11.5f, P.sub, true))
+        info.addv(pr, MATCH, WRAP, 0f, 0, 5, 0, 0)
+    }
+
+    info.addv(View(this), MATCH, 0, 1f)
+    val btn = pill("Continuar lendo", size = 13f, icon = Ic.PlaySolid) { continueReading(w) }
+    btn.setPadding(dp(14), dp(10), dp(14), dp(10))
+    info.addv(btn, MATCH, WRAP, 0f, 0, 10, 0, 0)
+
+    card.addv(info, 0, MATCH, 1f)
+    return card
+}
+
+/** Destaques: obras que estão sendo lidas, as mais recentes primeiro. */
+private fun MainActivity.highlights(col: LinearLayout) {
+    val reading = store.works.filter { it.status == STATUS_READING }
+        .sortedWith(compareByDescending<Work> { it.lastRead }.thenByDescending { it.created })
+        .take(10)
 
     val head = hbox()
-    head.addv(iconTile(ic, 20, color), dp(40), dp(40), 0f, 0, 0, 10, 0)
-    val tcol = vbox()
-    tcol.addv(tv(title, 17f, P.text, true))
-    head.addv(tcol, 0, WRAP, 1f)
-    val count = tv(list.size.toString(), 12f, color, true)
-    count.gravity = Gravity.CENTER
-    count.setPadding(dp(9), dp(3), dp(9), dp(3))
-    count.background = shape(tint(color, 0x2E), dp(12).toFloat(), tint(color, 0x55), dp(1))
-    head.addv(count, WRAP, WRAP, 0f, 0, 0, 6, 0)
-    if (filter != null) {
-        val more = tv("", 13f, color, true)
-        more.setIconText(Ic.ChevronRight, "Ver tudo", true, 16)
-        more.setPadding(dp(8), dp(6), dp(14), dp(6))
+    head.gravity = Gravity.CENTER_VERTICAL
+    head.addv(sectionTitle(Ic.StarSolid, "Destaques", 20f), 0, WRAP, 1f)
+    if (reading.isNotEmpty()) {
+        val more = tv("", 13f, P.cReading, true)
+        more.setIconText(Ic.ChevronRight, "Ver todas", true, 16)
+        more.setPadding(dp(8), dp(6), dp(4), dp(6))
         more.setOnClickListener {
-            fStatus = filter
+            fStatus = STATUS_READING
             fType = "Todos"
             fGenre = "Todos"
             fQuery = ""
             goTop("library")
         }
         head.addv(more, WRAP, WRAP)
-    } else {
-        head.addv(View(this), dp(14), dp(1))
     }
-    panel.addv(head)
+    col.addv(head, MATCH, WRAP, 0f, 2, 20, 0, 10)
 
-    // divisória em degradê (some nas pontas)
-    val div = View(this)
-    div.background = GradientDrawable(
-        GradientDrawable.Orientation.LEFT_RIGHT,
-        intArrayOf(tint(color, 0x77), tint(color, 0x00))
-    )
-    panel.addv(div, MATCH, dp(1), 0f, 0, 12, 0, 12)
+    if (reading.isEmpty()) {
+        val card = vbox()
+        card.background = shape(P.card, dp(22).toFloat(), P.line, dp(1))
+        card.setPadding(dp(18), dp(18), dp(18), dp(18))
+        card.addv(tv("Nenhuma obra em leitura", 16f, P.text, true))
+        card.addv(
+            tv("Marque uma obra como Lendo para ela aparecer aqui em destaque, com botão de continuar.", 13.5f, P.sub),
+            MATCH, WRAP, 0f, 0, 6, 0, 12
+        )
+        card.addv(outlinePill("Abrir Biblioteca", icon = Ic.Library) { goTop("library") })
+        col.addv(card)
+        return
+    }
 
+    val screenW = resources.displayMetrics.widthPixels
+    val avail = screenW - dp(32)
+    val cardW = if (reading.size == 1) avail else Math.min((avail * 0.9f).toInt(), dp(400))
     val hs = HorizontalScrollView(this)
     hs.isHorizontalScrollBarEnabled = false
     val row = hbox()
-    row.gravity = Gravity.TOP
-    for (w in list.take(15)) row.addv(workCard(w, play, showStatus), dp(108), WRAP, 0f, 0, 0, 12, 0)
+    for (w in reading) row.addv(highlightCard(w), cardW, WRAP, 0f, 0, 0, 12, 0)
     hs.addView(row)
-    panel.addv(hs, MATCH, WRAP)
-    col.addv(panel, MATCH, WRAP, 0f, 0, 16, 0, 0)
+    col.addv(hs, MATCH, WRAP)
+}
+
+/** Chip de status com a cor da categoria (mesmas cores da Início). */
+private fun MainActivity.statusChip(label: String, c: Int, selected: Boolean, onClick: () -> Unit): View {
+    val chip = hbox()
+    chip.gravity = Gravity.CENTER_VERTICAL
+    chip.setPadding(dp(13), dp(8), dp(14), dp(8))
+    val r = dp(20).toFloat()
+    chip.background = rippled(
+        if (selected) shape(tint(c, 0x3A), r, c, dp(1)) else shape(tint(c, 0x14), r, tint(c, 0x55), dp(1)), r
+    )
+    val dot = View(this)
+    dot.background = shape(c, dp(4).toFloat())
+    chip.addv(dot, dp(8), dp(8), 0f, 0, 0, 7, 0)
+    chip.addv(tv(label, 13f, if (selected) c else P.text, selected), WRAP, WRAP)
+    chip.setOnClickListener { onClick() }
+    chip.pressFx()
+    return chip
 }
 
 /** Faixa de resumo: quantas obras em cada categoria; toque abre a Biblioteca já filtrada. */
@@ -134,6 +204,7 @@ private fun MainActivity.summaryStrip(col: LinearLayout) {
         Triple(STATUS_PLAN, "Quero ler", P.cPlan),
         Triple(STATUS_DONE, "Concluídos", P.cDone),
         Triple(STATUS_PAUSED, "Pausados", P.cPaused),
+        Triple(STATUS_DROPPED, "Dropados", P.cDropped),
         Triple(FAV, "Favoritos", P.cFav)
     )
     val hs = HorizontalScrollView(this)
@@ -211,15 +282,8 @@ fun MainActivity.buildHome(): View {
         return scroll
     }
 
-    val reading = store.works.filter { it.status == STATUS_READING }
-    val cont = reading.filter { it.lastRead > 0 }.sortedByDescending { it.lastRead }
     summaryStrip(col)
-    rail(col, Ic.PlaySolid, "Continuar lendo", cont, null, P.accent, true)
-    rail(col, Ic.BookOpen, "Lendo", reading.sortedBy { it.title.lowercase() }, STATUS_READING, P.cReading)
-    rail(col, Ic.Bookmark, "Quero ler", store.works.filter { it.status == STATUS_PLAN }, STATUS_PLAN, P.cPlan)
-    rail(col, Ic.CheckCircle, "Concluídos", store.works.filter { it.status == STATUS_DONE }, STATUS_DONE, P.cDone)
-    rail(col, Ic.Pause, "Pausados", store.works.filter { it.status == STATUS_PAUSED }, STATUS_PAUSED, P.cPaused)
-    rail(col, Ic.Heart, "Favoritos", store.works.filter { it.favorite }, FAV, P.cFav, false, true)
+    highlights(col)
     return scroll
 }
 
@@ -324,13 +388,16 @@ fun MainActivity.buildLibrary(): View {
 
     fun buildChips() {
         chipRow.removeAllViews()
-        val opts = listOf("Todos", STATUS_READING, STATUS_PLAN, STATUS_DONE, STATUS_PAUSED, FAV)
+        val opts = listOf("Todos", STATUS_READING, STATUS_PLAN, STATUS_DONE, STATUS_PAUSED, STATUS_DROPPED, FAV)
         for (o in opts) {
-            chipRow.addv(chip(o, o == fStatus) {
+            val click = {
                 fStatus = o
                 buildChips()
                 refresh()
-            }, WRAP, WRAP, 0f, 0, 0, 8, 0)
+            }
+            val v: View = if (o == "Todos") chip(o, o == fStatus, null, click)
+            else statusChip(o, if (o == FAV) P.cFav else statusColor(o), o == fStatus, click)
+            chipRow.addv(v, WRAP, WRAP, 0f, 0, 0, 8, 0)
         }
     }
 

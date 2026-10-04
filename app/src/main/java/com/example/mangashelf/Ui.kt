@@ -80,6 +80,7 @@ object P {
     val cPlan: Int get() = if (dark) 0xFFF5B85C.toInt() else 0xFFD9902B.toInt()
     val cDone: Int get() = if (dark) 0xFF5FD4A0.toInt() else 0xFF2FA878.toInt()
     val cPaused: Int get() = if (dark) 0xFFB69CFF.toInt() else 0xFF8A68E0.toInt()
+    val cDropped: Int get() = if (dark) 0xFF9FB0C8.toInt() else 0xFF65748B.toInt()
     val cFav: Int get() = if (dark) 0xFFFF8A5C.toInt() else 0xFFE0602F.toInt()
 }
 
@@ -771,6 +772,7 @@ fun statusColor(s: String): Int = when (s) {
     STATUS_PLAN -> P.cPlan
     STATUS_DONE -> P.cDone
     STATUS_PAUSED -> P.cPaused
+    STATUS_DROPPED -> P.cDropped
     else -> P.accent
 }
 
@@ -779,6 +781,7 @@ fun statusIcon(s: String): Ic = when (s) {
     STATUS_PLAN -> Ic.Bookmark
     STATUS_DONE -> Ic.CheckCircle
     STATUS_PAUSED -> Ic.Pause
+    STATUS_DROPPED -> Ic.Ban
     else -> Ic.BookOpen
 }
 

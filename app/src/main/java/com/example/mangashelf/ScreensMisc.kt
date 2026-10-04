@@ -82,6 +82,10 @@ fun MainActivity.buildStats(): View {
         statCard(ws.count { it.status == STATUS_PAUSED }.toString(), "Pausadas", Ic.Pause),
         statCard(ws.count { it.status == STATUS_PLAN }.toString(), "Quero ler", Ic.Bookmark)
     )
+    row(
+        statCard(ws.count { it.status == STATUS_DROPPED }.toString(), "Dropadas", Ic.Ban),
+        statCard(ws.count { it.favorite }.toString(), "Favoritas", Ic.Heart)
+    )
 
     val byType = TYPES.map { t -> Pair(t, ws.count { it.type == t }) }.filter { it.second > 0 }
     barBlock(col, "Por tipo", byType)
