@@ -1,5 +1,15 @@
 package com.example.mangashelf
 
+import androidx.recyclerview.widget.PagerSnapHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import android.graphics.Paint
+import android.graphics.Canvas
+import android.content.Context
+import androidx.core.widget.TextViewCompat
+import android.util.TypedValue
+import android.view.ViewTreeObserver
+import android.view.ViewOutlineProvider
+import android.graphics.Outline
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.SpannableStringBuilder
@@ -77,99 +87,115 @@ fun MainActivity.workCard(w: Work, play: Boolean, showStatus: Boolean = true): V
     return col
 }
 
-/** Cartão de destaque: capa, nota, progresso e botão Continuar lendo. */
-private fun MainActivity.highlightCard(w: Work): View {
-    val sc = statusColor(w.status)
-    val card = hbox()
-    card.setPadding(dp(12), dp(12), dp(12), dp(12))
-    val r = dp(22).toFloat()
-    val bg = GradientDrawable(
-        GradientDrawable.Orientation.TL_BR,
-        intArrayOf(tint(P.accent, if (P.dark) 0x2E else 0x22), tint(P.accent, 0x0A))
+/** Cartão de destaque em tela cheia: capa inteira, nome, nota, capítulo e botão Continuar lendo. */
+private fun MainActivity.highlightCard(w: Work, pageW: Int, pageH: Int): View {
+    val r = dp(26).toFloat()
+    val card = FrameLayout(this)
+    card.background = shape(P.card, r, P.line, dp(1))
+    card.clipToOutline = true
+    card.outlineProvider = object : ViewOutlineProvider() {
+        override fun getOutline(view: View, outline: Outline) {
+            outline.setRoundRect(0, 0, view.width, view.height, r)
+        }
+    }
+    val cover = coverView(store, w, 0)
+    if (pageW > 0) cover.ratio = pageH.toFloat() / pageW
+    card.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
+
+    val shade = View(this)
+    shade.background = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(0x40000000, 0x00000000, 0x00000000, 0xB8000000.toInt(), 0xF2000000.toInt())
     )
-    bg.cornerRadius = r
-    bg.setStroke(dp(1), tint(P.accent, if (P.dark) 0x55 else 0x44))
-    card.background = rippled(bg, r)
-    card.setOnClickListener { go(Route("detail", w.id)) }
+    card.addView(shade, FrameLayout.LayoutParams(MATCH, MATCH))
 
-    card.addv(coverView(store, w), dp(104), WRAP, 0f, 0, 0, 12, 0)
-
-    val info = vbox()
-    val st = tv("${w.type} · ${w.status}", 11.5f, sc, true)
-    st.maxLines = 1
-    info.addv(st)
-    val title = tv(w.title, 16f, P.text, true)
-    title.maxLines = 2
-    title.ellipsize = TextUtils.TruncateAt.END
-    info.addv(title, MATCH, WRAP, 0f, 0, 3, 0, 0)
-
-    val meta = hbox()
-    meta.gravity = Gravity.CENTER_VERTICAL
-    meta.addv(IconView(this, Ic.StarSolid, if (w.rating > 0) P.star else P.sub, 15), dp(16), dp(16), 0f, 0, 0, 4, 0)
-    meta.addv(tv(if (w.rating > 0) "${fmtNum(w.rating)}/10" else "Sem nota", 12.5f, if (w.rating > 0) P.star else P.sub, true))
+    // topo: tipo + favorito (esquerda) e botão de ocultar (direita)
+    val topLeft = hbox()
+    topLeft.gravity = Gravity.CENTER_VERTICAL
+    val typeChip = tv(w.type.uppercase(), 11f, Color.WHITE, true)
+    typeChip.letterSpacing = 0.08f
+    typeChip.setPadding(dp(11), dp(5), dp(11), dp(5))
+    typeChip.background = shape(tint(P.accent, 0xD0), dp(12).toFloat())
+    topLeft.addv(typeChip, WRAP, WRAP)
     if (w.favorite) {
-        meta.addv(IconView(this, Ic.HeartSolid, P.accent2, 14), dp(15), dp(15), 0f, 10, 0, 0, 0)
+        topLeft.addv(IconView(this, Ic.HeartSolid, P.accent2, 20), dp(20), dp(20), 0f, 10, 0, 0, 0)
     }
-    info.addv(meta, MATCH, WRAP, 0f, 0, 6, 0, 0)
+    val tlp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START)
+    tlp.setMargins(dp(14), dp(14), 0, 0)
+    card.addView(topLeft, tlp)
 
-    info.addv(tv(w.chapterText(), 12.5f, P.text, true), MATCH, WRAP, 0f, 0, 6, 0, 0)
-    if (w.total > 0) {
-        val pr = hbox()
-        pr.gravity = Gravity.CENTER_VERTICAL
-        pr.addv(progressBar(w.progress(), 5), 0, WRAP, 1f, 0, 0, 8, 0)
-        pr.addv(tv("${w.progress()}%", 11.5f, P.sub, true))
-        info.addv(pr, MATCH, WRAP, 0f, 0, 5, 0, 0)
-    }
-
-    info.addv(View(this), MATCH, 0, 1f)
-    val btn = pill("Continuar lendo", size = 13f, icon = Ic.PlaySolid) { continueReading(w) }
-    btn.setPadding(dp(14), dp(10), dp(14), dp(10))
-    info.addv(btn, MATCH, WRAP, 0f, 0, 10, 0, 0)
-
-    card.addv(info, 0, MATCH, 1f)
-
-    val x = roundBtn(Ic.Close, 30, 15, P.sub) {
+    val x = roundBtn(Ic.Close, 36, 17, Color.WHITE) {
         w.hideHighlight = true
         store.save()
         toast("Removida dos destaques")
         render()
     }
-    val wrap = FrameLayout(this)
-    wrap.addView(card, FrameLayout.LayoutParams(MATCH, WRAP))
-    val xlp = FrameLayout.LayoutParams(dp(30), dp(30), Gravity.TOP or Gravity.END)
-    xlp.setMargins(0, dp(8), dp(8), 0)
-    wrap.addView(x, xlp)
-    return wrap
+    x.background = rippled(shape(0x73000000, dp(18).toFloat(), 0x33FFFFFF, dp(1)), dp(18).toFloat())
+    val xlp = FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.END)
+    xlp.setMargins(0, dp(12), dp(12), 0)
+    card.addView(x, xlp)
+
+    // base: nome, faixa de números, progresso e botão
+    val content = vbox()
+    content.setPadding(dp(18), dp(18), dp(18), dp(18))
+    val title = tv(w.title, 26f, Color.WHITE, true)
+    title.maxLines = 3
+    title.ellipsize = TextUtils.TruncateAt.END
+    title.setShadowLayer(8f, 0f, 2f, 0xAA000000.toInt())
+    content.addv(title, MATCH, WRAP, 0f, 0, 0, 0, 12)
+
+    val strip = hbox()
+    strip.background = shape(0x66000000, dp(18).toFloat(), 0x33FFFFFF, dp(1))
+    strip.setPadding(dp(14), dp(12), dp(14), dp(12))
+    fun cell(label: String, value: String, vc: Int, weight: Float, first: Boolean) {
+        val c = vbox()
+        c.setPadding(if (first) 0 else dp(12), 0, 0, 0)
+        val l = tv(label, 10.5f, 0xB3FFFFFF.toInt(), true)
+        l.letterSpacing = 0.1f
+        l.maxLines = 1
+        c.addv(l)
+        val v = tv(value, 22f, vc, true)
+        v.maxLines = 1
+        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(v, 13, 22, 1, TypedValue.COMPLEX_UNIT_SP)
+        c.addv(v, MATCH, WRAP, 0f, 0, 3, 0, 0)
+        strip.addv(c, 0, WRAP, weight)
+    }
+    fun divider() {
+        val d = View(this)
+        d.setBackgroundColor(0x33FFFFFF)
+        strip.addv(d, dp(1), dp(38))
+    }
+    cell("NOTA", if (w.rating > 0) fmtNum(w.rating) else "—", if (w.rating > 0) P.star else 0xB3FFFFFF.toInt(), 0.7f, true)
+    divider()
+    cell("CAPÍTULO", fmtNum(w.current) + (if (w.total > 0) " / ${w.total}" else ""), Color.WHITE, 1.4f, false)
+    divider()
+    cell("PROGRESSO", "${w.progress()}%", Color.WHITE, 1.3f, false)
+    content.addv(strip, MATCH, WRAP, 0f, 0, 0, 0, 12)
+
+    if (w.total > 0) {
+        content.addv(progressBar(w.progress(), 6), MATCH, WRAP, 0f, 0, 0, 0, 14)
+    }
+
+    val btn = pill("Continuar lendo", size = 16f, icon = Ic.PlaySolid) { continueReading(w) }
+    btn.setPadding(dp(18), dp(15), dp(18), dp(15))
+    content.addv(btn, MATCH, WRAP)
+
+    card.addView(content, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
+    card.setOnClickListener { go(Route("detail", w.id)) }
+    return card
 }
 
-/** Destaques: obras que estão sendo lidas, as mais recentes primeiro. */
-private fun MainActivity.highlights(col: LinearLayout) {
+/** Destaques: uma página por obra, deslizando para o lado, com indicador embaixo. */
+private fun MainActivity.highlights(col: LinearLayout, scroll: ScrollView, anchor: View) {
     val allReading = store.works.filter { it.status == STATUS_READING }
     val hidden = allReading.filter { it.hideHighlight }.sortedBy { it.title.lowercase() }
     val reading = allReading.filter { !it.hideHighlight }
         .sortedWith(compareByDescending<Work> { it.lastRead }.thenByDescending { it.created })
 
-    val head = hbox()
-    head.gravity = Gravity.CENTER_VERTICAL
-    head.addv(sectionTitle(Ic.StarSolid, "Destaques", 20f), 0, WRAP, 1f)
-    if (reading.isNotEmpty()) {
-        val more = tv("", 13f, P.cReading, true)
-        more.setIconText(Ic.ChevronRight, "Ver todas", true, 16)
-        more.setPadding(dp(8), dp(6), dp(4), dp(6))
-        more.setOnClickListener {
-            fStatus = STATUS_READING
-            fType = "Todos"
-            fGenre = "Todos"
-            fQuery = ""
-            goTop("library")
-        }
-        head.addv(more, WRAP, WRAP)
-    }
-    col.addv(head, MATCH, WRAP, 0f, 2, 20, 0, 10)
-
-    if (hidden.isNotEmpty()) {
+    fun restoreLink() {
+        if (hidden.isEmpty()) return
         val restore = tv("Ocultas dos destaques (${hidden.size})", 12.5f, P.sub, true)
-        restore.setPadding(dp(4), dp(2), dp(4), dp(8))
+        restore.setPadding(dp(4), dp(8), dp(4), dp(8))
         restore.setOnClickListener {
             listDialog("Voltar para os destaques", hidden.map { it.title }) { i ->
                 hidden[i].hideHighlight = false
@@ -186,17 +212,130 @@ private fun MainActivity.highlights(col: LinearLayout) {
         card.setPadding(dp(18), dp(18), dp(18), dp(18))
         card.addv(tv(if (hidden.isEmpty()) "Nenhuma obra em leitura" else "Nenhum destaque no momento", 16f, P.text, true))
         card.addv(
-            tv(if (hidden.isEmpty()) "Marque uma obra como Lendo para ela aparecer aqui em destaque, com botão de continuar." else "Suas obras em leitura estão ocultas dos destaques. Toque em Ocultas dos destaques para trazer de volta.", 13.5f, P.sub),
+            tv(
+                if (hidden.isEmpty()) "Marque uma obra como Lendo para ela aparecer aqui em destaque, com botão de continuar."
+                else "Suas obras em leitura estão ocultas dos destaques. Toque em Ocultas dos destaques para trazer de volta.",
+                13.5f, P.sub
+            ),
             MATCH, WRAP, 0f, 0, 6, 0, 12
         )
         card.addv(outlinePill("Abrir Biblioteca", icon = Ic.Library) { goTop("library") })
-        col.addv(card)
+        col.addv(card, MATCH, WRAP, 0f, 0, 14, 0, 0)
+        restoreLink()
         return
     }
 
-    val stack = vbox()
-    for (w in reading) stack.addv(highlightCard(w), MATCH, WRAP, 0f, 0, 0, 0, 12)
-    col.addv(stack, MATCH, WRAP)
+    var pageW = 0
+    var pageH = 0
+    val rv = RecyclerView(this)
+    val lm = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+    rv.layoutManager = lm
+    rv.overScrollMode = View.OVER_SCROLL_NEVER
+    rv.clipToPadding = false
+    PagerSnapHelper().attachToRecyclerView(rv)
+
+    val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        override fun getItemCount() = reading.size
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val f = FrameLayout(parent.context)
+            f.setPadding(parent.context.dp(6), 0, parent.context.dp(6), 0)
+            f.layoutParams = RecyclerView.LayoutParams(MATCH, MATCH)
+            return object : RecyclerView.ViewHolder(f) {}
+        }
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            val f = holder.itemView as FrameLayout
+            f.removeAllViews()
+            f.addView(highlightCard(reading[position], pageW, pageH), FrameLayout.LayoutParams(MATCH, MATCH))
+        }
+    }
+    rv.adapter = adapter
+    col.addv(rv, MATCH, dp(480), 0f, -6, 14, -6, 0)
+
+    // indicador visual de páginas
+    val dots = PageDots(this)
+    dots.count = reading.size
+    if (reading.size > 1) col.addv(dots, MATCH, dp(26), 0f, 0, 6, 0, 0)
+    restoreLink()
+
+    fun updateDots() {
+        val first = lm.findFirstVisibleItemPosition()
+        if (first < 0) return
+        val v = lm.findViewByPosition(first) ?: return
+        val frac = if (v.width > 0) -v.left.toFloat() / v.width else 0f
+        dots.set(first + frac)
+    }
+    rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+            updateDots()
+        }
+        override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+            if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                val pos = lm.findFirstCompletelyVisibleItemPosition()
+                if (pos >= 0) homePage = pos
+            }
+        }
+    })
+    val startPage = Math.min(homePage, reading.size - 1)
+    rv.post {
+        if (startPage > 0) lm.scrollToPosition(startPage)
+        rv.post { updateDots() }
+    }
+
+    // altura = espaço visível entre a barra de pesquisa e a barra de navegação (menos o indicador)
+    scroll.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+        override fun onGlobalLayout() {
+            val sh = scroll.height
+            if (sh <= 0 || anchor.bottom <= 0 || rv.width <= 0) return
+            val extra = if (reading.size > 1) dp(32) else 0
+            val h = Math.max(dp(380), sh - (anchor.bottom + dp(14)) - extra - dp(8))
+            val w = rv.width - dp(12)
+            if (pageH == h && pageW == w) return
+            pageH = h
+            pageW = w
+            rv.layoutParams.height = h
+            rv.requestLayout()
+            adapter.notifyDataSetChanged()
+        }
+    })
+}
+
+private var homePage = 0
+
+/** Bolinhas de página: a atual vira uma pílula comprida e a transição acompanha o dedo. */
+class PageDots(ctx: Context) : View(ctx) {
+    var count = 0
+    private var pos = 0f
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val d = ctx.resources.displayMetrics.density
+
+    fun set(p: Float) {
+        pos = p
+        invalidate()
+    }
+
+    override fun onDraw(c: Canvas) {
+        if (count <= 1) return
+        val small = 7 * d
+        val big = 26 * d
+        val gap = 7 * d
+        val total = (count - 1) * (small + gap) + big
+        val f = Math.min(1f, (width - 8 * d) / total)
+        val active = P.accent
+        val idle = tint(P.sub, 0x66)
+        val ws = FloatArray(count) { i ->
+            val t = 1f - Math.min(1f, Math.abs(i - pos))
+            (small + (big - small) * t) * f
+        }
+        var x = (width - (ws.sum() + (count - 1) * gap * f)) / 2f
+        val r = small * f / 2f
+        val cy = height / 2f
+        for (i in 0 until count) {
+            val t = 1f - Math.min(1f, Math.abs(i - pos))
+            paint.color = androidx.core.graphics.ColorUtils.blendARGB(idle, active, t)
+            c.drawRoundRect(x, cy - r, x + ws[i], cy + r, r, r, paint)
+            x += ws[i] + gap * f
+        }
+    }
 }
 
 /** Chip de status com a cor da categoria (mesmas cores da Início). */
@@ -259,16 +398,16 @@ fun MainActivity.buildHome(): View {
     val scroll = ScrollView(this)
     scroll.setBackgroundColor(P.bg)
     val col = vbox()
-    col.setPadding(dp(16), dp(16), dp(16), dp(24))
+    col.setPadding(dp(16), dp(16), dp(16), dp(8))
     scroll.addView(col)
 
     val head = hbox()
+    head.gravity = Gravity.CENTER_VERTICAL
     val logo = ImageView(this)
     logo.setImageResource(R.drawable.logo_mangadeck)
     head.addv(logo, dp(48), dp(48), 0f, 0, 0, 12, 0)
     val titles = vbox()
     titles.addv(tv("MangaDeck", 24f, P.text, true))
-    titles.addv(tv("${store.works.size} obras na sua biblioteca", 13f, P.sub), MATCH, WRAP, 0f, 0, 2, 0, 0)
     head.addv(titles, 0, WRAP, 1f)
     head.addv(roundBtn(Ic.Globe, 42, 20) { openInBrowser(null, null, false) }, dp(42), dp(42), 0f, 0, 0, 8, 0)
     head.addv(roundBtn(Ic.Help, 42, 20) { go(Route("tutorial")) }, dp(42), dp(42))
@@ -302,8 +441,7 @@ fun MainActivity.buildHome(): View {
         return scroll
     }
 
-    summaryStrip(col)
-    highlights(col)
+    highlights(col, scroll, sf)
     return scroll
 }
 
