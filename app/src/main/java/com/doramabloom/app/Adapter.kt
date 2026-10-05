@@ -328,7 +328,7 @@ class DramaAdapter(
         val root = LinearLayout(c)
         root.orientation = LinearLayout.VERTICAL
         root.background = roundRect(Color.WHITE, c.dp(34).toFloat(), Palette.line, c.dp(1))
-        root.elevation = c.dp(6).toFloat()
+        root.elevation = 0f
         root.clipToOutline = true
         val rlp = RecyclerView.LayoutParams(MATCH, MATCH)
         rlp.setMargins(c.dp(2), c.dp(4), c.dp(2), c.dp(8))
@@ -380,14 +380,19 @@ class DramaAdapter(
         val gc = smallPill(c, "heart")
         val chip = smallPill(c, "play")
         chips.addView(gc, c.lin(WRAP, WRAP, r = 6))
-        chips.addView(chip, c.lin(WRAP, WRAP, r = 6))
-        chips.addView(View(c), c.lin(0, c.dp(1), 1f))
-        val rating = RatingView(c, 17, false)
-        chips.addView(rating, c.lin(WRAP, WRAP))
+        chips.addView(chip, c.lin(WRAP, WRAP))
         info.addView(chips, c.lin(MATCH, WRAP))
 
+        val prow = LinearLayout(c)
+        prow.orientation = LinearLayout.HORIZONTAL
+        prow.gravity = Gravity.CENTER_VERTICAL
         val prog = c.label("", 14f, Palette.text, true)
-        info.addView(prog, c.lin(WRAP, WRAP, t = 12))
+        prog.maxLines = 1
+        prog.ellipsize = TextUtils.TruncateAt.END
+        prow.addView(prog, c.lin(0, WRAP, 1f, r = 8))
+        val rating = RatingView(c, 17, false)
+        prow.addView(rating, c.lin(WRAP, WRAP))
+        info.addView(prow, c.lin(MATCH, WRAP, t = 12))
         val bar = SoftBar(c)
         info.addView(bar, c.lin(MATCH, c.dp(11), t = 6))
 

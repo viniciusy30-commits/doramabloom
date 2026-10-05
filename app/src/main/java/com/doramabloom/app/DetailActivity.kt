@@ -4,9 +4,11 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -87,6 +89,9 @@ class DetailActivity : AppCompatActivity() {
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.setPadding(dp(16), dp(10), dp(16), dp(40))
+        col.clipChildren = false
+        col.clipToPadding = false
+        sv.clipChildren = false
         sv.addView(col)
         root.addView(sv, FrameLayout.LayoutParams(MATCH, MATCH))
 
@@ -135,25 +140,42 @@ class DetailActivity : AppCompatActivity() {
 
         // ---- hero
         val hero = FrameLayout(this)
-        hero.background = gradient(g.primary, g.dark, dp(30).toFloat(), GradientDrawable.Orientation.TL_BR)
-        hero.elevation = dp(6).toFloat()
+        hero.background = gradient(g.primary, g.dark, dp(32).toFloat(), GradientDrawable.Orientation.TL_BR)
+        hero.elevation = dp(5).toFloat()
+        hero.clipToOutline = true
         val deco = IconView(this, "blossom", Color.parseColor("#22FFFFFF"), 130)
         val dlp = FrameLayout.LayoutParams(WRAP, WRAP)
         dlp.gravity = Gravity.END or Gravity.BOTTOM
         dlp.setMargins(0, 0, dp(-26), dp(-26))
         hero.addView(deco, dlp)
+        val deco2 = IconView(this, "petal", Color.parseColor("#33FFFFFF"), 34)
+        val d2lp = FrameLayout.LayoutParams(WRAP, WRAP)
+        d2lp.gravity = Gravity.END or Gravity.TOP
+        d2lp.setMargins(0, dp(10), dp(54), 0)
+        hero.addView(deco2, d2lp)
+        val spark = IconView(this, "sparkle", Color.parseColor("#77FFFFFF"), 20)
+        val slp = FrameLayout.LayoutParams(WRAP, WRAP)
+        slp.gravity = Gravity.END or Gravity.TOP
+        slp.setMargins(0, dp(14), dp(16), 0)
+        hero.addView(spark, slp)
+
+        val heroCol = LinearLayout(this)
+        heroCol.orientation = LinearLayout.VERTICAL
 
         val hrow = LinearLayout(this)
         hrow.orientation = LinearLayout.HORIZONTAL
-        hrow.setPadding(dp(16), dp(16), dp(16), dp(16))
-        val cover = CoverView(this, 22)
+        hrow.setPadding(dp(16), dp(16), dp(16), dp(12))
+        val ring = FrameLayout(this)
+        ring.setPadding(dp(3), dp(3), dp(3), dp(3))
+        ring.background = roundRect(Color.WHITE, dp(23).toFloat())
+        val cover = CoverView(this, 20)
         cover.bind(d, 600)
-        cover.elevation = dp(6).toFloat()
-        hrow.addView(cover, lin(dp(124), dp(182), r = 14))
+        ring.addView(cover, FrameLayout.LayoutParams(dp(112), dp(166)))
+        hrow.addView(ring, lin(WRAP, WRAP, r = 14))
 
         val info = LinearLayout(this)
         info.orientation = LinearLayout.VERTICAL
-        val title = label(d.title, 21f, Color.WHITE, true, true)
+        val title = label(d.title, 22f, Color.WHITE, true, true)
         title.maxLines = 4
         title.ellipsize = TextUtils.TruncateAt.END
         info.addView(title)
@@ -162,52 +184,46 @@ class DetailActivity : AppCompatActivity() {
         }
         info.addView(label(subtitle(d), 12f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 6))
 
-        val gs = HorizontalScrollView(this)
-        gs.isHorizontalScrollBarEnabled = false
-        val grow = LinearLayout(this)
-        grow.orientation = LinearLayout.HORIZONTAL
-        gs.addView(grow)
-        grow.addView(pill(g.label, glass, Color.WHITE, 11f, g.icon), lin(WRAP, WRAP, r = 6))
+        // gêneros, status e país: as pílulas quebram de linha, nada é cortado
+        val flow = FlowLayout(this)
+        flow.hGap = dp(6)
+        flow.vGap = dp(6)
+        flow.addView(pill(g.label, glass, Color.WHITE, 11f, g.icon))
         for (tk in d.tags) {
             if (tk == d.genre) continue
             val tg = Genres.byKey(tk)
-            grow.addView(pill(tg.label, glass, Color.WHITE, 11f, tg.icon), lin(WRAP, WRAP, r = 6))
+            flow.addView(pill(tg.label, glass, Color.WHITE, 11f, tg.icon))
         }
-        info.addView(gs, lin(MATCH, WRAP, t = 8))
-
-        // status e país: o "efeito" dos filtros aparece aqui também
-        val sc2 = HorizontalScrollView(this)
-        sc2.isHorizontalScrollBarEnabled = false
-        val row2 = LinearLayout(this)
-        row2.orientation = LinearLayout.HORIZONTAL
-        sc2.addView(row2)
         val statusPill = pill("", Palette.pink, Color.WHITE, 11f, "play")
-        row2.addView(statusPill, lin(WRAP, WRAP, r = 6))
-        val cc = Atmosphere.country(d.country)
-        row2.addView(pill(d.country, glass, Color.WHITE, 11f, "flag"), lin(WRAP, WRAP, r = 6))
-        info.addView(sc2, lin(MATCH, WRAP, t = 6))
+        flow.addView(statusPill)
+        flow.addView(pill(d.country, glass, Color.WHITE, 11f, "flag"))
+        info.addView(flow, lin(MATCH, WRAP, t = 10))
+        hrow.addView(info, lin(0, WRAP, 1f))
+        heroCol.addView(hrow, lin(MATCH, WRAP))
 
-        val srow = LinearLayout(this)
-        srow.orientation = LinearLayout.HORIZONTAL
-        srow.gravity = Gravity.CENTER_VERTICAL
-        val badge = scoreBadge(50, 20f)
+        // faixa da nota
+        val strip = LinearLayout(this)
+        strip.orientation = LinearLayout.HORIZONTAL
+        strip.gravity = Gravity.CENTER_VERTICAL
+        strip.setPadding(dp(10), dp(8), dp(16), dp(8))
+        strip.background = roundRect(Color.parseColor("#33FFFFFF"), dp(28).toFloat())
+        val badge = scoreBadge(46, 19f)
         badge.setTextColor(g.primary)
         val bbg = GradientDrawable()
         bbg.shape = GradientDrawable.OVAL
         bbg.setColor(Color.WHITE)
         badge.background = bbg
-        srow.addView(badge, lin(dp(50), dp(50), r = 10))
+        strip.addView(badge, lin(dp(46), dp(46), r = 12))
         val rcol = LinearLayout(this)
         rcol.orientation = LinearLayout.VERTICAL
-        val rv = RatingView(this, 15, false)
+        val rv = RatingView(this, 20, false)
         rv.color = Color.WHITE
         rcol.addView(rv)
-        rcol.addView(label("nota de 10", 11f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 2))
-        srow.addView(rcol)
-        info.addView(srow, lin(WRAP, WRAP, t = 10))
+        rcol.addView(label("nota de 10", 11f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 3))
+        strip.addView(rcol, lin(0, WRAP, 1f))
+        heroCol.addView(strip, lin(MATCH, WRAP, l = 14, r = 14, b = 14))
 
-        hrow.addView(info, lin(0, WRAP, 1f))
-        hero.addView(hrow, FrameLayout.LayoutParams(MATCH, WRAP))
+        hero.addView(heroCol, FrameLayout.LayoutParams(MATCH, WRAP))
         col.addView(hero, lin(MATCH, WRAP, t = 10))
 
         updaters.add {
@@ -226,9 +242,53 @@ class DetailActivity : AppCompatActivity() {
             rv.score = d.score
         }
 
+        // ---- assistir: abre a aba só deste dorama
+        val watchRow = LinearLayout(this)
+        watchRow.orientation = LinearLayout.HORIZONTAL
+        watchRow.gravity = Gravity.CENTER_VERTICAL
+        watchRow.clipChildren = false
+        val wcard = LinearLayout(this)
+        wcard.orientation = LinearLayout.HORIZONTAL
+        wcard.gravity = Gravity.CENTER_VERTICAL
+        wcard.setPadding(dp(14), dp(14), dp(18), dp(14))
+        wcard.background = gradient(g.primary, g.dark, dp(26).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
+        wcard.elevation = dp(4).toFloat()
+        val pbub = FrameLayout(this)
+        pbub.background = roundRect(Color.parseColor("#33FFFFFF"), dp(18).toFloat())
+        pbub.addView(IconView(this, "play", Color.WHITE, 24), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        wcard.addView(pbub, lin(dp(50), dp(50), r = 14))
+        val wtx = LinearLayout(this)
+        wtx.orientation = LinearLayout.VERTICAL
+        val wsmall = label("", 10.5f, Color.parseColor("#E6FFFFFF"), true)
+        wsmall.letterSpacing = 0.08f
+        val wbig = label("", 17f, Color.WHITE, true, true)
+        wtx.addView(wsmall)
+        wtx.addView(wbig, lin(WRAP, WRAP, t = 1))
+        wcard.addView(wtx, lin(0, WRAP, 1f))
+        wcard.addView(IconView(this, "forward", Color.WHITE, 20))
+        wcard.pressable(0.97f)
+        wcard.setOnClickListener { if (d.link.isBlank()) askLink(d, g) else openWatch(d) }
+        watchRow.addView(wcard, lin(0, WRAP, 1f))
+        watchRow.addView(roundBtn("link", g.primary, false, 20) { askLink(d, g) }, lin(dp(52), dp(52), l = 10))
+        col.addView(watchRow, lin(MATCH, WRAP, t = 14))
+        updaters.add {
+            if (d.link.isBlank()) {
+                wsmall.text = "SEM LINK AINDA"
+                wbig.text = "Adicionar onde assistir"
+            } else if (watchedEps(d) == 0 && d.lastUrl.isBlank()) {
+                wsmall.text = "PRONTO PARA COMEÇAR"
+                wbig.text = "Assistir agora"
+            } else {
+                wsmall.text = "DE ONDE VOCÊ PAROU"
+                wbig.text = "Continuar assistindo"
+            }
+        }
+
         // ---- tiles
         val tiles = LinearLayout(this)
         tiles.orientation = LinearLayout.HORIZONTAL
+        tiles.clipChildren = false
+        tiles.clipToPadding = false
         val tw = totalEps(d)
         val tSeasons = tile("tv", seasonCount(d).toString(), "temporadas", g.primary)
         val tEps = tile("play", "", "episódios", g.primary)
@@ -496,24 +556,52 @@ class DetailActivity : AppCompatActivity() {
 
         if (entrance) {
             hero.fadeScaleIn(0L, 450L)
-            cover.pop(1.3f)
+            ring.pop(1.25f)
             for (i in 1 until col.childCount) col.getChildAt(i).riseIn(80L + i * 55L, 20, 400L)
-            // corações da nota "enchem" um por um
-            val target = d.score
-            rv.score = 0
-            big.score = 0
-            if (target > 0) {
-                val a = android.animation.ValueAnimator.ofInt(0, target)
-                a.duration = 700
-                a.startDelay = 500
-                a.addUpdateListener {
-                    val v = it.animatedValue as Int
-                    rv.score = v
-                    big.score = v
-                }
-                a.start()
+        }
+    }
+
+    private fun openWatch(d: Drama) {
+        val i = Intent(this, WatchActivity::class.java)
+        i.putExtra("id", d.id)
+        startActivity(i)
+        overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
+    }
+
+    private fun askLink(d: Drama, g: Genre) {
+        val et = EditText(this)
+        et.hint = "https://..."
+        et.setSingleLine(true)
+        et.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        et.setText(d.link)
+        val box = FrameLayout(this)
+        box.setPadding(dp(22), dp(8), dp(22), 0)
+        box.addView(et, FrameLayout.LayoutParams(MATCH, WRAP))
+        val b = AlertDialog.Builder(this)
+            .setTitle("Onde você assiste?")
+            .setMessage("Cole o link da página deste dorama. Ele abre numa aba só dele.")
+            .setView(box)
+            .setPositiveButton("Salvar") { _, _ ->
+                var v = et.text.toString().trim()
+                if (v.isNotEmpty() && !v.startsWith("http://") && !v.startsWith("https://")) v = "https://$v"
+                if (v != d.link) d.lastUrl = ""
+                d.link = v
+                Store.save(d)
+                sync()
+                refreshAll()
+                if (v.isNotEmpty()) softToast("Link salvo!", g.primary, "link")
+            }
+            .setNegativeButton("Cancelar", null)
+        if (d.link.isNotBlank()) {
+            b.setNeutralButton("Remover") { _, _ ->
+                d.link = ""
+                d.lastUrl = ""
+                Store.save(d)
+                sync()
+                refreshAll()
             }
         }
+        b.show()
     }
 
     private fun updatePetals(d: Drama) {

@@ -132,7 +132,7 @@ class EditActivity : AppCompatActivity() {
         coverRow.addView(coverBtns, lin(0, WRAP, 1f))
         c1.addView(coverRow, lin(MATCH, WRAP, t = 10))
         c1.addView(fieldLabel("Título *"))
-        titleIn = input("Ex.: Pousando no Amor", ex?.title ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+        titleIn = input("Ex.: Pousando no Amor", ex?.title ?: (intent.getStringExtra("prefill") ?: ""), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         c1.addView(titleIn, lin(MATCH, WRAP))
         c1.addView(fieldLabel("Título original"))
         originalIn = input("Ex.: 사랑의 불시착", ex?.original ?: "")
@@ -472,7 +472,9 @@ class EditActivity : AppCompatActivity() {
             notes = notesIn.text.toString().trim(),
             favorite = favorite,
             cover = coverPath,
-            addedAt = if (old != null) old.addedAt else System.currentTimeMillis()
+            addedAt = if (old != null) old.addedAt else System.currentTimeMillis(),
+            link = old?.link ?: "",
+            lastUrl = old?.lastUrl ?: ""
         )
         normalize(d)
         val tot = totalEps(d)

@@ -24,11 +24,11 @@ import androidx.recyclerview.widget.RecyclerView
 
 class MainActivity : AppCompatActivity() {
 
-    private class NavItem(val box: LinearLayout, val icon: IconView, val text: TextView)
+    private class NavItem(val box: LinearLayout, val icon: IconView?, val text: TextView?, val tab: Int)
 
     private lateinit var contentFrame: FrameLayout
     private lateinit var petals: PetalsView
-    private lateinit var fab: FrameLayout
+    private var addCircle: FrameLayout? = null
     private lateinit var navBar: FrameLayout
     private lateinit var navIndicator: View
     private lateinit var navRow: LinearLayout
@@ -107,18 +107,6 @@ class MainActivity : AppCompatActivity() {
         petals = PetalsView(this, listOf("petal", "petal", "blossom"), Palette.pink, 14)
         root.addView(petals, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        fab = FrameLayout(this)
-        fab.background = ovalGradient(Color.parseColor("#FF8FB7"), Color.parseColor("#FF5C93"))
-        fab.elevation = dp(10).toFloat()
-        fab.addView(IconView(this, "add", Color.WHITE, 28), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        fab.setOnClickListener { openEdit(fab) }
-        fab.pressable(0.88f)
-        val flp = FrameLayout.LayoutParams(dp(62), dp(62))
-        flp.gravity = Gravity.BOTTOM or Gravity.END
-        flp.setMargins(0, 0, dp(22), dp(102))
-        root.addView(fab, flp)
-        fab.visibility = View.GONE
-
         setContentView(root)
 
         if (!Store.askedName) {
@@ -182,21 +170,38 @@ class MainActivity : AppCompatActivity() {
         holder.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP))
 
         navItems.clear()
-        val icons = listOf("home", "grid", "chart")
-        val names = listOf("Início", "Estante", "Números")
+        val icons = listOf("home", "grid", "add", "chart")
+        val names = listOf("Início", "Estante", "", "Números")
+        val tabs = listOf(0, 1, -1, 2)
         for (i in icons.indices) {
             val box = LinearLayout(this)
             box.orientation = LinearLayout.VERTICAL
             box.gravity = Gravity.CENTER
-            box.setPadding(dp(4), dp(8), dp(4), dp(8))
-            val ic = IconView(this, icons[i], Palette.muted, 22)
-            val tx = label(names[i], 11f, Palette.muted, true)
-            box.addView(ic, lin(WRAP, WRAP))
-            box.addView(tx, lin(WRAP, WRAP, t = 2))
-            box.setOnClickListener { if (tab != i) showTab(i, true) else box.pop() }
-            box.pressable(0.92f)
-            navRow.addView(box, lin(0, WRAP, 1f, l = 2, r = 2))
-            navItems.add(NavItem(box, ic, tx))
+            if (tabs[i] == -1) {
+                box.setPadding(dp(2), dp(2), dp(2), dp(2))
+                val circle = FrameLayout(this)
+                circle.background = ovalGradient(lighten(Palette.pink, 0.22f), Palette.pink)
+                circle.elevation = dp(5).toFloat()
+                circle.addView(IconView(this, "add", Color.WHITE, 26), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+                addCircle = circle
+                box.addView(circle, lin(dp(48), dp(48)))
+                box.setOnClickListener { openEdit(circle) }
+                box.pressable(0.9f)
+                navRow.addView(box, lin(0, WRAP, 0.9f, l = 2, r = 2))
+                navItems.add(NavItem(box, null, null, -1))
+            } else {
+                box.setPadding(dp(2), dp(8), dp(2), dp(8))
+                val ic = IconView(this, icons[i], Palette.muted, 22)
+                val tx = label(names[i], 11f, Palette.muted, true)
+                tx.maxLines = 1
+                box.addView(ic, lin(WRAP, WRAP))
+                box.addView(tx, lin(WRAP, WRAP, t = 2))
+                val target = tabs[i]
+                box.setOnClickListener { if (tab != target) showTab(target, true) else box.pop() }
+                box.pressable(0.92f)
+                navRow.addView(box, lin(0, WRAP, 1f, l = 2, r = 2))
+                navItems.add(NavItem(box, ic, tx, target))
+            }
         }
         navRow.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeIndicator(false) }
         return holder
@@ -204,7 +209,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun placeIndicator(animated: Boolean) {
         if (navItems.isEmpty()) return
-        val box = navItems[tab].box
+        val box = navItems.firstOrNull { it.tab == tab }?.box ?: return
         if (box.width <= 0) return
         val lp = navIndicator.layoutParams as FrameLayout.LayoutParams
         val wide = box.width - dp(4)
@@ -225,21 +230,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateNav(animated: Boolean) {
-        for (i in navItems.indices) {
-            val sel = i == tab
-            val n = navItems[i]
+        for (n in navItems) {
+            val ic = n.icon ?: continue
+            val tx = n.text ?: continue
+            val sel = n.tab == tab
             val to = if (sel) Color.WHITE else Palette.muted
-            val from = n.icon.tint
+            val from = ic.tint
             if (animated && from != to) {
                 animateColor(from, to) { c ->
-                    n.icon.tint = c
-                    n.text.setTextColor(c)
+                    ic.tint = c
+                    tx.setTextColor(c)
                 }
             } else {
-                n.icon.tint = to
-                n.text.setTextColor(to)
+                ic.tint = to
+                tx.setTextColor(to)
             }
-            if (sel && animated) n.icon.pop(1.3f)
+            if (sel && animated) ic.pop(1.3f)
         }
         placeIndicator(animated)
     }
@@ -276,26 +282,10 @@ class MainActivity : AppCompatActivity() {
         val from = accent
         accent = to
         animateColor(from, to, 380L) { c ->
-            fab.background = ovalGradient(lighten(c, 0.22f), c)
+            addCircle?.background = ovalGradient(lighten(c, 0.22f), c)
             navIndicator.background = roundRect(c, dp(22).toFloat())
             searchBox?.background = roundRect(Color.WHITE, dp(24).toFloat(), if (tab == 1) c else Palette.line, dp(if (c == Palette.pink) 1 else 2))
             listInfo?.setTextColor(c)
-        }
-    }
-
-    private fun showFab(visible: Boolean) {
-        if (visible) {
-            if (fab.visibility == View.VISIBLE) return
-            fab.visibility = View.VISIBLE
-            fab.scaleX = 0f
-            fab.scaleY = 0f
-            fab.rotation = -90f
-            fab.animate().scaleX(1f).scaleY(1f).rotation(0f).setDuration(420)
-                .setInterpolator(OvershootInterpolator(2f)).start()
-        } else {
-            if (fab.visibility != View.VISIBLE) return
-            fab.animate().scaleX(0f).scaleY(0f).setDuration(200)
-                .withEndAction { fab.visibility = View.GONE }.start()
         }
     }
 
@@ -325,7 +315,6 @@ class MainActivity : AppCompatActivity() {
         val changed = shownTab != t
         shownTab = t
         updateNav(animate && changed)
-        showFab(t != 0)
         applyAtmos()
         if (animate) {
             v.slideIn(dir)
@@ -343,18 +332,11 @@ class MainActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
     }
 
-    private fun section(t: String, icon: String): View {
-        val v = sectionTitle(t, icon)
-        v.setPadding(dp(4), dp(20), 0, dp(10))
-        return v
-    }
-
     // ---------------------------------------------------------------- INÍCIO
 
     private fun buildHome(): View {
         val all = Store.all()
         val watching = all.filter { it.status == "assistindo" }
-        val done = all.filter { it.status == "concluido" }
         homeWatching = watching
         if (homePage >= watching.size) homePage = 0
 
@@ -386,30 +368,10 @@ class MainActivity : AppCompatActivity() {
 
         val hi = LinearLayout(this)
         hi.orientation = LinearLayout.VERTICAL
-        hi.setPadding(dp(20), dp(16), dp(20), dp(16))
+        hi.setPadding(dp(22), dp(20), dp(22), dp(20))
         hi.addView(label(if (name.isBlank()) "Oi, bem-vinda!" else "Oi, $name!", 25f, Color.WHITE, true, true))
         hi.addView(label("O que vamos assistir hoje?", 13f, Color.WHITE), lin(WRAP, WRAP, t = 2))
-        val stats = LinearLayout(this)
-        stats.orientation = LinearLayout.HORIZONTAL
-        val glass = Color.parseColor("#44FFFFFF")
-        val p1 = pill(all.size.toString() + " doramas", glass, Color.WHITE, 11.5f, "heart")
-        val p2 = pill(watching.size.toString() + " vendo", glass, Color.WHITE, 11.5f, "play")
-        val p3 = pill(done.size.toString() + " fim", glass, Color.WHITE, 11.5f, "check")
-        stats.addView(p1, lin(WRAP, WRAP, r = 6))
-        stats.addView(p2, lin(WRAP, WRAP, r = 6))
-        stats.addView(p3, lin(WRAP, WRAP))
-        hi.addView(stats, lin(WRAP, WRAP, t = 12))
         hiWrap.addView(hi, FrameLayout.LayoutParams(MATCH, WRAP))
-
-        // botão + dentro do cartão
-        val addBtn = FrameLayout(this)
-        addBtn.background = ovalGradient(Color.parseColor("#66FFFFFF"), Color.parseColor("#44FFFFFF"))
-        addBtn.addView(IconView(this, "add", Color.WHITE, 24), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        addBtn.setOnClickListener { openEdit(addBtn) }
-        addBtn.pressable(0.86f)
-        val alp = FrameLayout.LayoutParams(dp(46), dp(46), Gravity.END or Gravity.CENTER_VERTICAL)
-        alp.setMargins(0, 0, dp(18), 0)
-        hiWrap.addView(addBtn, alp)
 
         hiWrap.setOnClickListener { askName() }
         hiWrap.pressable(0.985f)
@@ -544,21 +506,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        addMiniRow(col, "Quero ver", "bookmark", all.filter { it.status == "quero" })
-        addMiniRow(col, "Favoritos", "heart", all.filter { it.favorite })
-        addMiniRow(col, "Concluídos", "check", done)
         return sv
-    }
-
-    private fun addMiniRow(col: LinearLayout, title: String, icon: String, list: List<Drama>) {
-        if (list.isEmpty()) return
-        col.addView(section(title, icon))
-        val rv = RecyclerView(this)
-        rv.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
-        val ad = DramaAdapter(2, { open(it) })
-        ad.submit(list)
-        rv.adapter = ad
-        col.addView(rv, lin(MATCH, WRAP))
     }
 
     private fun askName() {
@@ -582,6 +530,15 @@ class MainActivity : AppCompatActivity() {
                 Store.askedName = true
             }
             .show()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (tab != 0) {
+            showTab(0, true)
+            return
+        }
+        super.onBackPressed()
     }
 
     // --------------------------------------------------------------- ESTANTE

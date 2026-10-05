@@ -122,8 +122,11 @@ fun Context.sectionTitle(text: String, icon: String, color: Int = Palette.pink):
     val r = LinearLayout(this)
     r.orientation = LinearLayout.HORIZONTAL
     r.gravity = Gravity.CENTER_VERTICAL
-    r.addView(IconView(this, icon, color, 18))
-    r.addView(label(text, 17f, Palette.text, true, true), lin(WRAP, WRAP, l = 8))
+    val bubble = FrameLayout(this)
+    bubble.background = ovalGradient((color and 0x00FFFFFF) or 0x33000000, (color and 0x00FFFFFF) or 0x14000000)
+    bubble.addView(IconView(this, icon, color, 16), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+    r.addView(bubble, lin(dp(32), dp(32)))
+    r.addView(label(text, 17f, Palette.text, true, true), lin(WRAP, WRAP, l = 10))
     return r
 }
 

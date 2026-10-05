@@ -92,7 +92,9 @@ data class Drama(
     var notes: String,
     var favorite: Boolean,
     var cover: String,
-    var addedAt: Long
+    var addedAt: Long,
+    var link: String = "",
+    var lastUrl: String = ""
 )
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
@@ -216,6 +218,8 @@ private fun Drama.toJson(): JSONObject {
     o.put("favorite", favorite)
     o.put("cover", cover)
     o.put("addedAt", addedAt)
+    o.put("link", link)
+    o.put("lastUrl", lastUrl)
     return o
 }
 
@@ -251,7 +255,9 @@ private fun dramaFromJson(o: JSONObject): Drama {
         notes = o.optString("notes", ""),
         favorite = o.optBoolean("favorite", false),
         cover = o.optString("cover", ""),
-        addedAt = o.optLong("addedAt", System.currentTimeMillis())
+        addedAt = o.optLong("addedAt", System.currentTimeMillis()),
+        link = o.optString("link", ""),
+        lastUrl = o.optString("lastUrl", "")
     )
     normalize(d)
     return d
