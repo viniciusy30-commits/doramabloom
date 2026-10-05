@@ -452,8 +452,8 @@ object Covers {
 
 /**
  * Capa arredondada: foto ou, se não houver, um fundo fofo com o símbolo do gênero.
- * Com fit = true a imagem aparece INTEIRA (sem cortar), centralizada sobre um fundo desfocado
- * feito da própria capa; bottomInset reserva um espaço embaixo (para o título) sem tapar a imagem.
+ * Com fit = true a imagem aparece INTEIRA (sem cortar), centralizada sobre um fundo pastel
+ * da cor do gênero, com uma moldurinha branca e sombra suave (como uma foto/polaroid).
  */
 class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = false) : FrameLayout(ctx) {
     private class Placeholder(ctx: Context) : View(ctx) {
@@ -473,35 +473,24 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
     }
 
     private val img = ImageView(ctx)
-    private val blur = ImageView(ctx)
     private val ph = Placeholder(ctx)
     private var bw = 0
     private var bh = 0
-
-    /** Espaço (px) deixado livre embaixo; só vale no modo fit. */
-    var bottomInset: Int = 0
-        set(v) {
-            if (field != v) {
-                field = v
-                requestLayout()
-            }
-        }
+    private val border = ctx.dp(3)
 
     init {
         if (fit) {
-            blur.scaleType = ImageView.ScaleType.CENTER_CROP
-            blur.colorFilter = PorterDuffColorFilter(Color.argb(80, 0, 0, 0), PorterDuff.Mode.SRC_ATOP)
-            blur.visibility = View.GONE
-            addView(blur, FrameLayout.LayoutParams(MATCH, MATCH))
             img.scaleType = ImageView.ScaleType.FIT_XY
+            img.setPadding(border, border, border, border)
             val pr = ctx.dp(20).toFloat()
+            img.background = roundRect(Color.WHITE, pr)
             img.outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(view: View, outline: Outline) {
                     outline.setRoundRect(0, 0, view.width, view.height, pr)
                 }
             }
             img.clipToOutline = true
-            img.elevation = ctx.dp(8).toFloat()
+            img.elevation = ctx.dp(6).toFloat()
             addView(img, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         } else {
             img.scaleType = ImageView.ScaleType.CENTER_CROP
@@ -524,16 +513,14 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
         ) {
             val w = MeasureSpec.getSize(widthMeasureSpec)
             val h = MeasureSpec.getSize(heightMeasureSpec)
-            val pad = dp(10)
-            val availW = w - 2 * pad
-            val availH = h - bottomInset - 2 * pad
+            val pad = dp(14)
+            val availW = w - 2 * pad - 2 * border
+            val availH = h - 2 * pad - 2 * border
             if (availW > 0 && availH > 0) {
                 val sc = minOf(availW.toFloat() / bw, availH.toFloat() / bh)
                 val lp = img.layoutParams as FrameLayout.LayoutParams
-                lp.width = maxOf(1, (bw * sc).toInt())
-                lp.height = maxOf(1, (bh * sc).toInt())
-                lp.topMargin = pad
-                lp.bottomMargin = bottomInset + pad
+                lp.width = maxOf(1, (bw * sc).toInt()) + 2 * border
+                lp.height = maxOf(1, (bh * sc).toInt()) + 2 * border
             }
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -549,17 +536,13 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
             if (fit) {
                 bw = bmp.width
                 bh = bmp.height
-                val small = Bitmap.createScaledBitmap(bmp, maxOf(2, bw / 24), maxOf(2, bh / 24), true)
-                blur.setImageBitmap(small)
-                blur.visibility = View.VISIBLE
-                setBackgroundColor(g.dark)
+                background = gradient(g.soft, mixColor(g.primary, Color.WHITE, 0.55f))
                 requestLayout()
             } else {
                 setBackgroundColor(g.soft)
             }
         } else {
             img.visibility = View.GONE
-            blur.visibility = View.GONE
             bw = 0
             bh = 0
             ph.visibility = View.VISIBLE

@@ -192,6 +192,7 @@ class DramaAdapter(
         }
         h.cover.bind(d, reqW)
         h.title.text = d.title
+        if (mode == 4) h.title.setTextColor(g.dark)
         h.sub?.text = subtitle(d)
         bindDynamic(h, d, g, st, false)
         h.seal?.set(g)
@@ -443,38 +444,28 @@ class DramaAdapter(
         flp.setMargins(0, c.dp(12), c.dp(12), 0)
         hero.addView(fav, flp)
 
+        // selo do gênero: adesivo no cantinho da capa
         val seal = SealView(c, true)
         seal.rotation = -8f
-        val slp = FrameLayout.LayoutParams(c.dp(80), c.dp(80), Gravity.BOTTOM or Gravity.END)
-        slp.setMargins(0, 0, c.dp(12), c.dp(12))
+        val slp = FrameLayout.LayoutParams(c.dp(72), c.dp(72), Gravity.BOTTOM or Gravity.END)
+        slp.setMargins(0, 0, c.dp(10), c.dp(10))
         hero.addView(seal, slp)
-
-        val tcol = LinearLayout(c)
-        tcol.orientation = LinearLayout.VERTICAL
-        tcol.setPadding(c.dp(18), 0, c.dp(100), c.dp(14))
-        val title = c.label("", 26f, Color.WHITE, true, true)
-        title.maxLines = 2
-        title.ellipsize = TextUtils.TruncateAt.END
-        title.setShadowLayer(6f, 0f, 2f, Color.parseColor("#66000000"))
-        tcol.addView(title, c.lin(MATCH, WRAP))
-        val sub = c.label("", 12.5f, Color.parseColor("#F2FFFFFF"))
-        sub.maxLines = 2
-        sub.ellipsize = TextUtils.TruncateAt.END
-        tcol.addView(sub, c.lin(MATCH, WRAP, t = 2))
-        // zona do texto: fica embaixo da capa (a imagem inteira aparece acima dela)
-        val textZone = FrameLayout(c)
-        textZone.minimumHeight = c.dp(98)
-        // o degradê escuro é o próprio fundo da zona (um filho MATCH_PARENT esticaria a zona até o topo)
-        val scrim: View = textZone
-        textZone.addView(tcol, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
-        hero.addView(textZone, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
-        textZone.addOnLayoutChangeListener { _, _, t, _, b, _, _, _, _ -> cover.bottomInset = b - t }
         root.addView(hero, c.lin(MATCH, 0, 1f))
 
         // ---- informações e botão
         val info = LinearLayout(c)
         info.orientation = LinearLayout.VERTICAL
         info.setPadding(c.dp(18), c.dp(14), c.dp(18), c.dp(16))
+
+        // título e subtítulo ficam aqui embaixo, para não taparem a capa
+        val title = c.label("", 23f, Palette.text, true, true)
+        title.maxLines = 2
+        title.ellipsize = TextUtils.TruncateAt.END
+        info.addView(title, c.lin(MATCH, WRAP))
+        val sub = c.label("", 12.5f, Palette.muted)
+        sub.maxLines = 1
+        sub.ellipsize = TextUtils.TruncateAt.END
+        info.addView(sub, c.lin(MATCH, WRAP, t = 2, b = 10))
 
         val chips = LinearLayout(c)
         chips.orientation = LinearLayout.HORIZONTAL
@@ -505,7 +496,7 @@ class DramaAdapter(
 
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
-            chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav, scrim = scrim,
+            chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav,
             seal = seal
         )
     }
