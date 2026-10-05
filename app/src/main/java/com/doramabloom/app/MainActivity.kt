@@ -169,7 +169,7 @@ class MainActivity : AppCompatActivity() {
 
         navIndicator = View(this)
         navIndicator.background = roundRect(Palette.pink, dp(22).toFloat())
-        bar.addView(navIndicator, FrameLayout.LayoutParams(0, MATCH))
+        bar.addView(navIndicator, FrameLayout.LayoutParams(0, 0))
 
         navRow = LinearLayout(this)
         navRow.orientation = LinearLayout.HORIZONTAL
@@ -208,8 +208,10 @@ class MainActivity : AppCompatActivity() {
         if (box.width <= 0) return
         val lp = navIndicator.layoutParams as FrameLayout.LayoutParams
         val wide = box.width - dp(4)
-        if (lp.width != wide) {
+        val tall = navRow.height
+        if (lp.width != wide || lp.height != tall) {
             lp.width = wide
+            lp.height = tall
             navIndicator.layoutParams = lp
         }
         val x = box.left.toFloat() + dp(2)
