@@ -464,8 +464,8 @@ class DramaAdapter(
         // zona do texto: fica embaixo da capa (a imagem inteira aparece acima dela)
         val textZone = FrameLayout(c)
         textZone.minimumHeight = c.dp(98)
-        val scrim = View(c)
-        textZone.addView(scrim, FrameLayout.LayoutParams(MATCH, MATCH))
+        // o degradê escuro é o próprio fundo da zona (um filho MATCH_PARENT esticaria a zona até o topo)
+        val scrim: View = textZone
         textZone.addView(tcol, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
         hero.addView(textZone, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
         textZone.addOnLayoutChangeListener { _, _, t, _, b, _, _, _, _ -> cover.bottomInset = b - t }
