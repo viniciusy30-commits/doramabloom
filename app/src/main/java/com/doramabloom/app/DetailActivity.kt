@@ -389,43 +389,63 @@ class DetailActivity : AppCompatActivity() {
         col.addView(stCard, lin(MATCH, WRAP, t = 14))
 
         // ---- progresso por temporada
-        val pc = card(14, 22)
+        val pc = card(16, 22)
         pc.addView(sectionTitle("Meu progresso", "play", g.primary))
-        val overall = label("", 14f, Palette.text, true)
-        pc.addView(overall, lin(WRAP, WRAP, t = 8))
+
+        val oh = LinearLayout(this)
+        oh.orientation = LinearLayout.HORIZONTAL
+        oh.gravity = Gravity.BOTTOM
+        val overall = label("", 17f, g.dark, true, true)
+        oh.addView(overall, lin(0, WRAP, 1f))
+        val pct = label("", 15f, g.primary, true)
+        oh.addView(pct, lin(WRAP, WRAP))
+        pc.addView(oh, lin(MATCH, WRAP, t = 14))
         val obar = SoftBar(this)
         obar.barColor = g.primary
-        pc.addView(obar, lin(MATCH, dp(10), t = 6))
+        pc.addView(obar, lin(MATCH, dp(12), t = 8))
 
-        val plus = pill("+1 episódio", g.primary, Color.WHITE, 14f, "play")
-        plus.setPadding(dp(18), dp(12), dp(18), dp(12))
-        pc.addView(plus, lin(MATCH, WRAP, t = 12))
+        val plus = bigPill("+1 episódio", g.primary, Color.WHITE, 15f, "play")
+        pc.addView(plus, lin(MATCH, WRAP, t = 14))
 
         val seasonBars = ArrayList<SoftBar>()
         val seasonTxt = ArrayList<TextView>()
         val seasonLbl = ArrayList<TextView>()
         for (i in d.seasonEps.indices) {
-            val row = LinearLayout(this)
-            row.orientation = LinearLayout.HORIZONTAL
-            row.gravity = Gravity.CENTER_VERTICAL
-            val lbl = label("Temp. " + (i + 1), 12.5f, g.dark, true)
-            lbl.gravity = Gravity.CENTER
-            lbl.setPadding(dp(4), dp(3), dp(4), dp(3))
-            seasonLbl.add(lbl)
-            row.addView(lbl, lin(dp(70), WRAP))
+            val box = LinearLayout(this)
+            box.orientation = LinearLayout.VERTICAL
+            box.setPadding(dp(14), dp(10), dp(10), dp(10))
+            box.background = roundRect(g.soft, dp(18).toFloat())
+
+            val top = LinearLayout(this)
+            top.orientation = LinearLayout.HORIZONTAL
+            top.gravity = Gravity.CENTER_VERTICAL
+            top.addView(label("Temporada " + (i + 1), 13.5f, g.dark, true), lin(WRAP, WRAP))
+            val now = label("atual", 10.5f, Color.WHITE, true)
+            now.setPadding(dp(8), dp(2), dp(8), dp(2))
+            now.background = roundRect(g.primary, dp(10).toFloat())
+            now.visibility = View.GONE
+            seasonLbl.add(now)
+            top.addView(now, lin(WRAP, WRAP, l = 8))
+            top.addView(View(this), lin(0, 1, 1f))
+            val cnt = label("", 13f, g.dark, true)
+            seasonTxt.add(cnt)
+            top.addView(cnt, lin(WRAP, WRAP, r = 4))
+            box.addView(top, lin(MATCH, WRAP))
+
+            val bot = LinearLayout(this)
+            bot.orientation = LinearLayout.HORIZONTAL
+            bot.gravity = Gravity.CENTER_VERTICAL
             val b = SoftBar(this)
             b.barColor = g.primary
+            b.trackColor = Color.WHITE
             seasonBars.add(b)
-            row.addView(b, lin(0, dp(9), 1f, l = 2, r = 8))
-            val cnt = label("", 12f, Palette.muted, true)
-            seasonTxt.add(cnt)
-            row.addView(cnt, lin(dp(46), WRAP))
-            row.addView(roundBtn("minus", g.primary, false, 14) {
+            bot.addView(b, lin(0, dp(9), 1f, r = 12))
+            bot.addView(roundBtn("minus", g.primary, false, 14) {
                 Store.adjust(d, i, -1)
                 sync()
                 refreshAll()
                 statusChips.selectChip(d.status)
-            }, lin(dp(30), dp(30), l = 4))
+            }, lin(dp(32), dp(32)))
             val addB = roundBtn("add", g.primary, true, 14) {}
             addB.setOnClickListener {
                 val fin = Store.adjust(d, i, 1)
@@ -435,8 +455,9 @@ class DetailActivity : AppCompatActivity() {
                 petals.burstFrom(addB, listOf(g.icon, "heart", "sparkle"), listOf(g.primary, Palette.pink), 8)
                 if (fin) celebrate(d, g, addB, statusChips)
             }
-            row.addView(addB, lin(dp(30), dp(30), l = 6))
-            pc.addView(row, lin(MATCH, WRAP, t = 10))
+            bot.addView(addB, lin(dp(32), dp(32), l = 8))
+            box.addView(bot, lin(MATCH, WRAP, t = 8))
+            pc.addView(box, lin(MATCH, WRAP, t = 10))
         }
 
         plus.setOnClickListener {
@@ -473,7 +494,10 @@ class DetailActivity : AppCompatActivity() {
             petals.burstFrom(rewAdd, listOf("replay", "heart"), listOf(g.primary, Palette.pink), 8)
         }
         rw.addView(rewAdd, lin(dp(30), dp(30)))
-        pc.addView(rw, lin(MATCH, WRAP, t = 16))
+        val dv = View(this)
+        dv.setBackgroundColor(Palette.line)
+        pc.addView(dv, lin(MATCH, dp(1), t = 16))
+        pc.addView(rw, lin(MATCH, WRAP, t = 14))
         col.addView(pc, lin(MATCH, WRAP, t = 12))
 
         var firstProgress = true
@@ -486,12 +510,16 @@ class DetailActivity : AppCompatActivity() {
                 if (!firstProgress) overall.pop(1.06f)
             }
             val frac = progressOf(d)
+            val pt = (frac * 100f).toInt().toString() + "%"
+            if (pct.text.toString() != pt) {
+                pct.text = pt
+                if (!firstProgress) pct.pop(1.2f)
+            }
             if (firstProgress) obar.animateTo(frac, 0f, 350L, 800L) else obar.animateTo(frac)
             val cur = activeSeason(d)
             for (i in seasonBars.indices) {
                 val isCur = i == cur && seasonBars.size > 1
-                seasonLbl[i].setTextColor(if (isCur) Color.WHITE else g.dark)
-                seasonLbl[i].background = if (isCur) roundRect(g.primary, dp(12).toFloat()) else null
+                seasonLbl[i].visibility = if (isCur) View.VISIBLE else View.GONE
                 val t = d.seasonEps[i]
                 val wi = d.watched[i]
                 val f = if (t > 0) wi.toFloat() / t.toFloat() else 0f

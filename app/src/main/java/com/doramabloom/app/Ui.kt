@@ -256,6 +256,113 @@ fun Context.multiChips(options: List<Opt>, initial: Set<String>, onChange: (Set<
     return sv
 }
 
+/** Chips que quebram de linha (nada fica cortado na borda), seleção única. */
+fun Context.chipFlow(options: List<Opt>, initial: String, onSelect: (String) -> Unit): FlowLayout {
+    val fl = FlowLayout(this)
+    fl.hGap = dp(8)
+    fl.vGap = dp(8)
+    fl.setPadding(0, dp(2), 0, dp(2))
+    val views = ArrayList<TextView>()
+    var current = initial
+    val one = dp(1)
+
+    fun restyle() {
+        for (i in options.indices) {
+            restyleChip(views[i], options[i].color, options[i].key == current, one)
+        }
+    }
+
+    val setter: (String) -> Unit = { k ->
+        current = k
+        restyle()
+    }
+    fl.setTag(TAG_SELECT, setter)
+
+    for (i in options.indices) {
+        val o = options[i]
+        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
+        tv.setOnClickListener {
+            if (current != o.key) {
+                current = o.key
+                restyle()
+                onSelect(current)
+            } else {
+                tv.pop(1.2f)
+            }
+        }
+        views.add(tv)
+        fl.addView(tv)
+    }
+    restyle()
+    return fl
+}
+
+/** Chips que quebram de linha, seleção múltipla. */
+fun Context.multiFlow(options: List<Opt>, initial: Set<String>, onChange: (Set<String>) -> Unit): FlowLayout {
+    val fl = FlowLayout(this)
+    fl.hGap = dp(8)
+    fl.vGap = dp(8)
+    fl.setPadding(0, dp(2), 0, dp(2))
+    val views = ArrayList<TextView>()
+    val chosen = HashSet<String>(initial)
+    val one = dp(1)
+
+    fun restyle() {
+        for (i in options.indices) {
+            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one)
+        }
+    }
+
+    for (i in options.indices) {
+        val o = options[i]
+        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
+        tv.setOnClickListener {
+            if (chosen.contains(o.key)) chosen.remove(o.key) else chosen.add(o.key)
+            restyle()
+            onChange(HashSet<String>(chosen))
+        }
+        views.add(tv)
+        fl.addView(tv)
+    }
+    restyle()
+    return fl
+}
+
+/** Texto com ícone à esquerda; os dois ficam centralizados juntos (o ícone não gruda na borda). */
+class CenterPill(ctx: Context) : TextView(ctx) {
+    override fun onDraw(canvas: Canvas) {
+        val dr = compoundDrawables[0]
+        val lay = layout
+        if (dr != null && lay != null && lay.lineCount > 0) {
+            var tw = 0f
+            for (i in 0 until lay.lineCount) tw = maxOf(tw, lay.getLineWidth(i))
+            val content = dr.bounds.width() + compoundDrawablePadding + tw
+            val avail = (width - paddingLeft - paddingRight).toFloat()
+            canvas.translate(maxOf(0f, (avail - content) / 2f), 0f)
+        }
+        super.onDraw(canvas)
+    }
+}
+
+/** Botão largo (ocupa a linha toda) com ícone + texto no meio. */
+fun Context.bigPill(s: String, bg: Int, fg: Int, size: Float = 14f, icon: String? = null): TextView {
+    val t = CenterPill(this)
+    t.text = s
+    t.textSize = size
+    t.setTextColor(fg)
+    t.typeface = Typeface.DEFAULT_BOLD
+    t.setPadding(dp(18), dp(13), dp(18), dp(13))
+    t.background = roundRect(bg, dp(24).toFloat())
+    t.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+    if (icon != null) {
+        val px = dp(size.toInt() + 4)
+        t.setCompoundDrawables(iconDrawable(icon, fg, px), null, null, null)
+        t.compoundDrawablePadding = dp(8)
+    }
+    t.pressable()
+    return t
+}
+
 /** Barrinha de progresso arredondada, com animação suave. */
 class SoftBar(ctx: Context) : View(ctx) {
     var progress: Float = 0f
@@ -264,6 +371,11 @@ class SoftBar(ctx: Context) : View(ctx) {
             invalidate()
         }
     var barColor: Int = Palette.pink
+        set(v) {
+            field = v
+            invalidate()
+        }
+    var trackColor: Int = Color.parseColor("#F6DCE6")
         set(v) {
             field = v
             invalidate()
@@ -294,7 +406,7 @@ class SoftBar(ctx: Context) : View(ctx) {
     override fun onDraw(c: Canvas) {
         val h = height.toFloat()
         val r = h / 2f
-        p.color = Color.parseColor("#F6DCE6")
+        p.color = trackColor
         rect.set(0f, 0f, width.toFloat(), h)
         c.drawRoundRect(rect, r, r, p)
         if (progress > 0f) {

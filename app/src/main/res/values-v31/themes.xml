@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DoramaBloom" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">#FF6B9D</item>
+        <item name="colorPrimaryVariant">#E0487F</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#FFB6CF</item>
+        <item name="android:statusBarColor">#FFF8FB</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#FFE8F1</item>
+        <item name="android:windowBackground">#FFF8FB</item>
+        <item name="android:windowSplashScreenBackground">#FEEFF5</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+    </style>
+</resources>

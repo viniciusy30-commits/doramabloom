@@ -42,7 +42,6 @@ class EditActivity : AppCompatActivity() {
     private lateinit var coverView: CoverView
     private lateinit var coverSeal: SealView
     private lateinit var genreBox: LinearLayout
-    private lateinit var genrePreview: LinearLayout
     private var petalsView: PetalsView? = null
     private lateinit var seasonBox: LinearLayout
     private lateinit var seasonCountTv: TextView
@@ -154,7 +153,7 @@ class EditActivity : AppCompatActivity() {
         c2.addView(fieldLabel("País"))
         val cOpts = ArrayList<Opt>()
         for (c in countries) cOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
-        c2.addView(chipScroller(cOpts, country) {
+        c2.addView(chipFlow(cOpts, country) {
             country = it
             updateEffects()
         }, lin(MATCH, WRAP))
@@ -165,7 +164,7 @@ class EditActivity : AppCompatActivity() {
         c2.addView(fieldLabel("Status"))
         val sOpts = ArrayList<Opt>()
         for (s in Statuses.all) sOpts.add(Opt(s.key, s.label, s.color, s.icon))
-        c2.addView(chipScroller(sOpts, statusKey) {
+        c2.addView(chipFlow(sOpts, statusKey) {
             statusKey = it
             updateEffects()
         }, lin(MATCH, WRAP))
@@ -346,14 +345,15 @@ class EditActivity : AppCompatActivity() {
         saveBtn.riseIn(400L, 30, 420L)
     }
 
-    /** Gênero principal, cartão do gênero escolhido e "outros gêneros"; refeito quando você cria um gênero novo. */
+    /** Gênero principal e "outros gêneros"; refeito quando você cria um gênero novo. */
     private fun buildGenreArea() {
         genreBox.removeAllViews()
         val head = LinearLayout(this)
         head.orientation = LinearLayout.HORIZONTAL
         head.gravity = Gravity.CENTER_VERTICAL
-        head.addView(fieldLabel("Gênero principal (define o tema do dorama)"), lin(0, WRAP, 1f))
-        val newG = pill("Novo", Palette.pinkSoft, Palette.pinkDark, 11f, "add")
+        head.addView(fieldLabel("Gênero principal"), lin(0, WRAP, 1f))
+        val newG = pill("Novo gênero", Palette.pinkSoft, Palette.pinkDark, 12f, "add")
+        newG.setPadding(dp(14), dp(8), dp(14), dp(8))
         newG.setOnClickListener {
             showGenreCreator { g ->
                 genreKey = g.key
@@ -362,44 +362,21 @@ class EditActivity : AppCompatActivity() {
                 updateEffects()
             }
         }
-        head.addView(newG, lin(WRAP, WRAP, t = 8))
+        head.addView(newG, lin(WRAP, WRAP, t = 10))
         genreBox.addView(head, lin(MATCH, WRAP))
+        genreBox.addView(label("Define o tema, as cores e as pétalas do dorama", 11.5f, Palette.muted), lin(MATCH, WRAP, l = 2, b = 8))
 
         val gOpts = ArrayList<Opt>()
         for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon))
-        genreBox.addView(chipScroller(gOpts, genreKey) {
+        genreBox.addView(chipFlow(gOpts, genreKey) {
             genreKey = it
             refreshCover()
             coverView.pop(1.25f)
             updateEffects()
-            refreshGenrePreview(true)
         }, lin(MATCH, WRAP))
 
-        genrePreview = LinearLayout(this)
-        genrePreview.orientation = LinearLayout.HORIZONTAL
-        genrePreview.gravity = Gravity.CENTER_VERTICAL
-        genreBox.addView(genrePreview, lin(MATCH, WRAP, t = 10))
-        refreshGenrePreview(false)
-
         genreBox.addView(fieldLabel("Outros gêneros"))
-        genreBox.addView(multiChips(gOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
-    }
-
-    private fun refreshGenrePreview(animate: Boolean) {
-        val g = Genres.byKey(genreKey)
-        val box = genrePreview
-        box.removeAllViews()
-        box.setPadding(dp(12), dp(10), dp(14), dp(10))
-        box.background = roundRect(g.soft, dp(20).toFloat(), mixColor(g.primary, Color.WHITE, 0.5f), dp(1))
-        val seal = SealView(this)
-        seal.set(g)
-        box.addView(seal, lin(dp(50), dp(50), r = 12))
-        val tx = LinearLayout(this)
-        tx.orientation = LinearLayout.VERTICAL
-        tx.addView(label(g.label, 16f, g.dark, true, true))
-        tx.addView(label(g.tagline, 12f, Palette.muted), lin(MATCH, WRAP, t = 1))
-        box.addView(tx, lin(0, WRAP, 1f))
-        if (animate) seal.pop(1.4f)
+        genreBox.addView(multiFlow(gOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
     }
 
     /** O tema (pétalas e cor) acompanha o gênero, o status e o país escolhidos. */

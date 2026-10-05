@@ -1220,14 +1220,14 @@ class MainActivity : AppCompatActivity() {
             }
             gcard.addView(row, lin(MATCH, WRAP, t = 10))
         }
-        val newGenre = pill("Criar novo gênero", Palette.pink, Color.WHITE, 13f, "add")
+        val newGenre = bigPill("Criar novo gênero", Palette.pink, Color.WHITE, 14f, "add")
         newGenre.setOnClickListener {
             showGenreCreator {
                 seenVersion = Store.version
                 showTab(4, false)
             }
         }
-        gcard.addView(newGenre, lin(WRAP, WRAP, t = 14))
+        gcard.addView(newGenre, lin(MATCH, WRAP, t = 18))
         col.addView(gcard, lin(MATCH, WRAP))
 
         // backup
@@ -1250,9 +1250,7 @@ class MainActivity : AppCompatActivity() {
         bc.addView(brow, lin(WRAP, WRAP, t = 10))
         col.addView(bc, lin(MATCH, WRAP))
 
-        val foot = label("Dorama Bloom · feito com carinho", 11.5f, Palette.muted)
-        foot.gravity = Gravity.CENTER
-        col.addView(foot, lin(MATCH, WRAP, t = 22))
+        col.addView(View(this), lin(MATCH, dp(16)))
         return sv
     }
 
