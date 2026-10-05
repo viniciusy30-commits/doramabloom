@@ -1,11 +1,11 @@
 package com.doramabloom.app
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
-import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -13,7 +13,12 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.doAfterTextChanged
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class EditActivity : AppCompatActivity() {
 
@@ -22,20 +27,33 @@ class EditActivity : AppCompatActivity() {
     private var coverPath = ""
     private var originalCover = ""
     private var genreKey = "romance"
+    private var tags = HashSet<String>()
     private var statusKey = "quero"
     private var country = countries[0]
-    private var rating = 0
+    private var score = 0
     private var favorite = false
+    private var rewatch = 0
+    private var startDate = 0L
+    private var endDate = 0L
+    private var seasonTotals = ArrayList<Int>()
+    private var seasonWatched = ArrayList<Int>()
     private var saved = false
 
     private lateinit var coverView: CoverView
-    private lateinit var heartsRow: LinearLayout
+    private lateinit var seasonBox: LinearLayout
+    private lateinit var seasonCountTv: TextView
+    private lateinit var rewatchTv: TextView
+    private lateinit var scoreTv: TextView
+    private lateinit var startBtn: TextView
+    private lateinit var endBtn: TextView
     private lateinit var titleIn: EditText
+    private lateinit var originalIn: EditText
+    private lateinit var synopsisIn: EditText
+    private lateinit var minutesIn: EditText
     private lateinit var platformIn: EditText
     private lateinit var yearIn: EditText
-    private lateinit var epWIn: EditText
-    private lateinit var epTIn: EditText
     private lateinit var castIn: EditText
+    private lateinit var coupleIn: EditText
     private lateinit var notesIn: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,10 +66,20 @@ class EditActivity : AppCompatActivity() {
             coverPath = ex.cover
             originalCover = ex.cover
             genreKey = ex.genre
+            tags = HashSet(ex.tags)
             statusKey = ex.status
             country = ex.country
-            rating = ex.rating
+            score = ex.score
             favorite = ex.favorite
+            rewatch = ex.rewatch
+            startDate = ex.startDate
+            endDate = ex.endDate
+            seasonTotals = ArrayList(ex.seasonEps)
+            seasonWatched = ArrayList(ex.watched)
+        }
+        if (seasonTotals.isEmpty()) {
+            seasonTotals.add(0)
+            seasonWatched.add(0)
         }
 
         val root = FrameLayout(this)
@@ -65,35 +93,33 @@ class EditActivity : AppCompatActivity() {
         head.orientation = LinearLayout.HORIZONTAL
         head.gravity = Gravity.CENTER_VERTICAL
         head.setPadding(dp(16), dp(10), dp(16), dp(6))
-        val back = label("←", 30f, Palette.pink, true)
-        back.setPadding(dp(4), dp(4), dp(16), dp(4))
-        back.setOnClickListener { finish() }
-        head.addView(back)
-        head.addView(
-            label(if (ex == null) "Novo dorama 🌸" else "Editar dorama ✏️", 22f, Palette.pink, true, true)
-        )
+        head.addView(roundBtn("back", Palette.pinkDark, false, 18) { finish() }, lin(dp(40), dp(40), r = 12))
+        head.addView(label(if (ex == null) "Novo dorama" else "Editar dorama", 22f, Palette.pinkDark, true, true))
         page.addView(head, lin(MATCH, WRAP))
 
         val sv = ScrollView(this)
         sv.isVerticalScrollBarEnabled = false
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        col.setPadding(dp(18), dp(6), dp(18), dp(24))
+        col.setPadding(dp(16), dp(6), dp(16), dp(24))
         sv.addView(col)
         page.addView(sv, lin(MATCH, 0, 1f))
 
-        // capa
+        // ---------------- capa e título
+        val c1 = card(14, 24)
+        c1.addView(sectionTitle("Capa e título", "image"))
         val coverRow = LinearLayout(this)
         coverRow.orientation = LinearLayout.HORIZONTAL
         coverRow.gravity = Gravity.CENTER_VERTICAL
         coverView = CoverView(this, 20)
         coverView.elevation = dp(4).toFloat()
-        coverRow.addView(coverView, lin(dp(110), dp(158), r = 16))
+        coverRow.addView(coverView, lin(dp(104), dp(150), r = 16))
         val coverBtns = LinearLayout(this)
         coverBtns.orientation = LinearLayout.VERTICAL
-        val pick = pill("📷 Escolher capa", Palette.pink, Color.WHITE, 13f)
+        val pick = pill("Escolher capa", Palette.pink, Color.WHITE, 13f, "image")
         pick.setOnClickListener { pickCover() }
-        val clear = pill("Remover capa", Color.WHITE, Palette.pink, 12f)
+        val clear = pill("Remover capa", Color.WHITE, Palette.pink, 12f, "close")
+        clear.background = roundRect(Color.WHITE, dp(20).toFloat(), Palette.pink, dp(1))
         clear.setOnClickListener {
             if (coverPath.isNotEmpty() && coverPath != originalCover) File(coverPath).delete()
             coverPath = ""
@@ -101,88 +127,190 @@ class EditActivity : AppCompatActivity() {
         }
         coverBtns.addView(pick, lin(WRAP, WRAP))
         coverBtns.addView(clear, lin(WRAP, WRAP, t = 8))
-        coverBtns.addView(label("Escolha uma imagem da sua galeria", 11f, Palette.muted), lin(WRAP, WRAP, t = 8))
+        coverBtns.addView(label("Use uma imagem da sua galeria", 11f, Palette.muted), lin(WRAP, WRAP, t = 8))
         coverRow.addView(coverBtns, lin(0, WRAP, 1f))
-        col.addView(coverRow, lin(MATCH, WRAP))
-
-        // título
-        col.addView(sectionLabel("Título *"))
+        c1.addView(coverRow, lin(MATCH, WRAP, t = 10))
+        c1.addView(fieldLabel("Título *"))
         titleIn = input("Ex.: Pousando no Amor", ex?.title ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
-        col.addView(titleIn, lin(MATCH, WRAP))
+        c1.addView(titleIn, lin(MATCH, WRAP))
+        c1.addView(fieldLabel("Título original"))
+        originalIn = input("Ex.: 사랑의 불시착", ex?.original ?: "")
+        c1.addView(originalIn, lin(MATCH, WRAP))
+        col.addView(c1, lin(MATCH, WRAP, t = 8))
 
-        // país
-        col.addView(sectionLabel("País 🌏"))
-        val cOpts = ArrayList<Triple<String, String, Int>>()
-        for (c in countries) cOpts.add(Triple(c, c, Palette.pink))
-        col.addView(chipScroller(cOpts, country) { country = it }, lin(MATCH, WRAP))
-
-        // gênero
-        col.addView(sectionLabel("Gênero 🎀"))
-        val gOpts = ArrayList<Triple<String, String, Int>>()
-        for (g in Genres.all) gOpts.add(Triple(g.key, g.emoji + " " + g.label, g.primary))
-        col.addView(chipScroller(gOpts, genreKey) {
+        // ---------------- classificação
+        val c2 = card(14, 24)
+        c2.addView(sectionTitle("Classificação", "tag"))
+        c2.addView(fieldLabel("País"))
+        val cOpts = ArrayList<Opt>()
+        for (c in countries) cOpts.add(Opt(c, c, Palette.pink, "flag"))
+        c2.addView(chipScroller(cOpts, country) { country = it }, lin(MATCH, WRAP))
+        c2.addView(fieldLabel("Gênero principal (define o tema do dorama)"))
+        val gOpts = ArrayList<Opt>()
+        for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon))
+        c2.addView(chipScroller(gOpts, genreKey) {
             genreKey = it
             refreshCover()
         }, lin(MATCH, WRAP))
+        c2.addView(fieldLabel("Outros gêneros"))
+        c2.addView(multiChips(gOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
+        c2.addView(fieldLabel("Status"))
+        val sOpts = ArrayList<Opt>()
+        for (s in Statuses.all) sOpts.add(Opt(s.key, s.label, s.color, s.icon))
+        c2.addView(chipScroller(sOpts, statusKey) { statusKey = it }, lin(MATCH, WRAP))
+        col.addView(c2, lin(MATCH, WRAP, t = 12))
 
-        // status
-        col.addView(sectionLabel("Status 📺"))
-        val sOpts = ArrayList<Triple<String, String, Int>>()
-        for (s in Statuses.all) sOpts.add(Triple(s.key, s.emoji + " " + s.label, s.color))
-        col.addView(chipScroller(sOpts, statusKey) { statusKey = it }, lin(MATCH, WRAP))
+        // ---------------- temporadas
+        val c3 = card(14, 24)
+        c3.addView(sectionTitle("Temporadas e episódios", "tv"))
+        val stepRow = LinearLayout(this)
+        stepRow.orientation = LinearLayout.HORIZONTAL
+        stepRow.gravity = Gravity.CENTER_VERTICAL
+        stepRow.addView(label("Quantidade de temporadas", 13f, Palette.text, true), lin(0, WRAP, 1f))
+        seasonCountTv = label("1", 16f, Palette.pinkDark, true)
+        seasonCountTv.gravity = Gravity.CENTER
+        stepRow.addView(roundBtn("minus", Palette.pink, false, 14) {
+            if (seasonTotals.size > 1) {
+                seasonTotals.removeAt(seasonTotals.size - 1)
+                seasonWatched.removeAt(seasonWatched.size - 1)
+                rebuildSeasons()
+            }
+        }, lin(dp(32), dp(32)))
+        stepRow.addView(seasonCountTv, lin(dp(36), WRAP))
+        stepRow.addView(roundBtn("add", Palette.pink, true, 14) {
+            if (seasonTotals.size < 30) {
+                seasonTotals.add(0)
+                seasonWatched.add(0)
+                rebuildSeasons()
+            }
+        }, lin(dp(32), dp(32)))
+        c3.addView(stepRow, lin(MATCH, WRAP, t = 10))
+        seasonBox = LinearLayout(this)
+        seasonBox.orientation = LinearLayout.VERTICAL
+        c3.addView(seasonBox, lin(MATCH, WRAP, t = 4))
+        c3.addView(fieldLabel("Duração de cada episódio (minutos)"))
+        minutesIn = input("Ex.: 60", if (ex != null && ex.epMinutes > 0) ex.epMinutes.toString() else "", InputType.TYPE_CLASS_NUMBER)
+        c3.addView(minutesIn, lin(MATCH, WRAP))
+        col.addView(c3, lin(MATCH, WRAP, t = 12))
+        rebuildSeasons()
 
-        // episódios
-        col.addView(sectionLabel("Episódios"))
-        val epRow = LinearLayout(this)
-        epRow.orientation = LinearLayout.HORIZONTAL
-        epWIn = input("Assistidos", if (ex != null && ex.epWatched > 0) ex.epWatched.toString() else "", InputType.TYPE_CLASS_NUMBER)
-        epTIn = input("Total", if (ex != null && ex.epTotal > 0) ex.epTotal.toString() else "", InputType.TYPE_CLASS_NUMBER)
-        epRow.addView(epWIn, lin(0, WRAP, 1f, r = 8))
-        epRow.addView(epTIn, lin(0, WRAP, 1f))
-        col.addView(epRow, lin(MATCH, WRAP))
+        // ---------------- nota
+        val c4 = card(14, 24)
+        c4.addView(sectionTitle("Minha nota", "heart"))
+        val rating = RatingView(this, 36, true)
+        rating.score = score
+        scoreTv = label(scoreText(), 15f, Palette.pinkDark, true, true)
+        rating.onChange = { ns ->
+            score = ns
+            scoreTv.text = scoreText()
+        }
+        c4.addView(rating, lin(WRAP, WRAP, t = 10))
+        c4.addView(scoreTv, lin(WRAP, WRAP, t = 6))
+        val favTv = pill(
+            if (favorite) "Nos favoritos" else "Marcar como favorito",
+            if (favorite) Palette.pink else Color.WHITE,
+            if (favorite) Color.WHITE else Palette.pink,
+            13f, "heart"
+        )
+        favTv.setOnClickListener {
+            favorite = !favorite
+            favTv.text = if (favorite) "Nos favoritos" else "Marcar como favorito"
+            favTv.background = roundRect(if (favorite) Palette.pink else Color.WHITE, dp(20).toFloat(), Palette.pink, dp(1))
+            favTv.setTextColor(if (favorite) Color.WHITE else Palette.pink)
+            val dr = favTv.compoundDrawables[0]
+            if (dr is IconDrawable) dr.color = if (favorite) Color.WHITE else Palette.pink
+        }
+        favTv.background = roundRect(if (favorite) Palette.pink else Color.WHITE, dp(20).toFloat(), Palette.pink, dp(1))
+        c4.addView(favTv, lin(WRAP, WRAP, t = 12))
 
-        // nota
-        col.addView(sectionLabel("Minha nota 💗"))
-        heartsRow = LinearLayout(this)
-        heartsRow.orientation = LinearLayout.HORIZONTAL
-        col.addView(heartsRow, lin(WRAP, WRAP))
-        drawHearts()
+        val rwRow = LinearLayout(this)
+        rwRow.orientation = LinearLayout.HORIZONTAL
+        rwRow.gravity = Gravity.CENTER_VERTICAL
+        rwRow.addView(label("Vezes que reassisti", 13f, Palette.text, true), lin(0, WRAP, 1f))
+        rewatchTv = label(rewatch.toString(), 16f, Palette.pinkDark, true)
+        rewatchTv.gravity = Gravity.CENTER
+        rwRow.addView(roundBtn("minus", Palette.pink, false, 14) {
+            if (rewatch > 0) {
+                rewatch -= 1
+                rewatchTv.text = rewatch.toString()
+            }
+        }, lin(dp(32), dp(32)))
+        rwRow.addView(rewatchTv, lin(dp(36), WRAP))
+        rwRow.addView(roundBtn("add", Palette.pink, true, 14) {
+            rewatch += 1
+            rewatchTv.text = rewatch.toString()
+        }, lin(dp(32), dp(32)))
+        c4.addView(rwRow, lin(MATCH, WRAP, t = 14))
+        col.addView(c4, lin(MATCH, WRAP, t = 12))
 
-        // plataforma e ano
-        col.addView(sectionLabel("Onde assistir e ano"))
+        // ---------------- detalhes
+        val c5 = card(14, 24)
+        c5.addView(sectionTitle("Detalhes", "calendar"))
+        c5.addView(fieldLabel("Onde assistir e ano"))
         val pyRow = LinearLayout(this)
         pyRow.orientation = LinearLayout.HORIZONTAL
         platformIn = input("Netflix, Viki...", ex?.platform ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         yearIn = input("Ano", ex?.year ?: "", InputType.TYPE_CLASS_NUMBER)
         pyRow.addView(platformIn, lin(0, WRAP, 2f, r = 8))
         pyRow.addView(yearIn, lin(0, WRAP, 1f))
-        col.addView(pyRow, lin(MATCH, WRAP))
-
-        // elenco
-        col.addView(sectionLabel("Elenco 🎭"))
-        castIn = input("Atores e atrizes favoritos", ex?.cast ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
-        col.addView(castIn, lin(MATCH, WRAP))
-
-        // resenha
-        col.addView(sectionLabel("Minha resenha 💌"))
-        notesIn = input("O que você achou? Frases e cenas favoritas...", ex?.notes ?: "", InputType.TYPE_CLASS_TEXT, true)
-        col.addView(notesIn, lin(MATCH, WRAP))
-
-        // favorito
-        val favRow = LinearLayout(this)
-        favRow.orientation = LinearLayout.HORIZONTAL
-        favRow.gravity = Gravity.CENTER_VERTICAL
-        val favTv = label(if (favorite) "💖 Nos favoritos" else "🤍 Marcar como favorito", 14f, Palette.text, true)
-        favTv.setOnClickListener {
-            favorite = !favorite
-            favTv.text = if (favorite) "💖 Nos favoritos" else "🤍 Marcar como favorito"
+        c5.addView(pyRow, lin(MATCH, WRAP))
+        c5.addView(fieldLabel("Datas (segure para limpar)"))
+        val dRow = LinearLayout(this)
+        dRow.orientation = LinearLayout.HORIZONTAL
+        startBtn = pill("", Color.WHITE, Palette.pink, 12f, "play")
+        endBtn = pill("", Color.WHITE, Palette.pink, 12f, "check")
+        startBtn.setOnClickListener {
+            pickDate(startDate) {
+                startDate = it
+                refreshDates()
+            }
         }
-        favTv.setPadding(0, dp(12), 0, dp(12))
-        favRow.addView(favTv)
-        col.addView(favRow, lin(MATCH, WRAP, t = 8))
+        startBtn.setOnLongClickListener {
+            startDate = 0L
+            refreshDates()
+            true
+        }
+        endBtn.setOnClickListener {
+            pickDate(endDate) {
+                endDate = it
+                refreshDates()
+            }
+        }
+        endBtn.setOnLongClickListener {
+            endDate = 0L
+            refreshDates()
+            true
+        }
+        dRow.addView(startBtn, lin(WRAP, WRAP, r = 8))
+        dRow.addView(endBtn, lin(WRAP, WRAP))
+        c5.addView(dRow, lin(MATCH, WRAP))
+        refreshDates()
+        col.addView(c5, lin(MATCH, WRAP, t = 12))
 
-        // botão salvar fixo
-        val saveBtn = label("Salvar 🌸", 18f, Color.WHITE, true, true)
+        // ---------------- elenco
+        val c6 = card(14, 24)
+        c6.addView(sectionTitle("Elenco e casal", "person"))
+        c6.addView(fieldLabel("Elenco"))
+        castIn = input("Atores e atrizes favoritos", ex?.cast ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+        c6.addView(castIn, lin(MATCH, WRAP))
+        c6.addView(fieldLabel("Casal favorito"))
+        coupleIn = input("Quem formou o casal que você shippa?", ex?.couple ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+        c6.addView(coupleIn, lin(MATCH, WRAP))
+        col.addView(c6, lin(MATCH, WRAP, t = 12))
+
+        // ---------------- textos
+        val c7 = card(14, 24)
+        c7.addView(sectionTitle("Sinopse e resenha", "book"))
+        c7.addView(fieldLabel("Sinopse"))
+        synopsisIn = input("Do que se trata?", ex?.synopsis ?: "", InputType.TYPE_CLASS_TEXT, true)
+        c7.addView(synopsisIn, lin(MATCH, WRAP))
+        c7.addView(fieldLabel("Minha resenha"))
+        notesIn = input("O que você achou? Cenas e frases favoritas...", ex?.notes ?: "", InputType.TYPE_CLASS_TEXT, true)
+        c7.addView(notesIn, lin(MATCH, WRAP))
+        col.addView(c7, lin(MATCH, WRAP, t = 12))
+
+        // ---------------- botão salvar fixo
+        val saveBtn = label("Salvar", 18f, Color.WHITE, true, true)
         saveBtn.gravity = Gravity.CENTER
         saveBtn.setPadding(dp(16), dp(14), dp(16), dp(14))
         saveBtn.background = gradient(
@@ -197,27 +325,64 @@ class EditActivity : AppCompatActivity() {
         refreshCover()
     }
 
-    private fun sectionLabel(t: String): TextView {
-        val v = label(t, 14f, Palette.text, true, true)
-        v.setPadding(dp(4), dp(16), 0, dp(6))
+    private fun fieldLabel(t: String): TextView {
+        val v = label(t, 12.5f, Palette.muted, true)
+        v.setPadding(dp(2), dp(14), 0, dp(6))
         return v
     }
 
-    private fun refreshCover() {
-        coverView.bind(coverPath, genreKey, 400, 40f)
+    private fun scoreText(): String = if (score <= 0) "Sem nota ainda" else "$score / 10"
+
+    private fun fmt(ms: Long): String =
+        SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")).format(Date(ms))
+
+    private fun refreshDates() {
+        startBtn.text = "Início: " + (if (startDate > 0L) fmt(startDate) else "escolher")
+        endBtn.text = "Fim: " + (if (endDate > 0L) fmt(endDate) else "escolher")
     }
 
-    private fun drawHearts() {
-        heartsRow.removeAllViews()
-        for (i in 1..5) {
-            val h = label(if (i <= rating) "♥" else "♡", 36f, Palette.pink, true)
-            h.setPadding(0, 0, dp(10), 0)
-            h.setOnClickListener {
-                rating = if (rating == i) 0 else i
-                drawHearts()
-            }
-            heartsRow.addView(h)
+    private fun pickDate(current: Long, onPick: (Long) -> Unit) {
+        val cal = Calendar.getInstance()
+        if (current > 0L) cal.timeInMillis = current
+        DatePickerDialog(
+            this,
+            { _, y, m, dd ->
+                val c = Calendar.getInstance()
+                c.set(y, m, dd, 12, 0, 0)
+                onPick(c.timeInMillis)
+            },
+            cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    private fun rebuildSeasons() {
+        seasonBox.removeAllViews()
+        seasonCountTv.text = seasonTotals.size.toString()
+        for (i in seasonTotals.indices) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.addView(label("Temp. " + (i + 1), 13f, Palette.text, true), lin(dp(62), WRAP))
+            val w = input(
+                "Vistos",
+                if (seasonWatched[i] > 0) seasonWatched[i].toString() else "",
+                InputType.TYPE_CLASS_NUMBER
+            )
+            val t = input(
+                "Total de eps",
+                if (seasonTotals[i] > 0) seasonTotals[i].toString() else "",
+                InputType.TYPE_CLASS_NUMBER
+            )
+            w.doAfterTextChanged { seasonWatched[i] = it?.toString()?.toIntOrNull() ?: 0 }
+            t.doAfterTextChanged { seasonTotals[i] = it?.toString()?.toIntOrNull() ?: 0 }
+            row.addView(w, lin(0, WRAP, 1f, r = 6))
+            row.addView(t, lin(0, WRAP, 1f))
+            seasonBox.addView(row, lin(MATCH, WRAP, t = 8))
         }
+    }
+
+    private fun refreshCover() {
+        coverView.bind(coverPath, genreKey, 400)
     }
 
     private fun pickCover() {
@@ -238,7 +403,7 @@ class EditActivity : AppCompatActivity() {
                     coverPath = p
                     refreshCover()
                 } else {
-                    Toast.makeText(this, "Não consegui abrir essa imagem 🥺", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Não consegui abrir essa imagem.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -247,36 +412,44 @@ class EditActivity : AppCompatActivity() {
     private fun save() {
         val title = titleIn.text.toString().trim()
         if (title.isEmpty()) {
-            Toast.makeText(this, "Dê um nome ao dorama 🌸", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Dê um nome ao dorama.", Toast.LENGTH_SHORT).show()
             titleIn.requestFocus()
             return
         }
-        var ew = epWIn.text.toString().toIntOrNull() ?: 0
-        val et = epTIn.text.toString().toIntOrNull() ?: 0
-        if (et > 0 && ew > et) ew = et
-        var status = statusKey
-        if (et > 0 && ew >= et && status == "assistindo") status = "concluido"
-        if (status == "concluido" && et > 0) ew = et
-        if (ew > 0 && status == "quero") status = "assistindo"
-
         val old = existing
         val d = Drama(
             id = if (old != null) old.id else System.currentTimeMillis(),
             title = title,
+            original = originalIn.text.toString().trim(),
+            synopsis = synopsisIn.text.toString().trim(),
             country = country,
             genre = genreKey,
-            status = status,
-            rating = rating,
-            epWatched = ew,
-            epTotal = et,
+            tags = tags.filter { it != genreKey },
+            status = statusKey,
+            score = score,
+            seasonEps = ArrayList(seasonTotals),
+            watched = ArrayList(seasonWatched),
+            epMinutes = minutesIn.text.toString().toIntOrNull() ?: 0,
             year = yearIn.text.toString().trim(),
             platform = platformIn.text.toString().trim(),
             cast = castIn.text.toString().trim(),
+            couple = coupleIn.text.toString().trim(),
+            startDate = startDate,
+            endDate = endDate,
+            rewatch = rewatch,
             notes = notesIn.text.toString().trim(),
             favorite = favorite,
             cover = coverPath,
             addedAt = if (old != null) old.addedAt else System.currentTimeMillis()
         )
+        normalize(d)
+        val tot = totalEps(d)
+        val wat = watchedEps(d)
+        var st = statusKey
+        if (tot > 0 && d.seasonEps.all { it > 0 } && wat >= tot && st == "assistindo") st = "concluido"
+        if (wat > 0 && st == "quero") st = "assistindo"
+        applyStatus(d, st)
+
         if (originalCover.isNotEmpty() && originalCover != coverPath) {
             try {
                 File(originalCover).delete()
@@ -286,7 +459,7 @@ class EditActivity : AppCompatActivity() {
         }
         saved = true
         Store.save(d)
-        Toast.makeText(this, "Salvo com carinho 🌸", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Salvo com carinho!", Toast.LENGTH_SHORT).show()
         finish()
     }
 

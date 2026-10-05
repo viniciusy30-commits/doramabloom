@@ -16,7 +16,7 @@ import java.io.FileOutputStream
 data class Genre(
     val key: String,
     val label: String,
-    val emoji: String,
+    val icon: String,
     val primary: Int,
     val soft: Int,
     val dark: Int,
@@ -28,84 +28,190 @@ object Genres {
     private fun c(s: String): Int = Color.parseColor(s)
 
     val all: List<Genre> = listOf(
-        Genre("romance", "Romance", "💕", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
-            listOf("🌸", "💕", "💗"), "Para suspirar abraçada na almofada 💕"),
-        Genre("comedia", "Comédia", "🤭", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
-            listOf("🌼", "⭐", "🍋"), "Risadinhas garantidas 🤭"),
-        Genre("acao", "Ação", "⚔️", c("#FF7A6B"), c("#FFE5E0"), c("#9C2F22"),
-            listOf("⚡", "✨", "🌸"), "Coração acelerado e muita adrenalina ⚡"),
-        Genre("terror", "Terror", "🌙", c("#9B7EDE"), c("#EDE6FA"), c("#4B2E8F"),
-            listOf("🦇", "🌙", "✨", "👻"), "Luz acesa e coberta até o nariz 🌙"),
-        Genre("fantasia", "Fantasia", "✨", c("#6FA8FF"), c("#E3EEFF"), c("#1F4F9C"),
-            listOf("✨", "🦋", "💫"), "Magia, brilho e mundos encantados ✨"),
-        Genre("historico", "Histórico", "🏯", c("#D6536D"), c("#FBE3E8"), c("#8E1F3A"),
-            listOf("🌸", "🍁", "🏮"), "Hanboks, palácios e intrigas da corte 🏯"),
-        Genre("misterio", "Mistério", "🔍", c("#5FB3A8"), c("#DFF4F1"), c("#1F6B62"),
-            listOf("🔍", "🍃", "✨"), "Quem será o culpado? 🔍"),
-        Genre("escolar", "Escolar", "🎒", c("#7FD1AE"), c("#E1F7EC"), c("#226B4B"),
-            listOf("📚", "🌱", "🍀"), "Uniformes, amizades e primeiros amores 🎒"),
-        Genre("drama", "Drama", "🥺", c("#C38BD8"), c("#F6E6FB"), c("#6E2F86"),
-            listOf("🌷", "💧", "🍃"), "Lencinho por perto, vai ter choro 🥺")
+        Genre("romance", "Romance", "heart", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
+            listOf("petal", "heart", "blossom"), "Para suspirar abraçada na almofada"),
+        Genre("comedia", "Comédia", "smile", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
+            listOf("star", "blossom", "sparkle"), "Risadinhas garantidas"),
+        Genre("acao", "Ação", "bolt", c("#FF7A6B"), c("#FFE5E0"), c("#9C2F22"),
+            listOf("bolt", "sparkle", "petal"), "Coração acelerado e muita adrenalina"),
+        Genre("terror", "Terror", "ghost", c("#9B7EDE"), c("#EDE6FA"), c("#4B2E8F"),
+            listOf("moon", "ghost", "sparkle"), "Luz acesa e coberta até o nariz"),
+        Genre("fantasia", "Fantasia", "sparkle", c("#6FA8FF"), c("#E3EEFF"), c("#1F4F9C"),
+            listOf("sparkle", "star", "petal"), "Magia, brilho e mundos encantados"),
+        Genre("historico", "Histórico", "pagoda", c("#D6536D"), c("#FBE3E8"), c("#8E1F3A"),
+            listOf("petal", "blossom", "leaf"), "Hanboks, palácios e intrigas da corte"),
+        Genre("misterio", "Mistério", "search", c("#5FB3A8"), c("#DFF4F1"), c("#1F6B62"),
+            listOf("leaf", "sparkle", "star"), "Quem será o culpado?"),
+        Genre("escolar", "Escolar", "school", c("#7FD1AE"), c("#E1F7EC"), c("#226B4B"),
+            listOf("star", "leaf", "blossom"), "Uniformes, amizades e primeiros amores"),
+        Genre("drama", "Drama", "drop", c("#C38BD8"), c("#F6E6FB"), c("#6E2F86"),
+            listOf("drop", "petal", "leaf"), "Lencinho por perto, vai ter choro")
     )
 
     fun byKey(k: String): Genre = all.firstOrNull { it.key == k } ?: all[0]
 }
 
-data class Status(val key: String, val label: String, val emoji: String, val color: Int)
+data class Status(val key: String, val label: String, val icon: String, val color: Int)
 
 object Statuses {
     val all: List<Status> = listOf(
-        Status("assistindo", "Assistindo", "📺", Color.parseColor("#6FA8FF")),
-        Status("quero", "Quero ver", "🌱", Color.parseColor("#C38BD8")),
-        Status("concluido", "Concluído", "✅", Color.parseColor("#5CC6A0")),
-        Status("pausado", "Pausado", "⏸️", Color.parseColor("#FFB84D")),
-        Status("dropado", "Dropado", "🥀", Color.parseColor("#B7A3AE"))
+        Status("assistindo", "Assistindo", "play", Color.parseColor("#6FA8FF")),
+        Status("quero", "Quero ver", "bookmark", Color.parseColor("#C38BD8")),
+        Status("concluido", "Concluído", "check", Color.parseColor("#5CC6A0")),
+        Status("pausado", "Pausado", "pause", Color.parseColor("#FFB84D")),
+        Status("dropado", "Dropado", "close", Color.parseColor("#B7A3AE"))
     )
 
     fun byKey(k: String): Status = all.firstOrNull { it.key == k } ?: all[1]
 }
 
 val countries: List<String> = listOf(
-    "Coreia do Sul 🇰🇷", "Japão 🇯🇵", "China 🇨🇳", "Tailândia 🇹🇭", "Taiwan 🇹🇼", "Outro 🌏"
+    "Coreia do Sul", "Japão", "China", "Tailândia", "Taiwan", "Outro"
 )
 
 data class Drama(
     var id: Long,
     var title: String,
+    var original: String,
+    var synopsis: String,
     var country: String,
     var genre: String,
+    var tags: List<String>,
     var status: String,
-    var rating: Int,
-    var epWatched: Int,
-    var epTotal: Int,
+    var score: Int,
+    var seasonEps: List<Int>,
+    var watched: List<Int>,
+    var epMinutes: Int,
     var year: String,
     var platform: String,
     var cast: String,
+    var couple: String,
+    var startDate: Long,
+    var endDate: Long,
+    var rewatch: Int,
     var notes: String,
     var favorite: Boolean,
     var cover: String,
     var addedAt: Long
 )
 
-fun progressText(d: Drama): String =
-    if (d.epTotal > 0) "Episódio ${d.epWatched} de ${d.epTotal}" else "Episódio ${d.epWatched}"
+fun totalEps(d: Drama): Int = d.seasonEps.sum()
+fun watchedEps(d: Drama): Int = d.watched.sum()
+fun seasonCount(d: Drama): Int = d.seasonEps.size
 
-fun progressOf(d: Drama): Float =
-    if (d.epTotal > 0) d.epWatched.toFloat() / d.epTotal.toFloat() else 0f
+fun currentSeason(d: Drama): Int {
+    for (i in d.seasonEps.indices) {
+        val t = d.seasonEps[i]
+        if (t == 0 || d.watched[i] < t) return i
+    }
+    return maxOf(0, d.seasonEps.size - 1)
+}
+
+fun progressText(d: Drama): String {
+    val t = totalEps(d)
+    val w = watchedEps(d)
+    if (seasonCount(d) <= 1) {
+        return if (t > 0) "Ep. $w de $t" else "Ep. $w"
+    }
+    val cs = currentSeason(d)
+    val st = d.seasonEps[cs]
+    val part = if (st > 0) "${d.watched[cs]}/$st" else "${d.watched[cs]}"
+    return "Temp. ${cs + 1} · Ep. $part"
+}
+
+fun progressOf(d: Drama): Float {
+    val t = totalEps(d)
+    return if (t > 0) watchedEps(d).toFloat() / t.toFloat() else 0f
+}
+
+fun subtitle(d: Drama): String {
+    val parts = ArrayList<String>()
+    parts.add(d.country)
+    if (d.year.isNotBlank()) parts.add(d.year)
+    if (seasonCount(d) > 1) parts.add(seasonCount(d).toString() + " temp.")
+    val t = totalEps(d)
+    if (t > 0) parts.add(t.toString() + " eps")
+    return parts.joinToString(" · ")
+}
+
+fun hoursWatched(d: Drama): Double =
+    watchedEps(d) * (if (d.epMinutes > 0) d.epMinutes else 60) / 60.0
+
+fun normalize(d: Drama) {
+    val e = d.seasonEps.toMutableList()
+    val w = d.watched.toMutableList()
+    if (e.isEmpty()) e.add(0)
+    while (w.size < e.size) w.add(0)
+    while (w.size > e.size) w.removeAt(w.size - 1)
+    for (i in e.indices) {
+        if (e[i] < 0) e[i] = 0
+        if (w[i] < 0) w[i] = 0
+        if (e[i] > 0 && w[i] > e[i]) w[i] = e[i]
+    }
+    d.seasonEps = e
+    d.watched = w
+}
+
+fun applyStatus(d: Drama, key: String) {
+    d.status = key
+    val now = System.currentTimeMillis()
+    if (key == "assistindo" && d.startDate == 0L) d.startDate = now
+    if (key == "concluido") {
+        val w = ArrayList<Int>()
+        for (i in d.seasonEps.indices) {
+            w.add(if (d.seasonEps[i] > 0) d.seasonEps[i] else d.watched[i])
+        }
+        d.watched = w
+        if (d.startDate == 0L) d.startDate = now
+        if (d.endDate == 0L) d.endDate = now
+    }
+}
+
+private fun intsToJson(l: List<Int>): JSONArray {
+    val a = JSONArray()
+    for (v in l) a.put(v)
+    return a
+}
+
+private fun jsonInts(a: JSONArray?): List<Int> {
+    val r = ArrayList<Int>()
+    if (a != null) {
+        for (i in 0 until a.length()) r.add(a.optInt(i, 0))
+    }
+    return r
+}
+
+private fun jsonStrings(a: JSONArray?): List<String> {
+    val r = ArrayList<String>()
+    if (a != null) {
+        for (i in 0 until a.length()) r.add(a.optString(i, ""))
+    }
+    return r
+}
 
 private fun Drama.toJson(): JSONObject {
     val o = JSONObject()
     o.put("id", id)
     o.put("title", title)
+    o.put("original", original)
+    o.put("synopsis", synopsis)
     o.put("country", country)
     o.put("genre", genre)
+    val ta = JSONArray()
+    for (t in tags) ta.put(t)
+    o.put("tags", ta)
     o.put("status", status)
-    o.put("rating", rating)
-    o.put("epWatched", epWatched)
-    o.put("epTotal", epTotal)
+    o.put("score", score)
+    o.put("seasonEps", intsToJson(seasonEps))
+    o.put("watched", intsToJson(watched))
+    o.put("epMinutes", epMinutes)
     o.put("year", year)
     o.put("platform", platform)
     o.put("cast", cast)
+    o.put("couple", couple)
+    o.put("startDate", startDate)
+    o.put("endDate", endDate)
+    o.put("rewatch", rewatch)
     o.put("notes", notes)
     o.put("favorite", favorite)
     o.put("cover", cover)
@@ -113,23 +219,43 @@ private fun Drama.toJson(): JSONObject {
     return o
 }
 
-private fun dramaFromJson(o: JSONObject): Drama = Drama(
-    id = o.optLong("id", System.currentTimeMillis()),
-    title = o.optString("title", ""),
-    country = o.optString("country", countries[0]),
-    genre = o.optString("genre", "romance"),
-    status = o.optString("status", "quero"),
-    rating = o.optInt("rating", 0),
-    epWatched = o.optInt("epWatched", 0),
-    epTotal = o.optInt("epTotal", 0),
-    year = o.optString("year", ""),
-    platform = o.optString("platform", ""),
-    cast = o.optString("cast", ""),
-    notes = o.optString("notes", ""),
-    favorite = o.optBoolean("favorite", false),
-    cover = o.optString("cover", ""),
-    addedAt = o.optLong("addedAt", System.currentTimeMillis())
-)
+private fun dramaFromJson(o: JSONObject): Drama {
+    var eps = jsonInts(o.optJSONArray("seasonEps"))
+    var wat = jsonInts(o.optJSONArray("watched"))
+    if (eps.isEmpty()) {
+        // versão antiga: um único bloco de episódios
+        eps = listOf(o.optInt("epTotal", 0))
+        wat = listOf(o.optInt("epWatched", 0))
+    }
+    val score = if (o.has("score")) o.optInt("score", 0) else o.optInt("rating", 0) * 2
+    val d = Drama(
+        id = o.optLong("id", System.currentTimeMillis()),
+        title = o.optString("title", ""),
+        original = o.optString("original", ""),
+        synopsis = o.optString("synopsis", ""),
+        country = o.optString("country", countries[0]),
+        genre = o.optString("genre", "romance"),
+        tags = jsonStrings(o.optJSONArray("tags")),
+        status = o.optString("status", "quero"),
+        score = score,
+        seasonEps = eps,
+        watched = wat,
+        epMinutes = o.optInt("epMinutes", 0),
+        year = o.optString("year", ""),
+        platform = o.optString("platform", ""),
+        cast = o.optString("cast", ""),
+        couple = o.optString("couple", ""),
+        startDate = o.optLong("startDate", 0L),
+        endDate = o.optLong("endDate", 0L),
+        rewatch = o.optInt("rewatch", 0),
+        notes = o.optString("notes", ""),
+        favorite = o.optBoolean("favorite", false),
+        cover = o.optString("cover", ""),
+        addedAt = o.optLong("addedAt", System.currentTimeMillis())
+    )
+    normalize(d)
+    return d
+}
 
 object Store {
     private const val PREF = "doramabloom"
@@ -183,6 +309,7 @@ object Store {
     fun get(id: Long): Drama? = list.firstOrNull { it.id == id }
 
     fun save(d: Drama) {
+        normalize(d)
         val i = list.indexOfFirst { it.id == d.id }
         if (i >= 0) list[i] = d else list.add(0, d)
         persist()
@@ -201,19 +328,57 @@ object Store {
         persist()
     }
 
-    /** Soma um episódio. Devolve true se acabou de concluir o dorama. */
+    /** Soma um episódio na temporada em andamento. Devolve true se acabou de concluir o dorama. */
     fun bump(d: Drama): Boolean {
+        val w = d.watched.toMutableList()
+        var moved = false
+        for (i in d.seasonEps.indices) {
+            val t = d.seasonEps[i]
+            if (t == 0 || w[i] < t) {
+                w[i] = w[i] + 1
+                moved = true
+                break
+            }
+        }
+        if (!moved) return false
+        d.watched = w
+        return afterProgress(d)
+    }
+
+    /** Ajusta os episódios de uma temporada específica (delta positivo ou negativo). */
+    fun adjust(d: Drama, season: Int, delta: Int): Boolean {
+        if (season < 0 || season >= d.seasonEps.size) return false
+        val w = d.watched.toMutableList()
+        val t = d.seasonEps[season]
+        var nv = w[season] + delta
+        if (nv < 0) nv = 0
+        if (t > 0 && nv > t) nv = t
+        w[season] = nv
+        d.watched = w
+        if (delta < 0 && d.status == "concluido") d.status = "assistindo"
+        return afterProgress(d)
+    }
+
+    private fun afterProgress(d: Drama): Boolean {
         var finished = false
-        d.epWatched += 1
-        if (d.epTotal > 0 && d.epWatched >= d.epTotal) {
-            d.epWatched = d.epTotal
+        val total = totalEps(d)
+        if (watchedEps(d) > 0 && total > 0 && d.seasonEps.all { it > 0 } && watchedEps(d) >= total) {
             if (d.status != "concluido") finished = true
-            d.status = "concluido"
-        } else if (d.status != "assistindo") {
-            d.status = "assistindo"
+            applyStatus(d, "concluido")
+        } else if (watchedEps(d) > 0 && d.status != "assistindo" && d.status != "concluido") {
+            applyStatus(d, "assistindo")
         }
         persist()
         return finished
+    }
+
+    fun setStatus(d: Drama, key: String) {
+        applyStatus(d, key)
+        persist()
+    }
+
+    fun persistNow() {
+        persist()
     }
 
     fun exportJson(): String {

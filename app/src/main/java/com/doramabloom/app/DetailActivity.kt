@@ -2,10 +2,13 @@ package com.doramabloom.app
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -32,6 +35,9 @@ class DetailActivity : AppCompatActivity() {
         render()
     }
 
+    private fun fmt(ms: Long): String =
+        SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")).format(Date(ms))
+
     private fun render() {
         val d = Store.get(id)
         if (d == null) {
@@ -48,156 +54,249 @@ class DetailActivity : AppCompatActivity() {
         sv.isVerticalScrollBarEnabled = false
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        col.setPadding(dp(18), dp(10), dp(18), dp(40))
+        col.setPadding(dp(16), dp(10), dp(16), dp(40))
         sv.addView(col)
         root.addView(sv, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        // barra superior
+        // ---- barra superior
         val top = LinearLayout(this)
         top.orientation = LinearLayout.HORIZONTAL
         top.gravity = Gravity.CENTER_VERTICAL
-        val back = label("←", 30f, g.dark, true)
-        back.setPadding(dp(4), dp(4), dp(16), dp(4))
-        back.setOnClickListener { finish() }
-        top.addView(back)
+        top.addView(roundBtn("back", g.dark, false, 18) { finish() }, lin(dp(40), dp(40)))
         top.addView(View(this), lin(0, dp(1), 1f))
-        val fav = label(if (d.favorite) "💖" else "🤍", 28f)
-        fav.setPadding(dp(16), dp(4), dp(4), dp(4))
-        fav.setOnClickListener {
-            d.favorite = !d.favorite
-            Store.save(d)
-            render()
-        }
-        top.addView(fav)
-        col.addView(top, lin(MATCH, WRAP))
-
-        // capa
-        val cv = CoverView(this, 26)
-        cv.bind(d, 700, 72f)
-        cv.elevation = dp(8).toFloat()
-        val clp = lin(dp(190), dp(272), t = 6)
-        clp.gravity = Gravity.CENTER_HORIZONTAL
-        col.addView(cv, clp)
-
-        // título e chips
-        val title = label(d.title, 26f, g.dark, true, true)
-        title.gravity = Gravity.CENTER
-        col.addView(title, lin(MATCH, WRAP, t = 16))
-
-        val chips = LinearLayout(this)
-        chips.orientation = LinearLayout.HORIZONTAL
-        chips.gravity = Gravity.CENTER
-        chips.addView(pill(g.emoji + " " + g.label, g.primary, Color.WHITE, 12f), lin(WRAP, WRAP, r = 6))
-        chips.addView(pill(d.country, Color.WHITE, g.dark, 12f), lin(WRAP, WRAP))
-        col.addView(chips, lin(MATCH, WRAP, t = 8))
-
-        val tag = label(g.tagline, 12f, g.dark)
-        tag.gravity = Gravity.CENTER
-        col.addView(tag, lin(MATCH, WRAP, t = 8))
-
-        // status
-        val stCard = card(14, 22)
-        stCard.addView(label("Status", 15f, g.dark, true, true))
-        val stOpts = ArrayList<Triple<String, String, Int>>()
-        for (s in Statuses.all) stOpts.add(Triple(s.key, s.emoji + " " + s.label, s.color))
-        stCard.addView(chipScroller(stOpts, d.status) { key ->
-            d.status = key
-            if (key == "concluido" && d.epTotal > 0) d.epWatched = d.epTotal
-            Store.save(d)
-            render()
-        }, lin(MATCH, WRAP, t = 8))
-        col.addView(stCard, lin(MATCH, WRAP, t = 16))
-
-        // progresso
-        val pc = card(14, 22)
-        pc.addView(label("Meu progresso 📺", 15f, g.dark, true, true))
-        pc.addView(label(progressText(d), 14f, Palette.text), lin(WRAP, WRAP, t = 6))
-        val bar = SoftBar(this)
-        bar.progress = progressOf(d)
-        bar.barColor = g.primary
-        pc.addView(bar, lin(MATCH, dp(10), t = 6))
-        val prow = LinearLayout(this)
-        prow.orientation = LinearLayout.HORIZONTAL
-        prow.gravity = Gravity.CENTER_VERTICAL
-        val minus = pill("−", Color.WHITE, g.primary, 18f)
-        minus.background = roundRect(Color.WHITE, dp(22).toFloat(), g.primary, dp(2))
-        minus.setPadding(dp(22), dp(8), dp(22), dp(8))
-        minus.setOnClickListener {
-            if (d.epWatched > 0) {
-                d.epWatched -= 1
-                if (d.status == "concluido") d.status = "assistindo"
-                Store.save(d)
-                render()
-            }
-        }
-        val plus = pill("+1 episódio 🌸", g.primary, Color.WHITE, 15f)
-        plus.setPadding(dp(18), dp(12), dp(18), dp(12))
-        plus.setOnClickListener {
-            val finished = Store.bump(d)
-            if (finished) {
-                Toast.makeText(this, "Parabéns, você terminou! 🎉", Toast.LENGTH_LONG).show()
-            }
-            render()
-        }
-        prow.addView(minus, lin(WRAP, WRAP, r = 10))
-        prow.addView(plus, lin(0, WRAP, 1f))
-        pc.addView(prow, lin(MATCH, WRAP, t = 10))
-        col.addView(pc, lin(MATCH, WRAP, t = 12))
-
-        // nota
-        val rc = card(14, 22)
-        rc.addView(label("Minha nota 💗", 15f, g.dark, true, true))
-        val hr = LinearLayout(this)
-        hr.orientation = LinearLayout.HORIZONTAL
-        for (i in 1..5) {
-            val h = label(if (i <= d.rating) "♥" else "♡", 36f, g.primary, true)
-            h.setPadding(0, 0, dp(10), 0)
-            h.setOnClickListener {
-                d.rating = if (d.rating == i) 0 else i
-                Store.save(d)
-                render()
-            }
-            hr.addView(h)
-        }
-        rc.addView(hr, lin(WRAP, WRAP, t = 4))
-        col.addView(rc, lin(MATCH, WRAP, t = 12))
-
-        // informações
-        val ic = card(14, 22)
-        ic.addView(label("Informações 🎀", 15f, g.dark, true, true))
-        var rows = 0
-        if (d.platform.isNotBlank()) {
-            ic.addView(infoRow("🌐", "Onde assistir", d.platform)); rows++
-        }
-        if (d.year.isNotBlank()) {
-            ic.addView(infoRow("📅", "Ano", d.year)); rows++
-        }
-        if (d.cast.isNotBlank()) {
-            ic.addView(infoRow("🎭", "Elenco", d.cast)); rows++
-        }
-        val date = SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")).format(Date(d.addedAt))
-        ic.addView(infoRow("🗓️", "Adicionado em", date))
-        col.addView(ic, lin(MATCH, WRAP, t = 12))
-
-        // resenha
-        if (d.notes.isNotBlank()) {
-            val nc = card(14, 22)
-            nc.addView(label("Minha resenha 💌", 15f, g.dark, true, true))
-            nc.addView(label(d.notes, 14f, Palette.text), lin(MATCH, WRAP, t = 6))
-            col.addView(nc, lin(MATCH, WRAP, t = 12))
-        }
-
-        // ações
-        val actions = LinearLayout(this)
-        actions.orientation = LinearLayout.HORIZONTAL
-        val edit = pill("✏️ Editar", g.primary, Color.WHITE, 14f)
-        edit.setPadding(dp(18), dp(12), dp(18), dp(12))
-        edit.setOnClickListener {
+        top.addView(roundBtn("edit", g.dark, false, 18) {
             val i = Intent(this, EditActivity::class.java)
             i.putExtra("id", d.id)
             startActivity(i)
+        }, lin(dp(40), dp(40), r = 8))
+        top.addView(roundBtn("heart", g.primary, d.favorite, 18) {
+            d.favorite = !d.favorite
+            Store.save(d)
+            render()
+        }, lin(dp(40), dp(40)))
+        col.addView(top, lin(MATCH, WRAP))
+
+        // ---- hero
+        val hero = FrameLayout(this)
+        hero.background = gradient(g.primary, g.dark, dp(30).toFloat(), GradientDrawable.Orientation.TL_BR)
+        hero.elevation = dp(6).toFloat()
+        val deco = IconView(this, "blossom", Color.parseColor("#22FFFFFF"), 130)
+        val dlp = FrameLayout.LayoutParams(WRAP, WRAP)
+        dlp.gravity = Gravity.END or Gravity.BOTTOM
+        dlp.setMargins(0, 0, dp(-26), dp(-26))
+        hero.addView(deco, dlp)
+
+        val hrow = LinearLayout(this)
+        hrow.orientation = LinearLayout.HORIZONTAL
+        hrow.setPadding(dp(16), dp(16), dp(16), dp(16))
+        val cover = CoverView(this, 22)
+        cover.bind(d, 600)
+        cover.elevation = dp(6).toFloat()
+        hrow.addView(cover, lin(dp(124), dp(182), r = 14))
+
+        val info = LinearLayout(this)
+        info.orientation = LinearLayout.VERTICAL
+        val title = label(d.title, 21f, Color.WHITE, true, true)
+        title.maxLines = 4
+        title.ellipsize = TextUtils.TruncateAt.END
+        info.addView(title)
+        if (d.original.isNotBlank()) {
+            info.addView(label(d.original, 12f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 2))
         }
-        val del = pill("🗑️ Excluir", Color.parseColor("#FFE0E6"), Color.parseColor("#C2185B"), 14f)
+        info.addView(label(subtitle(d), 12f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 6))
+
+        val gs = HorizontalScrollView(this)
+        gs.isHorizontalScrollBarEnabled = false
+        val grow = LinearLayout(this)
+        grow.orientation = LinearLayout.HORIZONTAL
+        gs.addView(grow)
+        val glass = Color.parseColor("#44FFFFFF")
+        grow.addView(pill(g.label, glass, Color.WHITE, 11f, g.icon), lin(WRAP, WRAP, r = 6))
+        for (tk in d.tags) {
+            if (tk == d.genre) continue
+            val tg = Genres.byKey(tk)
+            grow.addView(pill(tg.label, glass, Color.WHITE, 11f, tg.icon), lin(WRAP, WRAP, r = 6))
+        }
+        info.addView(gs, lin(MATCH, WRAP, t = 8))
+
+        val srow = LinearLayout(this)
+        srow.orientation = LinearLayout.HORIZONTAL
+        srow.gravity = Gravity.CENTER_VERTICAL
+        val badge = scoreBadge(50, 20f)
+        badge.text = if (d.score <= 0) "-" else d.score.toString()
+        badge.setTextColor(g.primary)
+        val bbg = GradientDrawable()
+        bbg.shape = GradientDrawable.OVAL
+        bbg.setColor(Color.WHITE)
+        badge.background = bbg
+        srow.addView(badge, lin(dp(50), dp(50), r = 10))
+        val rcol = LinearLayout(this)
+        rcol.orientation = LinearLayout.VERTICAL
+        val rv = RatingView(this, 15, false)
+        rv.score = d.score
+        rv.color = Color.WHITE
+        rcol.addView(rv)
+        rcol.addView(label("nota de 10", 11f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 2))
+        srow.addView(rcol)
+        info.addView(srow, lin(WRAP, WRAP, t = 12))
+
+        hrow.addView(info, lin(0, WRAP, 1f))
+        hero.addView(hrow, FrameLayout.LayoutParams(MATCH, WRAP))
+        col.addView(hero, lin(MATCH, WRAP, t = 10))
+
+        // ---- tiles
+        val tiles = LinearLayout(this)
+        tiles.orientation = LinearLayout.HORIZONTAL
+        val tw = totalEps(d)
+        tiles.addView(tile("tv", seasonCount(d).toString(), "temporadas", g.primary), lin(0, WRAP, 1f, r = 6))
+        tiles.addView(tile("play", if (tw > 0) watchedEps(d).toString() + "/" + tw else watchedEps(d).toString(), "episódios", g.primary), lin(0, WRAP, 1f, r = 6))
+        tiles.addView(tile("clock", if (d.epMinutes > 0) d.epMinutes.toString() + " min" else "-", "por episódio", g.primary), lin(0, WRAP, 1f, r = 6))
+        tiles.addView(tile("replay", d.rewatch.toString() + "x", "reassistido", g.primary), lin(0, WRAP, 1f))
+        col.addView(tiles, lin(MATCH, WRAP, t = 14))
+
+        // ---- status
+        val stCard = card(14, 22)
+        stCard.addView(sectionTitle("Status", "bookmark", g.primary))
+        val stOpts = ArrayList<Opt>()
+        for (s in Statuses.all) stOpts.add(Opt(s.key, s.label, s.color, s.icon))
+        stCard.addView(chipScroller(stOpts, d.status) { key ->
+            Store.setStatus(d, key)
+            root.post { render() }
+        }, lin(MATCH, WRAP, t = 8))
+        col.addView(stCard, lin(MATCH, WRAP, t = 14))
+
+        // ---- progresso por temporada
+        val pc = card(14, 22)
+        pc.addView(sectionTitle("Meu progresso", "play", g.primary))
+        val total = totalEps(d)
+        val overall = label(
+            if (total > 0) watchedEps(d).toString() + " de " + total + " episódios" else watchedEps(d).toString() + " episódios assistidos",
+            14f, Palette.text, true
+        )
+        pc.addView(overall, lin(WRAP, WRAP, t = 8))
+        val obar = SoftBar(this)
+        obar.progress = progressOf(d)
+        obar.barColor = g.primary
+        pc.addView(obar, lin(MATCH, dp(10), t = 6))
+
+        val plus = pill("+1 episódio", g.primary, Color.WHITE, 14f, "play")
+        plus.setPadding(dp(18), dp(12), dp(18), dp(12))
+        plus.setOnClickListener {
+            val finished = Store.bump(d)
+            if (finished) Toast.makeText(this, "Parabéns, você terminou!", Toast.LENGTH_LONG).show()
+            render()
+        }
+        pc.addView(plus, lin(MATCH, WRAP, t = 12))
+
+        for (i in d.seasonEps.indices) {
+            val t = d.seasonEps[i]
+            val w = d.watched[i]
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.addView(label("Temp. " + (i + 1), 13f, g.dark, true), lin(dp(62), WRAP))
+            val b = SoftBar(this)
+            b.progress = if (t > 0) w.toFloat() / t.toFloat() else 0f
+            b.barColor = g.primary
+            row.addView(b, lin(0, dp(9), 1f, l = 2, r = 8))
+            row.addView(label(if (t > 0) "$w/$t" else "$w", 12f, Palette.muted, true), lin(dp(46), WRAP))
+            row.addView(roundBtn("minus", g.primary, false, 14) {
+                Store.adjust(d, i, -1)
+                render()
+            }, lin(dp(30), dp(30), l = 4))
+            row.addView(roundBtn("add", g.primary, true, 14) {
+                val fin = Store.adjust(d, i, 1)
+                if (fin) Toast.makeText(this, "Parabéns, você terminou!", Toast.LENGTH_LONG).show()
+                render()
+            }, lin(dp(30), dp(30), l = 6))
+            pc.addView(row, lin(MATCH, WRAP, t = 10))
+        }
+
+        val rw = LinearLayout(this)
+        rw.orientation = LinearLayout.HORIZONTAL
+        rw.gravity = Gravity.CENTER_VERTICAL
+        rw.addView(IconView(this, "replay", g.primary, 16))
+        rw.addView(label("Vezes que reassisti", 13f, Palette.text, true), lin(0, WRAP, 1f, l = 8))
+        rw.addView(roundBtn("minus", g.primary, false, 14) {
+            if (d.rewatch > 0) {
+                d.rewatch -= 1
+                Store.save(d)
+                render()
+            }
+        }, lin(dp(30), dp(30)))
+        rw.addView(label(d.rewatch.toString(), 15f, g.dark, true), lin(dp(34), WRAP))
+        rw.addView(roundBtn("add", g.primary, true, 14) {
+            d.rewatch += 1
+            Store.save(d)
+            render()
+        }, lin(dp(30), dp(30)))
+        pc.addView(rw, lin(MATCH, WRAP, t = 16))
+        col.addView(pc, lin(MATCH, WRAP, t = 12))
+
+        // ---- nota
+        val rc = card(14, 22)
+        rc.addView(sectionTitle("Minha nota", "heart", g.primary))
+        val scoreTxt = label(
+            if (d.score <= 0) "Sem nota ainda" else d.score.toString() + " / 10",
+            15f, g.dark, true, true
+        )
+        val big = RatingView(this, 34, true)
+        big.score = d.score
+        big.color = g.primary
+        big.onChange = { ns ->
+            d.score = ns
+            Store.save(d)
+            scoreTxt.text = if (ns <= 0) "Sem nota ainda" else ns.toString() + " / 10"
+            root.post { render() }
+        }
+        rc.addView(big, lin(WRAP, WRAP, t = 10))
+        rc.addView(scoreTxt, lin(WRAP, WRAP, t = 6))
+        rc.addView(label("Toque na metade esquerda do coração para meio ponto.", 11f, Palette.muted), lin(WRAP, WRAP, t = 2))
+        col.addView(rc, lin(MATCH, WRAP, t = 12))
+
+        // ---- sinopse
+        if (d.synopsis.isNotBlank()) {
+            val sc = card(14, 22)
+            sc.addView(sectionTitle("Sinopse", "book", g.primary))
+            val syn = label(d.synopsis, 14f, Palette.text)
+            syn.maxLines = 4
+            syn.ellipsize = TextUtils.TruncateAt.END
+            sc.addView(syn, lin(MATCH, WRAP, t = 8))
+            if (d.synopsis.length > 140) {
+                var expanded = false
+                val more = label("Ler mais", 12f, g.primary, true)
+                more.setOnClickListener {
+                    expanded = !expanded
+                    syn.maxLines = if (expanded) 100 else 4
+                    more.text = if (expanded) "Ler menos" else "Ler mais"
+                }
+                sc.addView(more, lin(WRAP, WRAP, t = 6))
+            }
+            col.addView(sc, lin(MATCH, WRAP, t = 12))
+        }
+
+        // ---- informações
+        val ic = card(14, 22)
+        ic.addView(sectionTitle("Informações", "tag", g.primary))
+        if (d.platform.isNotBlank()) ic.addView(infoRow("tv", "Onde assistir", d.platform, g.primary))
+        if (d.year.isNotBlank()) ic.addView(infoRow("calendar", "Ano de lançamento", d.year, g.primary))
+        if (d.cast.isNotBlank()) ic.addView(infoRow("person", "Elenco", d.cast, g.primary))
+        if (d.couple.isNotBlank()) ic.addView(infoRow("heart", "Casal favorito", d.couple, g.primary))
+        if (d.startDate > 0L) ic.addView(infoRow("play", "Comecei em", fmt(d.startDate), g.primary))
+        if (d.endDate > 0L) ic.addView(infoRow("check", "Terminei em", fmt(d.endDate), g.primary))
+        ic.addView(infoRow("calendar", "Adicionado em", fmt(d.addedAt), g.primary))
+        col.addView(ic, lin(MATCH, WRAP, t = 12))
+
+        // ---- resenha
+        if (d.notes.isNotBlank()) {
+            val nc = card(14, 22)
+            nc.addView(sectionTitle("Minha resenha", "edit", g.primary))
+            nc.addView(label(d.notes, 14f, Palette.text), lin(MATCH, WRAP, t = 8))
+            col.addView(nc, lin(MATCH, WRAP, t = 12))
+        }
+
+        // ---- excluir
+        val del = pill("Excluir dorama", Color.parseColor("#FFE0E6"), Color.parseColor("#C2185B"), 14f, "delete")
         del.setPadding(dp(18), dp(12), dp(18), dp(12))
         del.setOnClickListener {
             AlertDialog.Builder(this)
@@ -210,23 +309,38 @@ class DetailActivity : AppCompatActivity() {
                 .setNegativeButton("Cancelar", null)
                 .show()
         }
-        actions.addView(edit, lin(0, WRAP, 1f, r = 8))
-        actions.addView(del, lin(0, WRAP, 1f))
-        col.addView(actions, lin(MATCH, WRAP, t = 18))
+        col.addView(del, lin(MATCH, WRAP, t = 18))
 
-        root.addView(PetalsView(this, g.petals, 14), FrameLayout.LayoutParams(MATCH, MATCH))
+        root.addView(PetalsView(this, g.petals, g.primary, 14), FrameLayout.LayoutParams(MATCH, MATCH))
 
         setContentView(root)
         scroll = sv
         if (keep > 0) sv.post { sv.scrollTo(0, keep) }
     }
 
-    private fun infoRow(emoji: String, name: String, value: String): View {
+    private fun tile(icon: String, value: String, name: String, color: Int): LinearLayout {
+        val b = card(10, 18)
+        b.gravity = Gravity.CENTER_HORIZONTAL
+        b.addView(IconView(this, icon, color, 18))
+        val v = label(value, 14f, Palette.text, true, true)
+        v.maxLines = 1
+        b.addView(v, lin(WRAP, WRAP, t = 4))
+        val n = label(name, 10f, Palette.muted)
+        n.maxLines = 1
+        b.addView(n, lin(WRAP, WRAP, t = 1))
+        return b
+    }
+
+    private fun infoRow(icon: String, name: String, value: String, color: Int): View {
         val r = LinearLayout(this)
-        r.orientation = LinearLayout.VERTICAL
-        r.setPadding(0, dp(8), 0, 0)
-        r.addView(label(emoji + " " + name, 11f, Palette.muted, true))
-        r.addView(label(value, 14f, Palette.text), lin(MATCH, WRAP, t = 1))
+        r.orientation = LinearLayout.HORIZONTAL
+        r.setPadding(0, dp(10), 0, 0)
+        r.addView(IconView(this, icon, color, 18), lin(WRAP, WRAP, t = 2))
+        val c = LinearLayout(this)
+        c.orientation = LinearLayout.VERTICAL
+        c.addView(label(name, 11f, Palette.muted, true))
+        c.addView(label(value, 14f, Palette.text), lin(MATCH, WRAP, t = 1))
+        r.addView(c, lin(0, WRAP, 1f, l = 10))
         return r
     }
 }

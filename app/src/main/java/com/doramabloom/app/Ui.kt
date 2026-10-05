@@ -22,19 +22,19 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import kotlin.math.sin
 
 const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
 object Palette {
-    val bgTop = Color.parseColor("#FFF7FA")
-    val bgBottom = Color.parseColor("#FFE1EC")
+    val bgTop = Color.parseColor("#FFF8FB")
+    val bgBottom = Color.parseColor("#FFE8F1")
     val pink = Color.parseColor("#FF6B9D")
+    val pinkDark = Color.parseColor("#E0487F")
     val pinkSoft = Color.parseColor("#FFE4EE")
     val text = Color.parseColor("#6B2E48")
     val muted = Color.parseColor("#B98AA0")
-    val line = Color.parseColor("#F8CFE0")
+    val line = Color.parseColor("#F8D9E6")
 }
 
 fun Context.dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
@@ -60,6 +60,12 @@ fun gradient(
     return d
 }
 
+fun ovalGradient(c1: Int, c2: Int): GradientDrawable {
+    val d = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(c1, c2))
+    d.shape = GradientDrawable.OVAL
+    return d
+}
+
 /** LayoutParams de LinearLayout; tamanhos em px, margens em dp. */
 fun Context.lin(w: Int, h: Int, weight: Float = 0f, l: Int = 0, t: Int = 0, r: Int = 0, b: Int = 0): LinearLayout.LayoutParams {
     val p = LinearLayout.LayoutParams(w, h, weight)
@@ -80,11 +86,17 @@ fun Context.label(s: String, size: Float = 14f, color: Int = Palette.text, bold:
     return t
 }
 
-fun Context.pill(s: String, bg: Int, fg: Int, size: Float = 12f): TextView {
+/** Pílula com texto e (opcionalmente) um ícone próprio à esquerda. */
+fun Context.pill(s: String, bg: Int, fg: Int, size: Float = 12f, icon: String? = null): TextView {
     val t = label(s, size, fg, true)
     t.setPadding(dp(12), dp(6), dp(12), dp(6))
     t.background = roundRect(bg, dp(20).toFloat())
     t.gravity = Gravity.CENTER
+    if (icon != null) {
+        val px = dp(size.toInt() + 4)
+        t.setCompoundDrawables(iconDrawable(icon, fg, px), null, null, null)
+        t.compoundDrawablePadding = dp(6)
+    }
     return t
 }
 
@@ -92,9 +104,19 @@ fun Context.card(pad: Int = 14, radius: Int = 22, bg: Int = Color.WHITE): Linear
     val c = LinearLayout(this)
     c.orientation = LinearLayout.VERTICAL
     c.setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
-    c.background = roundRect(bg, dp(radius).toFloat())
+    c.background = roundRect(bg, dp(radius).toFloat(), Palette.line, dp(1))
     c.elevation = dp(3).toFloat()
     return c
+}
+
+/** Título de seção: ícone + texto fofo. */
+fun Context.sectionTitle(text: String, icon: String, color: Int = Palette.pink): LinearLayout {
+    val r = LinearLayout(this)
+    r.orientation = LinearLayout.HORIZONTAL
+    r.gravity = Gravity.CENTER_VERTICAL
+    r.addView(IconView(this, icon, color, 18))
+    r.addView(label(text, 17f, Palette.text, true, true), lin(WRAP, WRAP, l = 8))
+    return r
 }
 
 fun Context.input(hint: String, text: String = "", type: Int = InputType.TYPE_CLASS_TEXT, multi: Boolean = false): EditText {
@@ -117,13 +139,36 @@ fun Context.input(hint: String, text: String = "", type: Int = InputType.TYPE_CL
     return e
 }
 
-fun hearts(r: Int): String {
-    val n = r.coerceIn(0, 5)
-    return "♥".repeat(n) + "♡".repeat(5 - n)
+/** Bolinha com a nota (0 a 10). */
+fun styleBadge(t: TextView, score: Int, color: Int) {
+    t.text = if (score <= 0) "-" else score.toString()
+    val d = GradientDrawable()
+    d.shape = GradientDrawable.OVAL
+    d.setColor(if (score <= 0) Color.parseColor("#D9C4CE") else color)
+    t.background = d
 }
 
-/** Faixa de chips com seleção única. options = (chave, texto, cor). */
-fun Context.chipScroller(options: List<Triple<String, String, Int>>, initial: String, onSelect: (String) -> Unit): HorizontalScrollView {
+fun Context.scoreBadge(sizeDp: Int, textSp: Float): TextView {
+    val t = label("", textSp, Color.WHITE, true, true)
+    t.gravity = Gravity.CENTER
+    t.minWidth = dp(sizeDp)
+    t.minHeight = dp(sizeDp)
+    t.elevation = dp(2).toFloat()
+    return t
+}
+
+class Opt(val key: String, val label: String, val color: Int, val icon: String? = null)
+
+private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int) {
+    tv.background = roundRect(if (sel) col else Color.WHITE, dpPx * 20f, col, dpPx)
+    val fg = if (sel) Color.WHITE else col
+    tv.setTextColor(fg)
+    val dr = tv.compoundDrawables[0]
+    if (dr is IconDrawable) dr.color = fg
+}
+
+/** Faixa de chips com seleção única. */
+fun Context.chipScroller(options: List<Opt>, initial: String, onSelect: (String) -> Unit): HorizontalScrollView {
     val sv = HorizontalScrollView(this)
     sv.isHorizontalScrollBarEnabled = false
     val row = LinearLayout(this)
@@ -132,23 +177,54 @@ fun Context.chipScroller(options: List<Triple<String, String, Int>>, initial: St
     sv.addView(row)
     val views = ArrayList<TextView>()
     var current = initial
+    val one = dp(1)
 
     fun restyle() {
         for (i in options.indices) {
-            val col = options[i].third
-            val sel = options[i].first == current
-            val tv = views[i]
-            tv.background = roundRect(if (sel) col else Color.WHITE, dp(20).toFloat(), col, dp(1))
-            tv.setTextColor(if (sel) Color.WHITE else col)
+            restyleChip(views[i], options[i].color, options[i].key == current, one)
         }
     }
 
     for (i in options.indices) {
-        val tv = pill(options[i].second, Color.WHITE, Palette.pink, 13f)
+        val o = options[i]
+        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
         tv.setOnClickListener {
-            current = options[i].first
+            current = o.key
             restyle()
             onSelect(current)
+        }
+        views.add(tv)
+        row.addView(tv, lin(WRAP, WRAP, r = 8))
+    }
+    restyle()
+    return sv
+}
+
+/** Faixa de chips com seleção múltipla. */
+fun Context.multiChips(options: List<Opt>, initial: Set<String>, onChange: (Set<String>) -> Unit): HorizontalScrollView {
+    val sv = HorizontalScrollView(this)
+    sv.isHorizontalScrollBarEnabled = false
+    val row = LinearLayout(this)
+    row.orientation = LinearLayout.HORIZONTAL
+    row.setPadding(0, dp(2), 0, dp(2))
+    sv.addView(row)
+    val views = ArrayList<TextView>()
+    val chosen = HashSet<String>(initial)
+    val one = dp(1)
+
+    fun restyle() {
+        for (i in options.indices) {
+            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one)
+        }
+    }
+
+    for (i in options.indices) {
+        val o = options[i]
+        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
+        tv.setOnClickListener {
+            if (chosen.contains(o.key)) chosen.remove(o.key) else chosen.add(o.key)
+            restyle()
+            onChange(HashSet<String>(chosen))
         }
         views.add(tv)
         row.addView(tv, lin(WRAP, WRAP, r = 8))
@@ -186,74 +262,6 @@ class SoftBar(ctx: Context) : View(ctx) {
     }
 }
 
-/** Pétalas / emojis caindo suavemente. */
-class PetalsView(ctx: Context, private var emojis: List<String>, private val count: Int = 14) : View(ctx) {
-    private class P(
-        var x: Float, var y: Float, var vy: Float, var size: Float,
-        var phase: Float, var rot: Float, var vr: Float, var e: Int
-    )
-
-    private val ps = ArrayList<P>()
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val rnd = java.util.Random()
-    private var last = 0L
-
-    init {
-        paint.alpha = 130
-    }
-
-    private fun spawn(anywhere: Boolean): P {
-        val size = (dp(13) + rnd.nextInt(dp(13))).toFloat()
-        return P(
-            rnd.nextFloat() * width,
-            if (anywhere) rnd.nextFloat() * height else -size,
-            dp(26) + rnd.nextFloat() * dp(36),
-            size,
-            rnd.nextFloat() * 6.28f,
-            rnd.nextFloat() * 360f,
-            (rnd.nextFloat() - 0.5f) * 70f,
-            rnd.nextInt(emojis.size)
-        )
-    }
-
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        ps.clear()
-        if (w > 0 && h > 0) {
-            for (i in 0 until count) ps.add(spawn(true))
-        }
-    }
-
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        last = 0L
-    }
-
-    override fun onDraw(c: Canvas) {
-        val now = System.nanoTime()
-        val dt = if (last == 0L) 0.016f else ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
-        last = now
-        for (i in ps.indices) {
-            var p = ps[i]
-            p.y += p.vy * dt
-            p.phase += dt * 1.3f
-            p.rot += p.vr * dt
-            if (p.y > height + p.size) {
-                p = spawn(false)
-                ps[i] = p
-            }
-            val sx = p.x + (sin(p.phase.toDouble()) * dp(16)).toFloat()
-            paint.textSize = p.size
-            c.save()
-            c.translate(sx, p.y)
-            c.rotate(p.rot)
-            c.drawText(emojis[p.e % emojis.size], 0f, 0f, paint)
-            c.restore()
-        }
-        postInvalidateOnAnimation()
-    }
-}
-
 /** Cache simples de capas. */
 object Covers {
     private val cache = object : LruCache<String, Bitmap>((Runtime.getRuntime().maxMemory() / 8).toInt()) {
@@ -285,16 +293,31 @@ object Covers {
     }
 }
 
-/** Capa arredondada: foto ou, se não houver, um fundo fofo com o emoji do gênero. */
+/** Capa arredondada: foto ou, se não houver, um fundo fofo com o símbolo do gênero. */
 class CoverView(ctx: Context, radiusDp: Int = 16) : FrameLayout(ctx) {
+    private class Placeholder(ctx: Context) : View(ctx) {
+        val d = IconDrawable("heart", Color.parseColor("#E6FFFFFF"))
+        val blossom = IconDrawable("blossom", Color.parseColor("#55FFFFFF"))
+
+        override fun onDraw(c: Canvas) {
+            val s = (minOf(width, height) * 0.42f).toInt()
+            val l = (width - s) / 2
+            val t = (height - s) / 2
+            d.setBounds(l, t, l + s, t + s)
+            d.draw(c)
+            val bs = (minOf(width, height) * 0.30f).toInt()
+            blossom.setBounds(width - bs - bs / 4, bs / 5, width - bs / 4, bs / 5 + bs)
+            blossom.draw(c)
+        }
+    }
+
     private val img = ImageView(ctx)
-    private val emoji = TextView(ctx)
+    private val ph = Placeholder(ctx)
 
     init {
         img.scaleType = ImageView.ScaleType.CENTER_CROP
         addView(img, FrameLayout.LayoutParams(MATCH, MATCH))
-        emoji.gravity = Gravity.CENTER
-        addView(emoji, FrameLayout.LayoutParams(MATCH, MATCH))
+        addView(ph, FrameLayout.LayoutParams(MATCH, MATCH))
         val r = ctx.dp(radiusDp).toFloat()
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
@@ -304,24 +327,40 @@ class CoverView(ctx: Context, radiusDp: Int = 16) : FrameLayout(ctx) {
         clipToOutline = true
     }
 
-    fun bind(path: String, genreKey: String, reqW: Int, emojiSize: Float) {
+    fun bind(path: String, genreKey: String, reqW: Int) {
         val g = Genres.byKey(genreKey)
         val bmp = if (path.isNotEmpty()) Covers.load(path, reqW) else null
         if (bmp != null) {
             img.setImageBitmap(bmp)
             img.visibility = View.VISIBLE
-            emoji.visibility = View.GONE
+            ph.visibility = View.GONE
             setBackgroundColor(g.soft)
         } else {
             img.visibility = View.GONE
-            emoji.visibility = View.VISIBLE
-            emoji.text = g.emoji
-            emoji.textSize = emojiSize
+            ph.visibility = View.VISIBLE
+            ph.d.name = g.icon
+            ph.invalidate()
             background = gradient(g.soft, g.primary, 0f, GradientDrawable.Orientation.TL_BR)
         }
     }
 
-    fun bind(d: Drama, reqW: Int, emojiSize: Float) {
-        bind(d.cover, d.genre, reqW, emojiSize)
+    fun bind(d: Drama, reqW: Int) {
+        bind(d.cover, d.genre, reqW)
     }
+}
+
+/** Botão redondo com ícone (usado em passos de contagem, + e -). */
+fun Context.roundBtn(icon: String, color: Int, filled: Boolean, sizeDp: Int = 16, onClick: () -> Unit): FrameLayout {
+    val f = FrameLayout(this)
+    val d = GradientDrawable()
+    d.shape = GradientDrawable.OVAL
+    d.setColor(if (filled) color else Color.WHITE)
+    d.setStroke(dp(2), color)
+    f.background = d
+    f.addView(
+        IconView(this, icon, if (filled) Color.WHITE else color, sizeDp),
+        FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER)
+    )
+    f.setOnClickListener { onClick() }
+    return f
 }
