@@ -69,6 +69,41 @@ object Icons {
         "coffee" to "M4 8h12.5v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16.5 9.5h1.3a2.6 2.6 0 0 1 0 5.2h-1.3V13h1.3a.9.9 0 0 0 0-1.8h-1.3zM3 21h15v-1.6H3z"
     )
 
+
+    /** Símbolos extras dos gêneros (preenchimento par-ímpar, então os "furos" aparecem sozinhos). */
+    private val svg2: Map<String, String> = mapOf(
+        "ring" to "M5 15a7 7 0 1 0 14 0a7 7 0 1 0 -14 0zM7.2 15a4.8 4.8 0 1 0 9.6 0a4.8 4.8 0 1 0 -9.6 0zM8.2 3.2L10 1.2H14L15.8 3.2L12 7.4z",
+        "balloon" to "M12 1.7c-3.9 0-6.6 3-6.6 6.9 0 4.2 3.2 7.4 6.6 8.9 3.4-1.5 6.6-4.7 6.6-8.9 0-3.9-2.7-6.9-6.6-6.9zM10.7 18.1h2.6l.9 1.5h-4.4zM11.6 20.1c1.3.8-1.3 1.6 0 2.4h.9c-1.3-.8 1.3-1.6 0-2.4zM8.3 5.2a3.6 3.6 0 0 1 2.6-2l.2.9a2.8 2.8 0 0 0-2 1.6z",
+        "flame" to "M12.5 1.5c.6 3.4 5.5 5.8 5.5 11.2a6 6 0 0 1-12 0c0-2.4 1-4.3 2.4-5.8.1 1.7.8 2.8 1.8 3.4C9.9 6.5 10.6 3.6 12.5 1.5zM12 17.8a2.8 2.8 0 0 1-2.8-2.8c0-1.5 1.3-2.4 2.8-4 1.5 1.6 2.8 2.5 2.8 4a2.8 2.8 0 0 1-2.8 2.8z",
+        "shield" to "M12 2L4 5.2v6.2c0 5 3.4 8.6 8 10.6 4.6-2 8-5.6 8-10.6V5.2zM12 4.4L6.2 6.7v4.7c0 3.7 2.4 6.5 5.8 8.2z",
+        "bat" to "M12 7.2 L13.1 7.2 L13.6 4.6 L14.9 7.4 L18.2 6.2 L22.4 7.6 L21.3 10.4 L19.6 9.9 L18.3 12.4 L16.6 11.4 L14.9 14.6 L13.4 13.2 L12 17.6 L10.6 13.2 L9.1 14.6 L7.4 11.4 L5.7 12.4 L4.4 9.9 L2.7 10.4 L1.6 7.6 L5.8 6.2 L9.1 7.4 L10.4 4.6 L10.9 7.2z",
+        "tomb" to "M5 21.5V9.5a7 7 0 0 1 14 0v12zM11 7h2v2.2h2.2v2H13v5.2h-2v-5.2H8.8v-2H11z",
+        "butterfly" to "M13 11.2C13.5 6.5 17 3 21.8 3.2 22.4 7.2 19.6 10.8 13 12zM13 12.9C17 12.6 20 14.2 19.6 17.4 19.2 20.2 15.5 20.6 13.7 17.8 13.1 16.6 13 14.8 13 12.9zM11 11.2C10.5 6.5 7 3 2.2 3.2 1.6 7.2 4.4 10.8 11 12zM11 12.9C7 12.6 4 14.2 4.4 17.4 4.8 20.2 8.5 20.6 10.3 17.8 10.9 16.6 11 14.8 11 12.9zM11.2 8.5a.8.8 0 0 1 1.6 0v10.6a.8.8 0 0 1-1.6 0z",
+        "wand" to "M2.9 19.5 L13 9.4 L14.6 11 L4.5 21.1zM17.5 1.5l1.3 3.4 3.4 1.3-3.4 1.3-1.3 3.4-1.3-3.4-3.4-1.3 3.4-1.3zM3.9 6a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0 -2.6 0zM18.9 16a1.1 1.1 0 1 0 2.2 0a1.1 1.1 0 1 0 -2.2 0z",
+        "lantern" to "M11.5 1h1v2.2h-1zM8.5 3.4h7v1.8h-7zM12 5.6c4 0 6.8 3.1 6.8 7s-2.8 7-6.8 7-6.8-3.1-6.8-7 2.8-7 6.8-7zM12 7.2c1.8 0 3 2.5 3 5.4s-1.2 5.4-3 5.4-3-2.5-3-5.4 1.2-5.4 3-5.4zM8.5 20h7v1.7h-7zM11.5 21.9h1V23.4h-1z",
+        "fan" to "M12 21.5 L-2.55 9.29 L-1.3 7.94 L0.07 6.71 L1.56 5.63 L3.15 4.69 L4.81 3.91 L6.55 3.3 L8.34 2.86 L10.16 2.59 L12 2.5 L13.84 2.59 L15.66 2.86 L17.45 3.3 L19.19 3.91 L20.85 4.69 L22.44 5.63 L23.93 6.71 L25.3 7.94 L26.55 9.29zM9.34 17.26 L3.39 7.78 L4.42 7.18 L9.66 17.08zM10.95 16.61 L8.6 5.66 L9.77 5.45 L11.31 16.55zM12.69 16.55 L14.23 5.45 L15.4 5.66 L13.05 16.61zM14.34 17.08 L19.58 7.18 L20.61 7.78 L14.66 17.26z",
+        "key" to "M2.5 12a4.7 4.7 0 1 0 9.4 0a4.7 4.7 0 1 0 -9.4 0zM5.4 12a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0 -3.6 0zM12.2 10.9h9.4v2.3h-2v2.9h-2v-2.9h-1.8v2h-2v-2h-3.6z",
+        "lock" to "M7.4 10V7.5a4.6 4.6 0 0 1 9.2 0V10h-2V7.5a2.6 2.6 0 0 0-5.2 0V10zM6.5 10.4h11a1.5 1.5 0 0 1 1.5 1.5v7.9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.8v-7.9a1.5 1.5 0 0 1 1.5-1.5zM12 13.2a1.9 1.9 0 0 1 .9 3.6v2.3h-1.8v-2.3A1.9 1.9 0 0 1 12 13.2z",
+        "pencil" to "M20.32 4.88 L20.53 5.11 L20.68 5.39 L20.75 5.7 L20.73 6.01 L20.64 6.31 L20.47 6.57 L20.47 6.57 L20.24 6.79 L19.96 6.93 L19.65 7 L19.34 6.98 L19.04 6.89 L18.78 6.72 L16.02 4.41 L15.81 4.18 L15.66 3.9 L15.6 3.59 L15.61 3.28 L15.7 2.98 L15.87 2.72 L15.87 2.72 L16.1 2.51 L16.38 2.36 L16.69 2.29 L17 2.31 L17.3 2.4 L17.56 2.57zM14.59 4.25 L19.18 8.11 L18.09 9.41 L13.49 5.55zM12.98 6.16 L17.58 10.02 L10.83 18.07 L6.23 14.21zM5.72 14.82 L10.31 18.68 L5.06 20.27z",
+        "cloud" to "M7 14.4a4 4 0 0 1-.4-7.98A5.6 5.6 0 0 1 17.4 6.7 4.4 4.4 0 0 1 17 14.4zM7.6 16.6c.8 1 1.3 1.8 1.3 2.4a1.3 1.3 0 0 1-2.6 0c0-.6.5-1.4 1.3-2.4zM12 18.4c.8 1 1.3 1.8 1.3 2.4a1.3 1.3 0 0 1-2.6 0c0-.6.5-1.4 1.3-2.4zM16.4 16.6c.8 1 1.3 1.8 1.3 2.4a1.3 1.3 0 0 1-2.6 0c0-.6.5-1.4 1.3-2.4z",
+        "heartbreak" to "M10.7 5.5C10.2 4.1 8.9 3 7.5 3 4.42 3 2 5.42 2 8.5 2 12.28 5.4 15.36 10.55 20.03L11 20.4 9.6 16.4 11.4 13.6 9.3 10.6zM13.0 5.5C13.5 4.1 14.8 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.53L13.3 20.2 11.9 16.2 13.7 13.6 11.6 10.6z",
+        "hourglass" to "M6 2h12v3.5c0 2.2-1.6 4-3.4 5.2L13.4 12l1.2 1.3c1.8 1.2 3.4 3 3.4 5.2V22H6v-3.5c0-2.2 1.6-4 3.4-5.2L10.6 12 9.4 10.7C7.6 9.5 6 7.7 6 5.5zM8.2 4.2h7.6v1.4c0 1.2-1 2.2-2.4 3.1L12 9.6l-1.4-.9C9.2 7.8 8.2 6.8 8.2 5.6z",
+        "dagger" to "M17.3 2.82 L13.69 13.67 L16.38 15.22 L15.38 16.95 L11.65 14.8 L9.35 18.79 L7.45 17.69 L9.75 13.7 L6.02 11.55 L7.02 9.82 L9.71 11.37zM6.05 19.71a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0zM15.48 5.47 L15.92 5.72 L12.42 11.78 L11.98 11.53z",
+        "pill" to "M9.6 8.75 L13.41 4.93 L14.24 4.29 L15.21 3.89 L16.24 3.76 L17.28 3.89 L18.24 4.29 L19.07 4.93 L19.71 5.76 L20.11 6.72 L20.24 7.76 L20.11 8.79 L19.71 9.76 L19.07 10.59 L15.25 14.4zM14.4 15.25 L10.59 19.07 L9.76 19.71 L8.79 20.11 L7.76 20.24 L6.72 20.11 L5.76 19.71 L4.93 19.07 L4.29 18.24 L3.89 17.28 L3.76 16.24 L3.89 15.21 L4.29 14.24 L4.93 13.41 L8.75 9.6z",
+        "syringe" to "M16.06 1.57 L21.57 6.19 L20.74 7.19 L15.22 2.56zM17.37 4.36 L18.59 5.39 L17.18 7.08 L15.95 6.05zM12.73 3.35 L20.39 9.78 L19.69 10.62 L12.03 4.19zM13.56 5.48 L18.15 9.33 L11.21 17.61 L6.62 13.75zM12.63 7.83 L14.31 9.24 L13.74 9.93 L12.05 8.52zM10.96 9.82 L12.64 11.23 L12.06 11.92 L10.38 10.51zM9.29 11.81 L10.97 13.23 L10.39 13.92 L8.71 12.5zM7.69 14.65 L10.14 16.71 L9.37 17.62 L6.92 15.57zM7.76 16.27 L8.53 16.92 L5.76 20.21 L5 19.57z",
+        "cake" to "M3.5 13.5h17a1 1 0 0 1 1 1V21a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1v-6.5a1 1 0 0 1 1-1zM6.05 17.8a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0zM11.05 17.8a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0zM16.05 17.8a0.95 0.95 0 1 0 1.9 0a0.95 0.95 0 1 0 -1.9 0zM6.5 9h11a1 1 0 0 1 1 1v2.2h-13V10a1 1 0 0 1 1-1zM8 5.2h1.2v3H8z M11.4 5.2h1.2v3h-1.2z M14.8 5.2h1.2v3h-1.2zM7.6 3.6a1 1 0 1 0 2 0a1 1 0 1 0 -2 0zM11 3.6a1 1 0 1 0 2 0a1 1 0 1 0 -2 0zM14.4 3.6a1 1 0 1 0 2 0a1 1 0 1 0 -2 0z",
+        "gift" to "M3 8.4h7.8v3.4H3z M13.2 8.4H21v3.4h-7.8z M4.2 12.6h6.6V21H4.2z M13.2 12.6h6.6V21h-6.6zM11.4 8C8.6 8 6.4 6.7 6.4 4.9 6.4 3.5 7.5 2.6 8.9 2.6c1.7 0 2.7 2.4 2.5 5.4z M12.6 8c2.8 0 5-1.3 5-3.1 0-1.4-1.1-2.3-2.5-2.3-1.7 0-2.7 2.4-2.5 5.4z",
+        "mic" to "M12 2a3.6 3.6 0 0 0-3.6 3.6v5.8a3.6 3.6 0 0 0 7.2 0V5.6A3.6 3.6 0 0 0 12 2zM5.4 10.4h1.9v1a4.7 4.7 0 0 0 9.4 0v-1h1.9v1a6.6 6.6 0 0 1-5.6 6.5V20h3v1.8H8V20h3.1v-2.1a6.6 6.6 0 0 1-5.7-6.5z",
+        "headphones" to "M12 2.6a9.4 9.4 0 0 0-9.4 9.4v6.1a2.6 2.6 0 0 0 2.6 2.6h1.2a1.4 1.4 0 0 0 1.4-1.4v-5.6a1.4 1.4 0 0 0-1.4-1.4H4.6V12a7.4 7.4 0 0 1 14.8 0v.3h-1.8a1.4 1.4 0 0 0-1.4 1.4v5.6a1.4 1.4 0 0 0 1.4 1.4h1.2a2.6 2.6 0 0 0 2.6-2.6V12A9.4 9.4 0 0 0 12 2.6z",
+        "medal" to "M6.4 1.4h4.3L12 4.8l1.3-3.4h4.3l-4.2 7.4h-2.8zM5.4 15.3a6.6 6.6 0 1 0 13.2 0a6.6 6.6 0 1 0 -13.2 0zM7 15.3a5 5 0 1 0 10 0a5 5 0 1 0 -10 0zM8.7 15.3a3.3 3.3 0 1 0 6.6 0a3.3 3.3 0 1 0 -6.6 0z",
+        "ball" to "M1.8 12a10.2 10.2 0 1 0 20.4 0a10.2 10.2 0 1 0 -20.4 0zM3.1 12a8.9 8.9 0 1 0 17.8 0a8.9 8.9 0 1 0 -17.8 0zM12 8.3 L15.52 10.86 L14.17 14.99 L9.83 14.99 L8.48 10.86zM12.6 7.8 L12.6 3.1 L11.4 3.1 L11.4 7.8zM16.18 11.27 L20.65 9.82 L20.28 8.68 L15.81 10.13zM13.98 15.75 L16.75 19.55 L17.72 18.85 L14.95 15.05zM9.05 15.05 L6.28 18.85 L7.25 19.55 L10.02 15.75zM8.19 10.13 L3.72 8.68 L3.35 9.82 L7.82 11.27z",
+        "gem" to "M7 3h10l5 6-10 12.5L2 9zM12 5.4L9.4 8.5h5.2zM12 18.6L8.9 10.6h6.2z",
+        "castle" to "M3 22V6h2v2h2V6h2v5h6V6h2v2h2V6h2v16zM10.4 22v-4.6a1.6 1.6 0 0 1 3.2 0V22zM4.8 12.4h1.4v2.8H4.8z M17.8 12.4h1.4v2.8h-1.4zM11.6 2.4h.8V11h-.8z M12.4 2.6l3.4 1.5-3.4 1.5z",
+        "planet" to "M5.8 12a6.2 6.2 0 1 0 12.4 0a6.2 6.2 0 1 0 -12.4 0zM2.6 15.2C1.2 13.6 4.4 10.4 9.6 8.4s10.4-2.4 11.8-.8-1.8 4.8-7 6.8-10.4 2.4-11.8.8zM4.3 14.6c.8.7 4.4.1 8.2-1.4s6.6-3.4 6.6-4.4-3.8-.5-7.6 1-8 3.7-7.2 4.8z",
+        "ufo" to "M7.4 9.2a4.6 4.6 0 0 1 9.2 0zM2 13.2C2 11.5 6.5 10.2 12 10.2s10 1.3 10 3S17.5 16.4 12 16.4 2 14.9 2 13.2zM6.1 13.2a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0zM11.1 13.7a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0zM16.1 13.2a0.9 0.9 0 1 0 1.8 0a0.9 0.9 0 1 0 -1.8 0zM8.2 17.6h7.6l2.6 4.6H5.6z",
+        "sun" to "M7.3 12a4.7 4.7 0 1 0 9.4 0a4.7 4.7 0 1 0 -9.4 0zM11 1.6 L13 1.6 L13 4.9 L11 4.9zM18.65 3.94 L20.06 5.35 L17.73 7.69 L16.31 6.27zM22.4 11 L22.4 13 L19.1 13 L19.1 11zM20.06 18.65 L18.65 20.06 L16.31 17.73 L17.73 16.31zM13 22.4 L11 22.4 L11 19.1 L13 19.1zM5.35 20.06 L3.94 18.65 L6.27 16.31 L7.69 17.73zM1.6 13 L1.6 11 L4.9 11 L4.9 13zM3.94 5.35 L5.35 3.94 L7.69 6.27 L6.27 7.69z"
+    )
+
     private val cache = HashMap<String, Path>()
 
     fun path(name: String): Path {
@@ -84,6 +119,16 @@ object Icons {
         if (name == "petal") return petalCentered()
         if (name == "ghost") return ghost()
         if (name == "skull") return skull()
+        val d2 = svg2[name]
+        if (d2 != null) {
+            return try {
+                val q = PathParser.createPathFromPathData(d2)
+                q.fillType = Path.FillType.EVEN_ODD
+                q
+            } catch (e: Exception) {
+                Path()
+            }
+        }
         val d = svg[name] ?: return Path()
         return try {
             PathParser.createPathFromPathData(d)
@@ -309,16 +354,80 @@ class RatingView(ctx: Context, private val heartDp: Int, private val editable: B
 }
 
 /** Pétalas e símbolos caindo suavemente, desenhados com os ícones próprios. Muda de tema com fade e solta explosões de confete. */
+/** Como cada símbolo se move: cai, sobe, balança, gira ou pisca. */
+private class PMo(
+    val dir: Int,
+    val speed: Float,
+    val sway: Float,
+    val spin: Float,
+    val tilt: Float,
+    val base: Float = 0f,
+    val twinkle: Boolean = false
+)
+
+private val PMO_DEFAULT = PMo(1, 1f, 1f, 1f, 360f)
+
+private val PMO: Map<String, PMo> = mapOf(
+    // flores e folhas: caem balançando
+    "petal" to PMo(1, 0.9f, 1.4f, 1.2f, 360f),
+    "blossom" to PMo(1, 0.8f, 1.3f, 1.0f, 360f),
+    "leaf" to PMo(1, 0.9f, 1.6f, 1.3f, 360f),
+    // subidas suaves
+    "heart" to PMo(-1, 0.7f, 1.0f, 0.2f, 20f),
+    "balloon" to PMo(-1, 0.8f, 1.2f, 0.1f, 15f),
+    "ghost" to PMo(-1, 0.6f, 1.5f, 0.1f, 15f),
+    "bat" to PMo(-1, 0.9f, 2.0f, 0.3f, 25f),
+    "butterfly" to PMo(-1, 0.6f, 2.0f, 0.2f, 20f),
+    "lantern" to PMo(-1, 0.5f, 0.8f, 0.1f, 10f),
+    "music" to PMo(-1, 0.8f, 1.6f, 0.3f, 25f),
+    "flame" to PMo(-1, 1.0f, 0.7f, 0.1f, 12f),
+    "rocket" to PMo(-1, 1.6f, 0.15f, 0.0f, 6f),
+    // chuva e coisas rápidas
+    "drop" to PMo(1, 1.5f, 0.1f, 0.0f, 6f),
+    "bolt" to PMo(1, 1.7f, 0.15f, 0.1f, 14f, 0f, true),
+    "dagger" to PMo(1, 1.5f, 0.3f, 0.1f, 15f, 180f),
+    "cloud" to PMo(1, 0.35f, 1.7f, 0.0f, 6f),
+    "ufo" to PMo(1, 0.5f, 2.2f, 0.1f, 14f),
+    // brilhos: ficam quase parados e piscam
+    "sparkle" to PMo(1, 0.35f, 0.7f, 0.5f, 360f, 0f, true),
+    "star" to PMo(1, 0.5f, 0.8f, 0.5f, 360f, 0f, true),
+    "moon" to PMo(1, 0.45f, 0.8f, 0.2f, 25f, 0f, true),
+    "eye" to PMo(1, 0.35f, 0.4f, 0.0f, 8f, 0f, true),
+    "gem" to PMo(1, 0.5f, 0.8f, 0.5f, 360f, 0f, true),
+    "sun" to PMo(1, 0.5f, 0.6f, 0.5f, 360f, 0f, true),
+    // objetos pesadinhos: caem sem rodar muito
+    "pagoda" to PMo(1, 0.6f, 0.6f, 0.1f, 8f),
+    "castle" to PMo(1, 0.6f, 0.5f, 0.0f, 6f),
+    "tomb" to PMo(1, 0.8f, 0.5f, 0.2f, 12f),
+    "home" to PMo(1, 0.7f, 0.5f, 0.1f, 8f),
+    "crown" to PMo(1, 0.7f, 0.7f, 0.3f, 25f),
+    "trophy" to PMo(1, 0.9f, 0.6f, 0.3f, 20f),
+    "shield" to PMo(1, 0.7f, 0.6f, 0.3f, 20f),
+    "skull" to PMo(1, 0.8f, 0.7f, 0.3f, 25f),
+    "hourglass" to PMo(1, 0.8f, 0.6f, 0.3f, 360f),
+    "cross" to PMo(1, 0.9f, 0.7f, 0.4f, 360f),
+    "ball" to PMo(1, 1.2f, 0.6f, 1.6f, 360f)
+)
+
+private fun pmo(name: String): PMo = PMO[name] ?: PMO_DEFAULT
+
+/**
+ * Símbolos caindo (ou subindo) do tema da tela. A camada "de trás" fica atrás do conteúdo;
+ * as explosões de festa (burst) vão para a camada "da frente" (fx), que fica por cima.
+ */
 class PetalsView(ctx: Context, icons: List<String>, tint: Int, private val count: Int = 14) : View(ctx) {
     private class P(
         var x: Float, var y: Float, var vy: Float, var size: Float,
-        var phase: Float, var rot: Float, var vr: Float, var e: Int, var a: Int
+        var phase: Float, var rot: Float, var vr: Float, var e: Int, var a: Int, var z: Float
     )
 
     private class B(
         var x: Float, var y: Float, var vx: Float, var vy: Float, var size: Float,
         var rot: Float, var vr: Float, var life: Float, var icon: String, var color: Int
     )
+
+    /** Camada da frente, só para as explosões. */
+    var fx: PetalsView? = null
 
     private var icons: List<String> = icons
     private var tints: List<Int> = listOf(tint)
@@ -332,17 +441,22 @@ class PetalsView(ctx: Context, icons: List<String>, tint: Int, private val count
     private var themeKey = ""
 
     private fun spawn(anywhere: Boolean): P {
-        val size = (dp(12) + rnd.nextInt(dp(14))).toFloat()
+        val e = rnd.nextInt(icons.size)
+        val mo = pmo(icons[e % icons.size])
+        val z = 0.6f + rnd.nextFloat() * 0.6f
+        val size = (dp(22) + rnd.nextInt(dp(22))) * z
+        val sy = if (anywhere) rnd.nextFloat() * height else if (mo.dir > 0) -size else height + size
         return P(
             rnd.nextFloat() * width,
-            if (anywhere) rnd.nextFloat() * height else -size,
-            dp(24) + rnd.nextFloat() * dp(34),
+            sy,
+            (dp(22) + rnd.nextFloat() * dp(30)) * (0.7f + 0.5f * z),
             size,
             rnd.nextFloat() * 6.28f,
-            rnd.nextFloat() * 360f,
-            (rnd.nextFloat() - 0.5f) * 80f,
-            rnd.nextInt(icons.size),
-            70 + rnd.nextInt(80)
+            mo.base + (rnd.nextFloat() - 0.5f) * 2f * mo.tilt,
+            (rnd.nextFloat() - 0.5f) * 80f * mo.spin,
+            e,
+            95 + rnd.nextInt(75),
+            z
         )
     }
 
@@ -381,6 +495,11 @@ class PetalsView(ctx: Context, icons: List<String>, tint: Int, private val count
 
     /** Explosão de símbolos a partir de um ponto (coordenadas desta view). */
     fun burst(cx: Float, cy: Float, bIcons: List<String>, bColors: List<Int>, n: Int = 18) {
+        val front = fx
+        if (front != null) {
+            front.burst(cx, cy, bIcons, bColors, n)
+            return
+        }
         for (i in 0 until n) {
             val ang = rnd.nextFloat() * 6.2831f
             val sp = dp(90) + rnd.nextFloat() * dp(190)
@@ -397,11 +516,12 @@ class PetalsView(ctx: Context, icons: List<String>, tint: Int, private val count
 
     /** Explosão a partir do centro de outra view (qualquer view na mesma tela). */
     fun burstFrom(v: View, bIcons: List<String>, bColors: List<Int>, n: Int = 18) {
+        val target = fx ?: this
         val loc = IntArray(2)
         val mine = IntArray(2)
         v.getLocationInWindow(loc)
-        getLocationInWindow(mine)
-        burst(loc[0] - mine[0] + v.width / 2f, loc[1] - mine[1] + v.height / 2f, bIcons, bColors, n)
+        target.getLocationInWindow(mine)
+        target.burst(loc[0] - mine[0] + v.width / 2f, loc[1] - mine[1] + v.height / 2f, bIcons, bColors, n)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -424,23 +544,31 @@ class PetalsView(ctx: Context, icons: List<String>, tint: Int, private val count
         paint.style = Paint.Style.FILL
         for (i in ps.indices) {
             var p = ps[i]
-            p.y += p.vy * dt
+            val name = icons[p.e % icons.size]
+            val mo = pmo(name)
+            p.y += mo.dir * p.vy * mo.speed * dt
             p.phase += dt * 1.3f
             p.rot += p.vr * dt
-            if (p.y > height + p.size) {
+            val gone = if (mo.dir > 0) p.y > height + p.size else p.y < -p.size
+            if (gone) {
                 p = spawn(false)
                 ps[i] = p
             }
-            val sx = p.x + (sin(p.phase.toDouble()) * dp(16)).toFloat()
+            val sx = p.x + (sin(p.phase.toDouble()) * dp(16) * mo.sway).toFloat()
+            var al = p.a * (0.75f + 0.25f * p.z) * master
+            if (mo.twinkle) {
+                al *= 0.5f + 0.5f * (0.5 + 0.5 * sin((p.phase * 2.4f + p.e).toDouble())).toFloat()
+            }
+            val wobble = if (mo.spin < 0.5f) (sin(p.phase.toDouble()) * 9.0).toFloat() else 0f
             paint.color = tints[p.e % tints.size]
-            paint.alpha = (p.a * master).toInt().coerceIn(0, 255)
+            paint.alpha = al.toInt().coerceIn(0, 255)
             c.save()
             c.translate(sx, p.y)
-            c.rotate(p.rot)
+            c.rotate(p.rot + wobble)
             val s = p.size / 24f
             c.scale(s, s)
             c.translate(-12f, -12f)
-            c.drawPath(Icons.path(icons[p.e % icons.size]), paint)
+            c.drawPath(Icons.path(name), paint)
             c.restore()
         }
         val it = bursts.iterator()
@@ -466,7 +594,7 @@ class PetalsView(ctx: Context, icons: List<String>, tint: Int, private val count
             c.drawPath(Icons.path(b.icon), paint)
             c.restore()
         }
-        postInvalidateOnAnimation()
+        if (count > 0 || bursts.isNotEmpty()) postInvalidateOnAnimation()
     }
 }
 

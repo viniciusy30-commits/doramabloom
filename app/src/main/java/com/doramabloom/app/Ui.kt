@@ -583,59 +583,72 @@ object Atmosphere {
         else -> Pair("sparkle", c("#B98AA0"))
     }
 
+    /** Símbolos de cada status (nada de repetir os dos gêneros quando possível). */
+    private fun statusIcons(key: String): List<String> = when (key) {
+        "assistindo" -> listOf("play", "tv")
+        "quero" -> listOf("bookmark", "calendar")
+        "concluido" -> listOf("check", "replay")
+        "pausado" -> listOf("pause", "clock")
+        else -> listOf("close", "minus")
+    }
+
     fun status(key: String): Atmos = when (key) {
         "fav" -> Atmos(listOf("heart", "star"), listOf(Palette.pink, c("#FFB84D")))
         else -> {
             val s = Statuses.byKey(key)
-            Atmos(listOf(s.icon, "sparkle"), listOf(s.color, s.color))
+            Atmos(statusIcons(key), listOf(s.color, mixColor(s.color, Color.WHITE, 0.3f)))
+        }
+    }
+
+    /** Monta a lista sem símbolos repetidos (o primeiro vence). */
+    private class Mix {
+        val icons = ArrayList<String>()
+        val tints = ArrayList<Int>()
+        fun add(icon: String, tint: Int) {
+            if (icons.contains(icon)) return
+            icons.add(icon)
+            tints.add(tint)
+        }
+        fun addGenre(g: Genre) {
+            val gt = genreTints(g)
+            for (i in g.petals.indices) add(g.petals[i], gt[i % gt.size])
+        }
+        fun done(): Atmos {
+            if (icons.isEmpty()) {
+                val pk = Palette.pink
+                return Atmos(
+                    listOf("petal", "blossom", "sparkle"),
+                    listOf(pk, mixColor(pk, Color.WHITE, 0.25f), mixColor(pk, Color.parseColor("#FFB84D"), 0.5f))
+                )
+            }
+            return Atmos(icons, tints)
         }
     }
 
     /** Mistura o que está ativo: gênero manda; status e país entram como acento. */
     fun of(genre: String, status: String, country: String): Atmos {
-        val icons = ArrayList<String>()
-        val tints = ArrayList<Int>()
-        if (genre != "all") {
-            val g = Genres.byKey(genre)
-            for (ic in g.petals) {
-                icons.add(ic)
-                tints.add(g.primary)
-            }
-        }
+        val m = Mix()
+        if (genre != "all") m.addGenre(Genres.byKey(genre))
         if (status != "all") {
             val a = status(status)
-            for (i in a.icons.indices) {
-                icons.add(a.icons[i])
-                tints.add(a.tints[i])
-            }
+            for (i in a.icons.indices) m.add(a.icons[i], a.tints[i % a.tints.size])
         }
         if (country != "all") {
             val (ic, col) = country(country)
-            icons.add(ic)
-            tints.add(col)
-            icons.add("petal")
-            tints.add(col)
+            m.add(ic, col)
+            m.add("petal", col)
         }
-        if (icons.isEmpty()) {
-            icons.addAll(listOf("petal", "petal", "blossom"))
-            tints.addAll(listOf(Palette.pink, Palette.pink, Palette.pink))
-        }
-        return Atmos(icons, tints)
+        return m.done()
     }
 
-    /** Tela de um dorama: pétalas do gênero + símbolo do status. */
+    /** Tela de um dorama: símbolos do gênero + um acento do status. */
     fun ofDrama(d: Drama): Atmos {
         val g = Genres.byKey(d.genre)
         val s = Statuses.byKey(d.status)
-        val icons = ArrayList<String>(g.petals)
-        val tints = ArrayList<Int>()
-        for (i in g.petals.indices) tints.add(g.primary)
-        icons.add(s.icon)
-        tints.add(s.color)
-        if (d.favorite) {
-            icons.add("heart")
-            tints.add(Palette.pink)
-        }
-        return Atmos(icons, tints)
+        val m = Mix()
+        m.addGenre(g)
+        m.add(statusIcons(d.status)[0], s.color)
+        if (d.favorite) m.add("heart", Palette.pink)
+        return m.done()
     }
 }

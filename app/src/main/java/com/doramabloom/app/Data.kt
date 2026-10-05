@@ -38,41 +38,41 @@ object Genres {
 
     private val builtin: List<Genre> = listOf(
         Genre("romance", "Romance", "heart", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
-            listOf("petal", "heart", "blossom"), "Para suspirar abraçada na almofada"),
+            listOf("heart", "petal", "ring"), "Para suspirar abraçada na almofada"),
         Genre("comedia", "Comédia", "smile", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
-            listOf("star", "blossom", "sparkle"), "Risadinhas garantidas"),
+            listOf("smile", "balloon", "star"), "Risadinhas garantidas"),
         Genre("acao", "Ação", "bolt", c("#FF7A6B"), c("#FFE5E0"), c("#9C2F22"),
-            listOf("bolt", "sparkle", "petal"), "Coração acelerado e muita adrenalina"),
+            listOf("bolt", "flame", "shield"), "Coração acelerado e muita adrenalina"),
         Genre("terror", "Terror", "ghost", c("#9B7EDE"), c("#EDE6FA"), c("#4B2E8F"),
-            listOf("moon", "ghost", "sparkle"), "Luz acesa e coberta até o nariz"),
+            listOf("ghost", "bat", "tomb"), "Luz acesa e coberta até o nariz"),
         Genre("fantasia", "Fantasia", "sparkle", c("#6FA8FF"), c("#E3EEFF"), c("#1F4F9C"),
-            listOf("sparkle", "star", "petal"), "Magia, brilho e mundos encantados"),
+            listOf("sparkle", "butterfly", "wand"), "Magia, brilho e mundos encantados"),
         Genre("historico", "Histórico", "pagoda", c("#D6536D"), c("#FBE3E8"), c("#8E1F3A"),
-            listOf("petal", "blossom", "leaf"), "Hanboks, palácios e intrigas da corte"),
+            listOf("pagoda", "lantern", "fan"), "Hanboks, palácios e intrigas da corte"),
         Genre("misterio", "Mistério", "search", c("#5FB3A8"), c("#DFF4F1"), c("#1F6B62"),
-            listOf("leaf", "sparkle", "star"), "Quem será o culpado?"),
+            listOf("search", "key", "lock"), "Quem será o culpado?"),
         Genre("escolar", "Escolar", "school", c("#7FD1AE"), c("#E1F7EC"), c("#226B4B"),
-            listOf("star", "leaf", "blossom"), "Uniformes, amizades e primeiros amores"),
+            listOf("school", "book", "pencil"), "Uniformes, amizades e primeiros amores"),
         Genre("drama", "Drama", "drop", c("#C38BD8"), c("#F6E6FB"), c("#6E2F86"),
-            listOf("drop", "petal", "leaf"), "Lencinho por perto, vai ter choro"),
+            listOf("drop", "cloud", "heartbreak"), "Lencinho por perto, vai ter choro"),
         Genre("suspense", "Suspense", "eye", c("#4F6D9A"), c("#E3EAF5"), c("#24395A"),
-            listOf("eye", "sparkle", "moon"), "Segura a respiração, a trama não dá trégua"),
+            listOf("eye", "moon", "clock"), "Segura a respiração, a trama não dá trégua"),
         Genre("medico", "Médico", "cross", c("#3FB6C9"), c("#DDF4F8"), c("#17657A"),
-            listOf("cross", "heart", "sparkle"), "Plantões, jalecos e corações em tratamento"),
+            listOf("cross", "pill", "syringe"), "Plantões, jalecos e corações em tratamento"),
         Genre("familia", "Família", "home", c("#F29B5C"), c("#FFEBDC"), c("#96501A"),
-            listOf("home", "heart", "petal"), "Mesa farta, abraço apertado e muito afeto"),
+            listOf("home", "cake", "gift"), "Mesa farta, abraço apertado e muito afeto"),
         Genre("musical", "Musical", "music", c("#E36BC4"), c("#FDE4F6"), c("#8A2A72"),
-            listOf("music", "star", "sparkle"), "Melodias que grudam no coração"),
+            listOf("music", "mic", "headphones"), "Melodias que grudam no coração"),
         Genre("esporte", "Esporte", "trophy", c("#5DB56E"), c("#E1F5E5"), c("#226B35"),
-            listOf("trophy", "star", "bolt"), "Suor, garra e superação em campo"),
+            listOf("trophy", "medal", "ball"), "Suor, garra e superação em campo"),
         Genre("realeza", "Realeza", "crown", c("#E0A93B"), c("#FFF1CC"), c("#7A5A00"),
-            listOf("crown", "sparkle", "blossom"), "Coroas, tronos e segredos do palácio"),
+            listOf("crown", "gem", "castle"), "Coroas, tronos e segredos do palácio"),
         Genre("scifi", "Ficção científica", "rocket", c("#6C63FF"), c("#E7E5FF"), c("#2E2A99"),
-            listOf("rocket", "star", "sparkle"), "Futuro, viagens no tempo e mistérios do espaço"),
+            listOf("rocket", "planet", "ufo"), "Futuro, viagens no tempo e mistérios do espaço"),
         Genre("vida", "Vida real", "coffee", c("#C79A7B"), c("#F6E9DF"), c("#6B4630"),
-            listOf("coffee", "leaf", "petal"), "Cotidiano gostoso, café quentinho e paz"),
+            listOf("coffee", "leaf", "sun"), "Cotidiano gostoso, café quentinho e paz"),
         Genre("vinganca", "Vingança", "skull", c("#B03A5B"), c("#F8DDE5"), c("#5E1128"),
-            listOf("skull", "drop", "moon"), "Frieza, planos e a hora do acerto de contas")
+            listOf("skull", "dagger", "hourglass"), "Frieza, planos e a hora do acerto de contas")
     )
 
     private var extra: List<Genre> = emptyList()
@@ -96,11 +96,18 @@ object Genres {
             key, label, icon, primary,
             mixColor(primary, Color.WHITE, 0.84f),
             mixColor(primary, Color.BLACK, 0.42f),
-            listOf(icon, "sparkle", "petal"),
+            listOf(icon, "sparkle", "petal").distinct(),
             if (tagline.isBlank()) "Seu gênero $label" else tagline,
             true
         )
 }
+
+/** Três tons do gênero para as pétalas: uma mistura rica em vez de uma cor só. */
+fun genreTints(g: Genre): List<Int> = listOf(
+    g.primary,
+    mixColor(g.primary, g.dark, 0.32f),
+    mixColor(g.primary, Color.WHITE, 0.28f)
+)
 
 data class Status(val key: String, val label: String, val icon: String, val color: Int)
 
@@ -166,9 +173,35 @@ fun currentSeason(d: Drama): Int {
     return maxOf(0, d.seasonEps.size - 1)
 }
 
-/** Temporada que você está assistindo: a escolhida no navegador ou, se nenhuma, a primeira em andamento. */
-fun activeSeason(d: Drama): Int =
-    if (d.watchSeason in d.seasonEps.indices) d.watchSeason else currentSeason(d)
+/**
+ * Temporada em que você está: a mais avançada que já tem episódio assistido;
+ * se ela já terminou e existe a próxima, é a próxima. (Não depende mais da aba escolhida no
+ * navegador, que antes ficava presa na T1.)
+ */
+fun activeSeason(d: Drama): Int {
+    var last = -1
+    for (i in d.seasonEps.indices) if (d.watched[i] > 0) last = i
+    if (last < 0) return 0
+    if (seasonDone(d, last) && last + 1 < d.seasonEps.size) return last + 1
+    return last
+}
+
+/** Quantos episódios ainda faltam (só conta temporadas com total conhecido). */
+fun remainingEps(d: Drama): Int {
+    var r = 0
+    for (i in d.seasonEps.indices) if (d.seasonEps[i] > 0) r += maxOf(0, d.seasonEps[i] - d.watched[i])
+    return r
+}
+
+/** "Temp. 2" ou "" quando só há uma temporada. */
+fun seasonTag(d: Drama): String = if (seasonCount(d) > 1) "Temp. " + (activeSeason(d) + 1) else ""
+
+/** "Ep. 3/12" da temporada atual. */
+fun epTag(d: Drama): String {
+    val s = activeSeason(d)
+    val t = d.seasonEps[s]
+    return if (t > 0) "Ep. " + d.watched[s] + "/" + t else "Ep. " + d.watched[s]
+}
 
 /** Texto do contador do navegador, ex.: "T2 · Ep. 5/12". */
 fun counterText(d: Drama, s: Int): String {

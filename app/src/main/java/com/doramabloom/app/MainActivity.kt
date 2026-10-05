@@ -105,8 +105,12 @@ class MainActivity : AppCompatActivity() {
             lin(MATCH, WRAP)
         )
 
-        petals = PetalsView(this, listOf("petal", "petal", "blossom"), Palette.pink, 14)
-        root.addView(petals, FrameLayout.LayoutParams(MATCH, MATCH))
+        // pétalas de fundo ficam ATRÁS de tudo; as explosões de festa ficam por cima
+        petals = PetalsView(this, listOf("petal", "blossom", "sparkle"), Palette.pink, 16)
+        root.addView(petals, 0, FrameLayout.LayoutParams(MATCH, MATCH))
+        val fxTop = PetalsView(this, listOf("petal"), Palette.pink, 0)
+        petals.fx = fxTop
+        root.addView(fxTop, FrameLayout.LayoutParams(MATCH, MATCH))
 
         setContentView(root)
 
@@ -678,7 +682,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyView(rv: RecyclerView) {
-        rv.layoutManager = if (gridMode) GridLayoutManager(this, 3) else LinearLayoutManager(this)
+        rv.layoutManager = if (gridMode) GridLayoutManager(this, 2) else LinearLayoutManager(this)
         listAdapter = DramaAdapter(if (gridMode) 3 else 0, { open(it) })
         rv.adapter = listAdapter
         refreshList()

@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -95,7 +96,10 @@ class DetailActivity : AppCompatActivity() {
         sv.addView(col)
         root.addView(sv, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        petals = PetalsView(this, g.petals, g.primary, 14)
+        petals = PetalsView(this, g.petals, g.primary, 16)
+        root.addView(petals, 0, FrameLayout.LayoutParams(MATCH, MATCH))
+        val fxTop = PetalsView(this, listOf("petal"), g.primary, 0)
+        petals.fx = fxTop
         val glass = Color.parseColor("#44FFFFFF")
 
         // ---- barra superior
@@ -138,73 +142,120 @@ class DetailActivity : AppCompatActivity() {
         top.addView(favBtn, lin(dp(40), dp(40)))
         col.addView(top, lin(MATCH, WRAP))
 
-        // ---- hero
+        // ---- hero: capa grande no centro, fundo tirado da própria capa, pilha de capas atrás
         val hero = FrameLayout(this)
-        hero.background = gradient(g.primary, g.dark, dp(32).toFloat(), GradientDrawable.Orientation.TL_BR)
+        hero.background = gradient(g.primary, g.dark, dp(34).toFloat(), GradientDrawable.Orientation.TL_BR)
         hero.elevation = 0f
         hero.clipToOutline = true
-        val deco = IconView(this, "blossom", Color.parseColor("#22FFFFFF"), 130)
+
+        // fundo suave: a capa bem reduzida e esticada (vira um borrão) com véu na cor do gênero
+        val backBmp = if (d.cover.isNotEmpty()) Covers.load(d.cover, 60) else null
+        if (backBmp != null) {
+            val bi = ImageView(this)
+            bi.scaleType = ImageView.ScaleType.CENTER_CROP
+            bi.setImageBitmap(backBmp)
+            hero.addView(bi, FrameLayout.LayoutParams(MATCH, MATCH))
+            val veil = View(this)
+            veil.background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(
+                    Color.argb(170, Color.red(g.primary), Color.green(g.primary), Color.blue(g.primary)),
+                    Color.argb(240, Color.red(g.dark), Color.green(g.dark), Color.blue(g.dark))
+                )
+            )
+            hero.addView(veil, FrameLayout.LayoutParams(MATCH, MATCH))
+        }
+
+        val deco = IconView(this, "blossom", Color.parseColor("#22FFFFFF"), 150)
         val dlp = FrameLayout.LayoutParams(WRAP, WRAP)
         dlp.gravity = Gravity.END or Gravity.BOTTOM
-        dlp.setMargins(0, 0, dp(-26), dp(-26))
+        dlp.setMargins(0, 0, dp(-34), dp(-34))
         hero.addView(deco, dlp)
-        val deco2 = IconView(this, "petal", Color.parseColor("#33FFFFFF"), 34)
+        val deco3 = IconView(this, "blossom", Color.parseColor("#1AFFFFFF"), 90)
+        val d3lp = FrameLayout.LayoutParams(WRAP, WRAP)
+        d3lp.gravity = Gravity.START or Gravity.TOP
+        d3lp.setMargins(dp(-22), dp(-22), 0, 0)
+        hero.addView(deco3, d3lp)
+        val deco2 = IconView(this, "petal", Color.parseColor("#44FFFFFF"), 34)
         val d2lp = FrameLayout.LayoutParams(WRAP, WRAP)
         d2lp.gravity = Gravity.END or Gravity.TOP
-        d2lp.setMargins(0, dp(10), dp(54), 0)
+        d2lp.setMargins(0, dp(14), dp(60), 0)
         hero.addView(deco2, d2lp)
-        val spark = IconView(this, "sparkle", Color.parseColor("#77FFFFFF"), 20)
+        val spark = IconView(this, "sparkle", Color.parseColor("#88FFFFFF"), 22)
         val slp = FrameLayout.LayoutParams(WRAP, WRAP)
         slp.gravity = Gravity.END or Gravity.TOP
-        slp.setMargins(0, dp(14), dp(16), 0)
+        slp.setMargins(0, dp(18), dp(18), 0)
         hero.addView(spark, slp)
+        val spark2 = IconView(this, "sparkle", Color.parseColor("#66FFFFFF"), 15)
+        val s2lp = FrameLayout.LayoutParams(WRAP, WRAP)
+        s2lp.gravity = Gravity.START or Gravity.TOP
+        s2lp.setMargins(dp(22), dp(40), 0, 0)
+        hero.addView(spark2, s2lp)
 
         val heroCol = LinearLayout(this)
         heroCol.orientation = LinearLayout.VERTICAL
 
-        val hrow = LinearLayout(this)
-        hrow.orientation = LinearLayout.HORIZONTAL
-        hrow.setPadding(dp(16), dp(16), dp(16), dp(12))
+        // palco da capa
+        val cw = dp(180)
+        val ch = dp(270)
+        val stage = FrameLayout(this)
+        stage.clipChildren = false
+        for (side in intArrayOf(-1, 1)) {
+            val ghost = CoverView(this, 24)
+            ghost.bind(d, 300)
+            ghost.alpha = 0.55f
+            ghost.rotation = side * 9f
+            ghost.scaleX = 0.86f
+            ghost.scaleY = 0.86f
+            ghost.translationX = side * dp(80).toFloat()
+            stage.addView(ghost, FrameLayout.LayoutParams(cw, ch, Gravity.CENTER))
+        }
         val ring = FrameLayout(this)
-        ring.setPadding(dp(3), dp(3), dp(3), dp(3))
-        ring.background = roundRect(Color.WHITE, dp(23).toFloat())
-        val cover = CoverView(this, 20)
-        cover.bind(d, 600)
-        ring.addView(cover, FrameLayout.LayoutParams(dp(112), dp(166)))
+        ring.setPadding(dp(4), dp(4), dp(4), dp(4))
+        ring.background = roundRect(Color.WHITE, dp(30).toFloat())
+        val cover = CoverView(this, 26)
+        cover.bind(d, 900)
+        ring.addView(cover, FrameLayout.LayoutParams(cw, ch))
         val heroSeal = SealView(this)
         heroSeal.set(g)
-        val hsl = FrameLayout.LayoutParams(dp(42), dp(42), Gravity.BOTTOM or Gravity.END)
-        hsl.setMargins(0, 0, dp(4), dp(4))
+        heroSeal.rotation = -8f
+        val hsl = FrameLayout.LayoutParams(dp(58), dp(58), Gravity.BOTTOM or Gravity.END)
+        hsl.setMargins(0, 0, dp(8), dp(8))
         ring.addView(heroSeal, hsl)
-        hrow.addView(ring, lin(WRAP, WRAP, r = 14))
+        stage.addView(ring, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        heroCol.addView(stage, lin(MATCH, WRAP, t = 24, b = 6))
 
-        val info = LinearLayout(this)
-        info.orientation = LinearLayout.VERTICAL
-        val title = label(d.title, 22f, Color.WHITE, true, true)
-        title.maxLines = 4
+        val title = label(d.title, 26f, Color.WHITE, true, true)
+        title.gravity = Gravity.CENTER
+        title.maxLines = 3
         title.ellipsize = TextUtils.TruncateAt.END
-        info.addView(title)
+        title.setShadowLayer(6f, 0f, 2f, Color.parseColor("#55000000"))
+        heroCol.addView(title, lin(MATCH, WRAP, t = 14, l = 20, r = 20))
         if (d.original.isNotBlank()) {
-            info.addView(label(d.original, 12f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 2))
+            val og = label(d.original, 13f, Color.parseColor("#E6FFFFFF"))
+            og.gravity = Gravity.CENTER
+            heroCol.addView(og, lin(MATCH, WRAP, t = 2, l = 20, r = 20))
         }
-        info.addView(label(subtitle(d), 12f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 6))
+        val subL = label(subtitle(d), 12.5f, Color.parseColor("#E6FFFFFF"))
+        subL.gravity = Gravity.CENTER
+        heroCol.addView(subL, lin(MATCH, WRAP, t = 6, l = 20, r = 20))
 
-        // gêneros, status e país: as pílulas quebram de linha, nada é cortado
+        // gêneros, status, país e onde assistir: centralizados, quebram de linha, nada é cortado
         val flow = FlowLayout(this)
+        flow.center = true
         flow.hGap = dp(6)
         flow.vGap = dp(6)
-        flow.addView(pill(g.label, glass, Color.WHITE, 11f, g.icon))
+        flow.addView(pill(g.label, glass, Color.WHITE, 11.5f, g.icon))
         for (tk in d.tags) {
             if (tk == d.genre || !Genres.exists(tk)) continue
             val tg = Genres.byKey(tk)
-            flow.addView(pill(tg.label, glass, Color.WHITE, 11f, tg.icon))
+            flow.addView(pill(tg.label, glass, Color.WHITE, 11.5f, tg.icon))
         }
-        val statusPill = pill("", Palette.pink, Color.WHITE, 11f, "play")
+        val statusPill = pill("", Palette.pink, Color.WHITE, 11.5f, "play")
         flow.addView(statusPill)
-        flow.addView(pill(d.country, glass, Color.WHITE, 11f, "flag"))
-        info.addView(flow, lin(MATCH, WRAP, t = 10))
-        hrow.addView(info, lin(0, WRAP, 1f))
-        heroCol.addView(hrow, lin(MATCH, WRAP))
+        flow.addView(pill(d.country, glass, Color.WHITE, 11.5f, "flag"))
+        if (d.platform.isNotBlank()) flow.addView(pill(d.platform, glass, Color.WHITE, 11.5f, "tv"))
+        heroCol.addView(flow, lin(MATCH, WRAP, t = 12, l = 16, r = 16))
 
         // faixa da nota
         val strip = LinearLayout(this)
@@ -226,10 +277,10 @@ class DetailActivity : AppCompatActivity() {
         rcol.addView(rv)
         rcol.addView(label("nota de 10", 11f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 3))
         strip.addView(rcol, lin(0, WRAP, 1f))
-        heroCol.addView(strip, lin(MATCH, WRAP, l = 14, r = 14, b = 8))
-        val tagLine = label(g.tagline, 12f, Color.parseColor("#F2FFFFFF"))
+        heroCol.addView(strip, lin(MATCH, WRAP, t = 16, l = 14, r = 14, b = 8))
+        val tagLine = label(g.tagline, 12.5f, Color.parseColor("#F2FFFFFF"))
         tagLine.gravity = Gravity.CENTER
-        heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 14))
+        heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 16))
 
         hero.addView(heroCol, FrameLayout.LayoutParams(MATCH, WRAP))
         col.addView(hero, lin(MATCH, WRAP, t = 10))
@@ -352,11 +403,16 @@ class DetailActivity : AppCompatActivity() {
 
         val seasonBars = ArrayList<SoftBar>()
         val seasonTxt = ArrayList<TextView>()
+        val seasonLbl = ArrayList<TextView>()
         for (i in d.seasonEps.indices) {
             val row = LinearLayout(this)
             row.orientation = LinearLayout.HORIZONTAL
             row.gravity = Gravity.CENTER_VERTICAL
-            row.addView(label("Temp. " + (i + 1), 13f, g.dark, true), lin(dp(62), WRAP))
+            val lbl = label("Temp. " + (i + 1), 12.5f, g.dark, true)
+            lbl.gravity = Gravity.CENTER
+            lbl.setPadding(dp(4), dp(3), dp(4), dp(3))
+            seasonLbl.add(lbl)
+            row.addView(lbl, lin(dp(70), WRAP))
             val b = SoftBar(this)
             b.barColor = g.primary
             seasonBars.add(b)
@@ -431,7 +487,11 @@ class DetailActivity : AppCompatActivity() {
             }
             val frac = progressOf(d)
             if (firstProgress) obar.animateTo(frac, 0f, 350L, 800L) else obar.animateTo(frac)
+            val cur = activeSeason(d)
             for (i in seasonBars.indices) {
+                val isCur = i == cur && seasonBars.size > 1
+                seasonLbl[i].setTextColor(if (isCur) Color.WHITE else g.dark)
+                seasonLbl[i].background = if (isCur) roundRect(g.primary, dp(12).toFloat()) else null
                 val t = d.seasonEps[i]
                 val wi = d.watched[i]
                 val f = if (t > 0) wi.toFloat() / t.toFloat() else 0f
@@ -443,7 +503,7 @@ class DetailActivity : AppCompatActivity() {
                 }
             }
             val complete = total > 0 && d.seasonEps.all { it > 0 } && w >= total
-            plus.text = if (complete) "Tudo assistido!" else "+1 episódio"
+            plus.text = if (complete) "Tudo assistido!" else "+1 episódio" + (if (seasonCount(d) > 1) " · Temp. " + (activeSeason(d) + 1) else "")
             (plus.compoundDrawables[0] as? IconDrawable)?.name = if (complete) "check" else "play"
             plus.alpha = if (complete) 0.6f else 1f
             val rt = d.rewatch.toString()
@@ -552,7 +612,7 @@ class DetailActivity : AppCompatActivity() {
         }
         col.addView(del, lin(MATCH, WRAP, t = 18))
 
-        root.addView(petals, FrameLayout.LayoutParams(MATCH, MATCH))
+        root.addView(fxTop, FrameLayout.LayoutParams(MATCH, MATCH))
 
         refreshAll()
         updatePetals(d)

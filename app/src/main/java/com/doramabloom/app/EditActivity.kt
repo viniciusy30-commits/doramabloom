@@ -333,9 +333,9 @@ class EditActivity : AppCompatActivity() {
         saveBtn.pressable(0.96f)
         page.addView(saveBtn, lin(MATCH, WRAP, l = 16, t = 6, r = 16, b = 14))
 
-        val pv = PetalsView(this, listOf("petal", "petal", "blossom"), Palette.pink, 12)
+        val pv = PetalsView(this, listOf("petal", "blossom", "sparkle"), Palette.pink, 14)
         petalsView = pv
-        root.addView(pv, FrameLayout.LayoutParams(MATCH, MATCH))
+        root.addView(pv, 0, FrameLayout.LayoutParams(MATCH, MATCH))
 
         setContentView(root)
         refreshCover()
