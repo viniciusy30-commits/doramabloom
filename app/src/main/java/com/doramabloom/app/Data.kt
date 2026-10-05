@@ -36,7 +36,7 @@ fun mixColor(a: Int, b: Int, f: Float): Int {
 object Genres {
     private fun c(s: String): Int = Color.parseColor(s)
 
-    private val builtin: List<Genre> = listOf(
+    private val factory: List<Genre> = listOf(
         Genre("romance", "Romance", "heart", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
             listOf("heart", "petal", "ring"), "Para suspirar abraçada na almofada"),
         Genre("comedia", "Comédia", "smile", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
@@ -75,9 +75,40 @@ object Genres {
             listOf("skull", "dagger", "hourglass"), "Frieza, planos e a hora do acerto de contas")
     )
 
+    private var edits: Map<String, Genre> = emptyMap()
+    private var builtin: List<Genre> = factory
     private var extra: List<Genre> = emptyList()
 
-    /** Os gêneros de fábrica e depois os que você criou. */
+    /** Edições que você fez nos gêneros de fábrica (chave -> gênero editado). */
+    fun setEdits(m: Map<String, Genre>) {
+        edits = m
+        builtin = factory.map { edits[it.key] ?: it }
+    }
+
+    fun edited(): Map<String, Genre> = edits
+
+    fun isEdited(k: String): Boolean = edits.containsKey(k)
+
+    fun factoryOf(k: String): Genre? = factory.firstOrNull { it.key == k }
+
+    /** Gênero de fábrica com nome, ícone, cor e frase novos (mantém o resto se a cor não mudou). */
+    fun editBuiltin(base: Genre, label: String, icon: String, primary: Int, tagline: String): Genre {
+        val orig = factoryOf(base.key) ?: base
+        val tag = if (tagline.isBlank()) orig.tagline else tagline
+        val pet = if (icon == orig.icon) orig.petals else (listOf(icon) + orig.petals.drop(1)).distinct()
+        return if (primary == orig.primary) {
+            orig.copy(label = label, icon = icon, tagline = tag, petals = pet)
+        } else {
+            orig.copy(
+                label = label, icon = icon, primary = primary,
+                soft = mixColor(primary, Color.WHITE, 0.84f),
+                dark = mixColor(primary, Color.BLACK, 0.42f),
+                tagline = tag, petals = pet
+            )
+        }
+    }
+
+    /** Os gêneros de fábrica (com suas edições) e depois os que você criou. */
     val all: List<Genre> get() = builtin + extra
 
     fun custom(): List<Genre> = extra
@@ -393,6 +424,7 @@ object Store {
         appContext = c.applicationContext
         prefs = appContext.getSharedPreferences(PREF, Context.MODE_PRIVATE)
         loadGenres()
+        loadGenreEdits()
         load()
         loaded = true
     }
@@ -460,11 +492,62 @@ object Store {
         Genres.setCustom(r)
     }
 
+    private const val EKEY = "genreEdits"
+
+    private fun loadGenreEdits() {
+        val m = HashMap<String, Genre>()
+        try {
+            val arr = JSONArray(prefs.getString(EKEY, "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val g = editFromJson(o) ?: continue
+                m[g.key] = g
+            }
+        } catch (e: Exception) {
+            // dados corrompidos: sem edições
+        }
+        Genres.setEdits(m)
+    }
+
+    /** Lê uma edição de gênero de fábrica; devolve null se a chave não for de fábrica. */
+    private fun editFromJson(o: JSONObject): Genre? {
+        val k = o.optString("key", "")
+        val base = Genres.factoryOf(k) ?: return null
+        val l = o.optString("label", "").trim()
+        if (l.isEmpty()) return null
+        return Genres.editBuiltin(
+            base, l, o.optString("icon", base.icon),
+            o.optInt("color", base.primary), o.optString("tagline", "")
+        )
+    }
+
     private fun persistGenres() {
         version++
         val arr = JSONArray()
         for (g in Genres.custom()) arr.put(genreToJson(g))
-        prefs.edit().putString(GKEY, arr.toString()).apply()
+        val earr = JSONArray()
+        for (g in Genres.edited().values) earr.put(genreToJson(g))
+        prefs.edit().putString(GKEY, arr.toString()).putString(EKEY, earr.toString()).apply()
+    }
+
+    /** Salva a edição de um gênero (criado por você ou de fábrica). */
+    fun updateGenre(g: Genre) {
+        if (g.custom) {
+            Genres.setCustom(Genres.custom().map { if (it.key == g.key) g else it })
+        } else {
+            val m = HashMap(Genres.edited())
+            m[g.key] = g
+            Genres.setEdits(m)
+        }
+        persistGenres()
+    }
+
+    /** Volta um gênero de fábrica ao nome, ícone e cor originais. */
+    fun resetGenre(key: String) {
+        val m = HashMap(Genres.edited())
+        m.remove(key)
+        Genres.setEdits(m)
+        persistGenres()
     }
 
     fun addGenre(g: Genre) {
@@ -611,6 +694,9 @@ object Store {
         for (g in Genres.custom()) ga.put(genreToJson(g))
         val root = JSONObject()
         root.put("genres", ga)
+        val ea = JSONArray()
+        for (g in Genres.edited().values) ea.put(genreToJson(g))
+        root.put("genreEdits", ea)
         root.put("dramas", arr)
         return root.toString()
     }
@@ -638,6 +724,16 @@ object Store {
                         )
                     }
                     Genres.setCustom(cur)
+                    persistGenres()
+                }
+                val ea = root.optJSONArray("genreEdits")
+                if (ea != null) {
+                    val m = HashMap(Genres.edited())
+                    for (i in 0 until ea.length()) {
+                        val g = editFromJson(ea.getJSONObject(i)) ?: continue
+                        if (!m.containsKey(g.key)) m[g.key] = g
+                    }
+                    Genres.setEdits(m)
                     persistGenres()
                 }
                 arr = root.optJSONArray("dramas") ?: JSONArray()

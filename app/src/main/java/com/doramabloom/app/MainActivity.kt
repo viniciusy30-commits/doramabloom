@@ -1184,7 +1184,7 @@ class MainActivity : AppCompatActivity() {
         // gêneros
         col.addView(section("Gêneros", "tag"))
         val gcard = card(14, 22)
-        gcard.addView(label("Cada gênero tem cor, ícone e selo próprios. Crie os seus!", 12f, Palette.muted))
+        gcard.addView(label("Cada gênero tem cor, ícone e selo próprios. Toque no lápis para editar qualquer um, ou crie os seus!", 12f, Palette.muted))
         val mine = Store.all()
         for (g in Genres.all) {
             val row = LinearLayout(this)
@@ -1201,8 +1201,15 @@ class MainActivity : AppCompatActivity() {
             tg.maxLines = 1
             tg.ellipsize = android.text.TextUtils.TruncateAt.END
             gt.addView(tg, lin(MATCH, WRAP, t = 1))
+            gt.addView(label(if (n == 1) "1 dorama" else "$n doramas", 11f, g.primary, true), lin(WRAP, WRAP, t = 2))
             row.addView(gt, lin(0, WRAP, 1f))
-            row.addView(label(if (n == 1) "1 dorama" else "$n doramas", 11f, g.primary, true), lin(WRAP, WRAP, l = 8))
+            val openEditor = {
+                showGenreEditor(g) {
+                    seenVersion = Store.version
+                    showTab(4, false)
+                }
+            }
+            row.addView(roundBtn("edit", g.primary, false, 14) { openEditor() }, lin(dp(34), dp(34), l = 8))
             if (g.custom) {
                 row.addView(roundBtn("delete", g.primary, false, 14) {
                     AlertDialog.Builder(this)
@@ -1216,7 +1223,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         .setNegativeButton("Cancelar", null)
                         .show()
-                }, lin(dp(32), dp(32), l = 8))
+                }, lin(dp(34), dp(34), l = 8))
             }
             gcard.addView(row, lin(MATCH, WRAP, t = 10))
         }

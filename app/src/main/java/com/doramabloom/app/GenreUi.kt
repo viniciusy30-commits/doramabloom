@@ -117,13 +117,23 @@ class SealView(ctx: Context, private val withLabel: Boolean = false) : View(ctx)
 }
 
 /** Janela para criar um gênero novo: nome, frase, cor e ícone, com prévia ao vivo. */
-fun Activity.showGenreCreator(onDone: (Genre) -> Unit) {
-    if (Genres.custom().size >= 30) {
+fun Activity.showGenreCreator(onDone: (Genre) -> Unit) = showGenreEditor(null, onDone)
+
+/**
+ * Janela para criar (existing = null) ou editar um gênero, seja um que você criou ou um de fábrica.
+ * Nome, frase, cor e ícone, com prévia ao vivo.
+ */
+fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
+    if (existing == null && Genres.custom().size >= 30) {
         softToast("Você já criou muitos gêneros!", Palette.pink, "tag")
         return
     }
-    var color = genreColorChoices[0]
-    var icon = genreIconChoices[0]
+    var color = existing?.primary ?: genreColorChoices[0]
+    var icon = existing?.icon ?: genreIconChoices[0]
+    // se a cor atual não está na lista (gêneros de fábrica), ela entra como primeira opção
+    val colors: List<Int> = if (genreColorChoices.contains(color)) genreColorChoices else listOf(color) + genreColorChoices
+    val autoTag = if (existing != null) "Seu gênero " + existing.label else ""
+    val startTag = if (existing == null || existing.tagline == autoTag) "" else existing.tagline
 
     val sv = ScrollView(this)
     sv.isVerticalScrollBarEnabled = false
@@ -148,9 +158,9 @@ fun Activity.showGenreCreator(onDone: (Genre) -> Unit) {
     prevBox.addView(ptx, lin(0, WRAP, 1f))
     col.addView(prevBox, lin(MATCH, WRAP))
 
-    val nameIn = input("Nome do gênero (ex.: Sobrenatural)", "", android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+    val nameIn = input("Nome do gênero (ex.: Sobrenatural)", existing?.label ?: "", android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS)
     nameIn.filters = arrayOf(InputFilter.LengthFilter(18))
-    val tagIn = input("Frase fofa (opcional)")
+    val tagIn = input("Frase fofa (opcional)", startTag)
     tagIn.filters = arrayOf(InputFilter.LengthFilter(60))
     col.addView(label("Nome", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 6))
     col.addView(nameIn, lin(MATCH, WRAP))
@@ -168,7 +178,10 @@ fun Activity.showGenreCreator(onDone: (Genre) -> Unit) {
 
     fun previewGenre(): Genre {
         val nm = nameIn.text.toString().trim()
-        return Genres.makeCustom("preview", if (nm.isEmpty()) "Seu gênero" else nm, icon, color, tagIn.text.toString().trim())
+        val label = if (nm.isEmpty()) "Seu gênero" else nm
+        val tag = tagIn.text.toString().trim()
+        if (existing != null && !existing.custom) return Genres.editBuiltin(existing, label, icon, color, tag)
+        return Genres.makeCustom("preview", label, icon, color, tag)
     }
 
     fun restyle() {
@@ -181,8 +194,8 @@ fun Activity.showGenreCreator(onDone: (Genre) -> Unit) {
         for (i in swatches.indices) {
             val d = GradientDrawable()
             d.shape = GradientDrawable.OVAL
-            d.setColor(genreColorChoices[i])
-            if (genreColorChoices[i] == color) d.setStroke(dp(3), Palette.text) else d.setStroke(dp(2), Color.WHITE)
+            d.setColor(colors[i])
+            if (colors[i] == color) d.setStroke(dp(3), Palette.text) else d.setStroke(dp(2), Color.WHITE)
             swatches[i].background = d
         }
         for (i in iconCells.indices) {
@@ -192,11 +205,11 @@ fun Activity.showGenreCreator(onDone: (Genre) -> Unit) {
         }
     }
 
-    for (i in genreColorChoices.indices) {
+    for (i in colors.indices) {
         val cell = FrameLayout(this)
         cell.addView(View(this), FrameLayout.LayoutParams(dp(32), dp(32)))
         cell.setOnClickListener {
-            color = genreColorChoices[i]
+            color = colors[i]
             restyle()
             seal.pop(1.3f)
         }
@@ -232,26 +245,48 @@ fun Activity.showGenreCreator(onDone: (Genre) -> Unit) {
     tagIn.doAfterTextChanged { restyle() }
     restyle()
 
-    val dlg = AlertDialog.Builder(this)
-        .setTitle("Novo gênero")
+    val builder = AlertDialog.Builder(this)
+        .setTitle(if (existing == null) "Novo gênero" else "Editar gênero")
         .setView(sv)
-        .setPositiveButton("Criar", null)
+        .setPositiveButton(if (existing == null) "Criar" else "Salvar", null)
         .setNegativeButton("Cancelar", null)
-        .create()
+    if (existing != null && !existing.custom && Genres.isEdited(existing.key)) {
+        builder.setNeutralButton("Restaurar original", null)
+    }
+    val dlg = builder.create()
     dlg.show()
+    if (existing != null && !existing.custom && Genres.isEdited(existing.key)) {
+        dlg.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).setOnClickListener {
+            Store.resetGenre(existing.key)
+            dlg.dismiss()
+            onDone(Genres.byKey(existing.key))
+        }
+    }
     dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
         val nm = nameIn.text.toString().trim()
         if (nm.isEmpty()) {
             nameIn.error = "Dê um nome ao gênero"
             return@setOnClickListener
         }
-        if (Genres.all.any { it.label.equals(nm, true) }) {
+        if (Genres.all.any { it.label.equals(nm, true) && it.key != existing?.key }) {
             nameIn.error = "Esse gênero já existe"
             return@setOnClickListener
         }
-        val g = Genres.makeCustom("c" + System.currentTimeMillis(), nm, icon, color, tagIn.text.toString().trim())
-        Store.addGenre(g)
-        dlg.dismiss()
-        onDone(g)
+        val tag = tagIn.text.toString().trim()
+        if (existing == null) {
+            val g = Genres.makeCustom("c" + System.currentTimeMillis(), nm, icon, color, tag)
+            Store.addGenre(g)
+            dlg.dismiss()
+            onDone(g)
+        } else {
+            val g = if (existing.custom) {
+                Genres.makeCustom(existing.key, nm, icon, color, tag)
+            } else {
+                Genres.editBuiltin(existing, nm, icon, color, tag)
+            }
+            Store.updateGenre(g)
+            dlg.dismiss()
+            onDone(g)
+        }
     }
 }

@@ -13,20 +13,24 @@ import android.graphics.drawable.GradientDrawable
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
-/** Coração de favorito: círculo branco com coração grande; a cor do coração segue o tema do gênero. */
-fun Context.favBadge(heartDp: Int = 22): FrameLayout {
+/** Coração de favorito: só o coração (sem círculo), na cor do tema, com um contorno branco fininho para aparecer sobre a capa. */
+fun Context.favBadge(heartDp: Int = 28): FrameLayout {
     val f = FrameLayout(this)
-    f.background = ovalGradient(Color.WHITE, Color.WHITE)
     f.elevation = 0f
+    val halo = IconView(this, "heart", Color.WHITE, heartDp + 6)
+    f.addView(halo, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
     val ic = IconView(this, "heart", Palette.pink, heartDp)
     f.addView(ic, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
     return f
 }
 
-/** Pinta o coração de favorito (solto ou dentro do círculo) com a cor do tema. */
+/** Pinta o coração de favorito (solto ou com contorno) com a cor do tema. */
 private fun tintFav(v: View?, color: Int) {
     if (v is IconView) v.tint = color
-    else ((v as? ViewGroup)?.getChildAt(0) as? IconView)?.tint = color
+    else {
+        val g = v as? ViewGroup ?: return
+        (g.getChildAt(g.childCount - 1) as? IconView)?.tint = color
+    }
 }
 
 private fun setPillIcon(t: TextView, name: String, color: Int) {
@@ -281,14 +285,14 @@ class DramaAdapter(
         root.layoutParams = rlp
         root.pressable(0.97f)
 
-        val coverFrame = FrameLayout(c)
+        val coverFrame = TallFrame(c, c.dp(158))
         val cover = CoverView(c, 18)
         coverFrame.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
         val seal = SealView(c)
-        val slp = FrameLayout.LayoutParams(c.dp(32), c.dp(32), Gravity.TOP or Gravity.START)
-        slp.setMargins(c.dp(4), c.dp(4), 0, 0)
+        val slp = FrameLayout.LayoutParams(c.dp(36), c.dp(36), Gravity.TOP or Gravity.START)
+        slp.setMargins(c.dp(5), c.dp(5), 0, 0)
         coverFrame.addView(seal, slp)
-        root.addView(coverFrame, c.lin(c.dp(88), c.dp(134), r = 12))
+        root.addView(coverFrame, c.lin(c.dp(112), MATCH, r = 14))
 
         val col = LinearLayout(c)
         col.orientation = LinearLayout.VERTICAL
@@ -424,10 +428,8 @@ class DramaAdapter(
 
         // ---- capa grande
         val hero = FrameLayout(c)
-        val cover = CoverView(c, 0)
+        val cover = CoverView(c, 0, true)
         hero.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
-        val scrim = View(c)
-        hero.addView(scrim, FrameLayout.LayoutParams(MATCH, c.dp(190), Gravity.BOTTOM))
 
         val badge = c.scoreBadge(40, 17f)
         val blp = FrameLayout.LayoutParams(c.dp(40), c.dp(40))
@@ -435,7 +437,7 @@ class DramaAdapter(
         blp.setMargins(c.dp(14), c.dp(14), 0, 0)
         hero.addView(badge, blp)
 
-        val fav = c.favBadge(30)
+        val fav = c.favBadge(40)
         val flp = FrameLayout.LayoutParams(c.dp(52), c.dp(52))
         flp.gravity = Gravity.TOP or Gravity.END
         flp.setMargins(0, c.dp(12), c.dp(12), 0)
@@ -459,7 +461,14 @@ class DramaAdapter(
         sub.maxLines = 2
         sub.ellipsize = TextUtils.TruncateAt.END
         tcol.addView(sub, c.lin(MATCH, WRAP, t = 2))
-        hero.addView(tcol, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
+        // zona do texto: fica embaixo da capa (a imagem inteira aparece acima dela)
+        val textZone = FrameLayout(c)
+        textZone.minimumHeight = c.dp(98)
+        val scrim = View(c)
+        textZone.addView(scrim, FrameLayout.LayoutParams(MATCH, MATCH))
+        textZone.addView(tcol, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
+        hero.addView(textZone, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
+        textZone.addOnLayoutChangeListener { _, _, t, _, b, _, _, _, _ -> cover.bottomInset = b - t }
         root.addView(hero, c.lin(MATCH, 0, 1f))
 
         // ---- informações e botão
@@ -522,7 +531,7 @@ class DramaAdapter(
         slp.setMargins(c.dp(4), c.dp(4), 0, 0)
         frame.addView(seal, slp)
 
-        val fav = c.favBadge(22)
+        val fav = c.favBadge(28)
         val flp = FrameLayout.LayoutParams(c.dp(36), c.dp(36))
         flp.gravity = Gravity.TOP or Gravity.END
         flp.setMargins(0, c.dp(4), c.dp(4), 0)

@@ -526,30 +526,6 @@ class DetailActivity : AppCompatActivity() {
             firstProgress = false
         }
 
-        // ---- nota
-        val rc = card(14, 22)
-        rc.addView(sectionTitle("Minha nota", "heart", g.primary))
-        val scoreTxt = label("", 15f, g.dark, true, true)
-        val big = RatingView(this, 34, true)
-        big.color = g.primary
-        big.onChange = { ns ->
-            d.score = ns
-            Store.save(d)
-            sync()
-            scoreTxt.text = if (ns <= 0) "Sem nota ainda" else ns.toString() + " / 10"
-            scoreTxt.pop(1.15f)
-            big.pop(1.08f)
-            refreshAll()
-            if (ns >= 9) {
-                petals.burstFrom(big, listOf("heart", "star", "sparkle"), listOf(g.primary, Palette.pink, Color.parseColor("#FFB84D")), 18)
-            }
-        }
-        rc.addView(big, lin(WRAP, WRAP, t = 10))
-        rc.addView(scoreTxt, lin(WRAP, WRAP, t = 6))
-        rc.addView(label("Toque na metade esquerda do coração para meio ponto.", 11f, Palette.muted), lin(WRAP, WRAP, t = 2))
-        col.addView(rc, lin(MATCH, WRAP, t = 12))
-        scoreTxt.text = if (d.score <= 0) "Sem nota ainda" else d.score.toString() + " / 10"
-
         // ---- sinopse
         if (d.synopsis.isNotBlank()) {
             val sc = card(14, 22)

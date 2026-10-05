@@ -10,6 +10,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -448,8 +450,12 @@ object Covers {
     }
 }
 
-/** Capa arredondada: foto ou, se não houver, um fundo fofo com o símbolo do gênero. */
-class CoverView(ctx: Context, radiusDp: Int = 16) : FrameLayout(ctx) {
+/**
+ * Capa arredondada: foto ou, se não houver, um fundo fofo com o símbolo do gênero.
+ * Com fit = true a imagem aparece INTEIRA (sem cortar), centralizada sobre um fundo desfocado
+ * feito da própria capa; bottomInset reserva um espaço embaixo (para o título) sem tapar a imagem.
+ */
+class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = false) : FrameLayout(ctx) {
     private class Placeholder(ctx: Context) : View(ctx) {
         val d = IconDrawable("heart", Color.parseColor("#E6FFFFFF"))
         val blossom = IconDrawable("blossom", Color.parseColor("#55FFFFFF"))
@@ -467,11 +473,40 @@ class CoverView(ctx: Context, radiusDp: Int = 16) : FrameLayout(ctx) {
     }
 
     private val img = ImageView(ctx)
+    private val blur = ImageView(ctx)
     private val ph = Placeholder(ctx)
+    private var bw = 0
+    private var bh = 0
+
+    /** Espaço (px) deixado livre embaixo; só vale no modo fit. */
+    var bottomInset: Int = 0
+        set(v) {
+            if (field != v) {
+                field = v
+                requestLayout()
+            }
+        }
 
     init {
-        img.scaleType = ImageView.ScaleType.CENTER_CROP
-        addView(img, FrameLayout.LayoutParams(MATCH, MATCH))
+        if (fit) {
+            blur.scaleType = ImageView.ScaleType.CENTER_CROP
+            blur.colorFilter = PorterDuffColorFilter(Color.argb(80, 0, 0, 0), PorterDuff.Mode.SRC_ATOP)
+            blur.visibility = View.GONE
+            addView(blur, FrameLayout.LayoutParams(MATCH, MATCH))
+            img.scaleType = ImageView.ScaleType.FIT_XY
+            val pr = ctx.dp(20).toFloat()
+            img.outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, pr)
+                }
+            }
+            img.clipToOutline = true
+            img.elevation = ctx.dp(8).toFloat()
+            addView(img, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        } else {
+            img.scaleType = ImageView.ScaleType.CENTER_CROP
+            addView(img, FrameLayout.LayoutParams(MATCH, MATCH))
+        }
         addView(ph, FrameLayout.LayoutParams(MATCH, MATCH))
         val r = ctx.dp(radiusDp).toFloat()
         outlineProvider = object : ViewOutlineProvider() {
@@ -482,6 +517,28 @@ class CoverView(ctx: Context, radiusDp: Int = 16) : FrameLayout(ctx) {
         clipToOutline = true
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        if (fit && bw > 0 && bh > 0 && img.visibility == View.VISIBLE &&
+            MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY &&
+            MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY
+        ) {
+            val w = MeasureSpec.getSize(widthMeasureSpec)
+            val h = MeasureSpec.getSize(heightMeasureSpec)
+            val pad = dp(10)
+            val availW = w - 2 * pad
+            val availH = h - bottomInset - 2 * pad
+            if (availW > 0 && availH > 0) {
+                val sc = minOf(availW.toFloat() / bw, availH.toFloat() / bh)
+                val lp = img.layoutParams as FrameLayout.LayoutParams
+                lp.width = maxOf(1, (bw * sc).toInt())
+                lp.height = maxOf(1, (bh * sc).toInt())
+                lp.topMargin = pad
+                lp.bottomMargin = bottomInset + pad
+            }
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+
     fun bind(path: String, genreKey: String, reqW: Int) {
         val g = Genres.byKey(genreKey)
         val bmp = if (path.isNotEmpty()) Covers.load(path, reqW) else null
@@ -489,9 +546,22 @@ class CoverView(ctx: Context, radiusDp: Int = 16) : FrameLayout(ctx) {
             img.setImageBitmap(bmp)
             img.visibility = View.VISIBLE
             ph.visibility = View.GONE
-            setBackgroundColor(g.soft)
+            if (fit) {
+                bw = bmp.width
+                bh = bmp.height
+                val small = Bitmap.createScaledBitmap(bmp, maxOf(2, bw / 24), maxOf(2, bh / 24), true)
+                blur.setImageBitmap(small)
+                blur.visibility = View.VISIBLE
+                setBackgroundColor(g.dark)
+                requestLayout()
+            } else {
+                setBackgroundColor(g.soft)
+            }
         } else {
             img.visibility = View.GONE
+            blur.visibility = View.GONE
+            bw = 0
+            bh = 0
             ph.visibility = View.VISIBLE
             ph.d.name = g.icon
             ph.invalidate()
@@ -501,6 +571,20 @@ class CoverView(ctx: Context, radiusDp: Int = 16) : FrameLayout(ctx) {
 
     fun bind(d: Drama, reqW: Int) {
         bind(d.cover, d.genre, reqW)
+    }
+}
+
+/**
+ * Moldura que acompanha a altura do vizinho (MATCH_PARENT dentro de um pai WRAP_CONTENT)
+ * sem que a imagem de dentro empurre o tamanho do cartão.
+ */
+class TallFrame(ctx: Context, private val minHeightPx: Int) : FrameLayout(ctx) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        } else {
+            super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(minHeightPx, MeasureSpec.EXACTLY))
+        }
     }
 }
 
