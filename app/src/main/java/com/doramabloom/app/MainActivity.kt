@@ -332,6 +332,12 @@ class MainActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
     }
 
+    private fun section(t: String, icon: String): View {
+        val v = sectionTitle(t, icon)
+        v.setPadding(dp(4), dp(20), 0, dp(10))
+        return v
+    }
+
     // ---------------------------------------------------------------- INÍCIO
 
     private fun buildHome(): View {
