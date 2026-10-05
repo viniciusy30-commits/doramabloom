@@ -368,6 +368,19 @@ class HeaderArt(ctx: Context) : View(ctx) {
         B(0.04f, 0.18f, 20, 30f, Color.parseColor("#66FFFFFF"))
     )
 
+    // Não pede altura própria: assim o cabeçalho tem só a altura do texto
+    // e a arte se ajusta a ele (antes ocupava a tela inteira).
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = android.view.View.MeasureSpec.getSize(widthMeasureSpec)
+        val hMode = android.view.View.MeasureSpec.getMode(heightMeasureSpec)
+        val h = if (hMode == android.view.View.MeasureSpec.EXACTLY) {
+            android.view.View.MeasureSpec.getSize(heightMeasureSpec)
+        } else {
+            0
+        }
+        setMeasuredDimension(w, h)
+    }
+
     override fun onDraw(c: Canvas) {
         val path = Icons.path("blossom")
         paint.style = Paint.Style.FILL
