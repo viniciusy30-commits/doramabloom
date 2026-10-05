@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private var clearPill: TextView? = null
     private var effBox: LinearLayout? = null
     private var effIcon: IconView? = null
+    private var effSeal: SealView? = null
     private var effTitle: TextView? = null
     private var effSub: TextView? = null
     private var listBtn: FrameLayout? = null
@@ -333,6 +334,14 @@ class MainActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
     }
 
+    /** Abre o navegador deste dorama, direto na última página que você viu. */
+    private fun openWatch(d: Drama) {
+        val i = Intent(this, WatchActivity::class.java)
+        i.putExtra("id", d.id)
+        startActivity(i)
+        overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
+    }
+
     private fun section(t: String, icon: String): View {
         val v = sectionTitle(t, icon)
         v.setPadding(dp(4), dp(20), 0, dp(10))
@@ -423,22 +432,11 @@ class MainActivity : AppCompatActivity() {
             rv.itemAnimator = null
             val ad = DramaAdapter(4, { open(it) }, { d, btn ->
                 val g = Genres.byKey(d.genre)
-                val finished = Store.bump(d)
-                seenVersion = Store.version
-                homeAdapter?.refresh(d)
-                val green = Color.parseColor("#5CC6A0")
                 petals.burstFrom(
                     btn, listOf(g.icon, "heart", "blossom", "sparkle"),
-                    listOf(g.primary, Color.WHITE, g.soft, Palette.pink), 16
+                    listOf(g.primary, Color.WHITE, g.soft, Palette.pink), 12
                 )
-                if (finished) {
-                    petals.burstFrom(
-                        btn, listOf("check", "heart", "star", "sparkle", "blossom"),
-                        listOf(g.primary, Palette.pink, green, Color.parseColor("#FFB84D")), 36
-                    )
-                    softToast("Parabéns, você terminou " + d.title + "!", green, "check")
-                    sv.postDelayed({ if (tab == 0 && !isFinishing) showTab(0, false) }, 1700)
-                }
+                openWatch(d)
             })
             ad.submit(watching)
             homeAdapter = ad
@@ -627,6 +625,14 @@ class MainActivity : AppCompatActivity() {
         if (countryFilter != "all") parts.add(countryFilter)
         effIcon?.setIcon(icon)
         effIcon?.tint = col
+        if (genreFilter != "all") {
+            effSeal?.set(Genres.byKey(genreFilter))
+            effSeal?.visibility = View.VISIBLE
+            effIcon?.visibility = View.GONE
+        } else {
+            effSeal?.visibility = View.GONE
+            effIcon?.visibility = View.VISIBLE
+        }
         effTitle?.text = if (parts.size > 1) parts.joinToString(" · ") else title
         effTitle?.setTextColor(col)
         effSub?.text = sub
@@ -765,6 +771,14 @@ class MainActivity : AppCompatActivity() {
         val genreOpts = ArrayList<Opt>()
         genreOpts.add(Opt("all", "Todos os gêneros", Palette.pink, "tag"))
         for (g in Genres.all) genreOpts.add(Opt(g.key, g.label, g.primary, g.icon))
+        val glabRow = LinearLayout(this)
+        glabRow.orientation = LinearLayout.HORIZONTAL
+        glabRow.gravity = Gravity.CENTER_VERTICAL
+        glabRow.addView(label("Gêneros", 12.5f, Palette.muted, true), lin(0, WRAP, 1f, l = 4))
+        val newG = pill("Novo gênero", Palette.pinkSoft, Palette.pinkDark, 11f, "add")
+        newG.setOnClickListener { showGenreCreator { showTab(1, false) } }
+        glabRow.addView(newG, lin(WRAP, WRAP))
+        panel.addView(glabRow, lin(MATCH, WRAP, t = 8))
         panel.addView(chipScroller(genreOpts, genreFilter) {
             genreFilter = it
             filtersChanged()
@@ -772,6 +786,7 @@ class MainActivity : AppCompatActivity() {
         val countryOpts = ArrayList<Opt>()
         countryOpts.add(Opt("all", "Todos os países", Palette.pink, "flag"))
         for (c in countries) countryOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
+        panel.addView(label("Países", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
         panel.addView(chipScroller(countryOpts, countryFilter) {
             countryFilter = it
             filtersChanged()
@@ -783,6 +798,10 @@ class MainActivity : AppCompatActivity() {
         eb.orientation = LinearLayout.HORIZONTAL
         eb.gravity = Gravity.CENTER_VERTICAL
         eb.setPadding(dp(14), dp(10), dp(14), dp(10))
+        val eseal = SealView(this)
+        eseal.visibility = View.GONE
+        eb.addView(eseal, lin(dp(48), dp(48)))
+        effSeal = eseal
         val ei = IconView(this, "heart", Palette.pink, 30)
         eb.addView(ei)
         val etx = LinearLayout(this)
@@ -933,8 +952,9 @@ class MainActivity : AppCompatActivity() {
             val favRow = LinearLayout(this)
             favRow.orientation = LinearLayout.HORIZONTAL
             favRow.gravity = Gravity.CENTER_VERTICAL
-            val favIcon = IconView(this, fav.icon, fav.primary, 38)
-            favRow.addView(favIcon)
+            val favIcon = SealView(this)
+            favIcon.set(fav)
+            favRow.addView(favIcon, lin(dp(58), dp(58)))
             favIcon.postDelayed({ favIcon.pop(1.5f) }, 450)
             val ft = LinearLayout(this)
             ft.orientation = LinearLayout.VERTICAL
@@ -1156,6 +1176,55 @@ class MainActivity : AppCompatActivity() {
         }
         nc.addView(cb, lin(WRAP, WRAP, t = 10))
         col.addView(nc, lin(MATCH, WRAP))
+
+        // gêneros
+        col.addView(section("Gêneros", "tag"))
+        val gcard = card(14, 22)
+        gcard.addView(label("Cada gênero tem cor, ícone e selo próprios. Crie os seus!", 12f, Palette.muted))
+        val mine = Store.all()
+        for (g in Genres.all) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            val gs = SealView(this)
+            gs.set(g)
+            row.addView(gs, lin(dp(42), dp(42), r = 12))
+            val gt = LinearLayout(this)
+            gt.orientation = LinearLayout.VERTICAL
+            gt.addView(label(g.label, 14f, g.dark, true))
+            val n = mine.count { it.genre == g.key }
+            val tg = label(g.tagline, 11f, Palette.muted)
+            tg.maxLines = 1
+            tg.ellipsize = android.text.TextUtils.TruncateAt.END
+            gt.addView(tg, lin(MATCH, WRAP, t = 1))
+            row.addView(gt, lin(0, WRAP, 1f))
+            row.addView(label(if (n == 1) "1 dorama" else "$n doramas", 11f, g.primary, true), lin(WRAP, WRAP, l = 8))
+            if (g.custom) {
+                row.addView(roundBtn("delete", g.primary, false, 14) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Excluir gênero?")
+                        .setMessage("Os doramas com \"" + g.label + "\" voltam para Romance.")
+                        .setPositiveButton("Excluir") { _, _ ->
+                            if (genreFilter == g.key) genreFilter = "all"
+                            Store.removeGenre(g.key)
+                            seenVersion = Store.version
+                            showTab(4, false)
+                        }
+                        .setNegativeButton("Cancelar", null)
+                        .show()
+                }, lin(dp(32), dp(32), l = 8))
+            }
+            gcard.addView(row, lin(MATCH, WRAP, t = 10))
+        }
+        val newGenre = pill("Criar novo gênero", Palette.pink, Color.WHITE, 13f, "add")
+        newGenre.setOnClickListener {
+            showGenreCreator {
+                seenVersion = Store.version
+                showTab(4, false)
+            }
+        }
+        gcard.addView(newGenre, lin(WRAP, WRAP, t = 14))
+        col.addView(gcard, lin(MATCH, WRAP))
 
         // backup
         col.addView(section("Backup", "download"))

@@ -42,7 +42,7 @@ import androidx.core.view.WindowInsetsControllerCompat
  */
 class WatchActivity : AppCompatActivity() {
 
-    private class Tab(val id: Long, val web: WebView)
+    private class Tab(val id: Long, val web: WebView, var season: Int)
 
     private val tabs = ArrayList<Tab>()
     private var cur = -1
@@ -52,6 +52,8 @@ class WatchActivity : AppCompatActivity() {
     private lateinit var urlIn: EditText
     private lateinit var progress: ProgressBar
     private lateinit var epText: TextView
+    private lateinit var seasonScroll: HorizontalScrollView
+    private lateinit var seasonRow: LinearLayout
     private lateinit var fsLayer: FrameLayout
     private lateinit var backBtn: View
     private lateinit var fwdBtn: View
@@ -147,6 +149,17 @@ class WatchActivity : AppCompatActivity() {
         holder.clipToOutline = true
         col.addView(holder, lin(MATCH, 0, 1f, l = 10, r = 10))
 
+        // temporadas (só aparece quando o dorama tem mais de uma)
+        seasonScroll = HorizontalScrollView(this)
+        seasonScroll.isHorizontalScrollBarEnabled = false
+        seasonRow = LinearLayout(this)
+        seasonRow.orientation = LinearLayout.HORIZONTAL
+        seasonRow.gravity = Gravity.CENTER_VERTICAL
+        seasonRow.setPadding(dp(14), dp(8), dp(14), dp(2))
+        seasonScroll.addView(seasonRow)
+        seasonScroll.visibility = View.GONE
+        col.addView(seasonScroll, lin(MATCH, WRAP))
+
         // baixo: voltar, avançar, recarregar e contador de episódios
         val bottom = LinearLayout(this)
         bottom.orientation = LinearLayout.HORIZONTAL
@@ -166,9 +179,10 @@ class WatchActivity : AppCompatActivity() {
         counter.setPadding(dp(5), dp(5), dp(5), dp(5))
         counter.background = roundRect(Color.WHITE, dp(28).toFloat(), Palette.line, dp(1))
         counter.addView(roundBtn("minus", Palette.pink, false, 14) { epMinus() }, lin(dp(34), dp(34)))
-        epText = label("Ep. 0", 14f, Palette.text, true, true)
+        epText = label("Ep. 0", 13.5f, Palette.text, true, true)
         epText.gravity = Gravity.CENTER
-        epText.minWidth = dp(76)
+        epText.maxLines = 1
+        epText.minWidth = dp(84)
         counter.addView(epText, lin(WRAP, WRAP, l = 4, r = 4))
         counter.addView(roundBtn("add", Palette.pink, true, 14) { epPlus() }, lin(dp(34), dp(34)))
         bottom.addView(counter, lin(WRAP, WRAP))
@@ -291,7 +305,7 @@ class WatchActivity : AppCompatActivity() {
         }
         val d = Store.get(id) ?: return
         val w = makeWeb()
-        tabs.add(Tab(id, w))
+        tabs.add(Tab(id, w, activeSeason(d)))
         val start = when {
             d.lastUrl.isNotBlank() -> d.lastUrl
             d.link.isNotBlank() -> d.link
@@ -317,6 +331,7 @@ class WatchActivity : AppCompatActivity() {
         }
         progress.visibility = View.INVISIBLE
         renderTabs()
+        renderSeasons()
         updateNavButtons()
         updateEp(false)
     }
@@ -392,34 +407,82 @@ class WatchActivity : AppCompatActivity() {
 
     // ---------------------------------------------------------- episódios
 
+    /** Faixa "Temporada: T1 T2 T3": toque para escolher em qual temporada os episódios entram. */
+    private fun renderSeasons() {
+        seasonRow.removeAllViews()
+        val t = curTab()
+        val d = curDrama()
+        if (t == null || d == null || seasonCount(d) <= 1) {
+            seasonScroll.visibility = View.GONE
+            return
+        }
+        seasonScroll.visibility = View.VISIBLE
+        val g = Genres.byKey(d.genre)
+        seasonRow.addView(label("Temporada", 12f, Palette.muted, true), lin(WRAP, WRAP, r = 8))
+        for (i in d.seasonEps.indices) {
+            val sel = i == t.season
+            val done = seasonDone(d, i)
+            val fg = if (sel) Color.WHITE else g.primary
+            val chip = pill("T" + (i + 1), if (sel) g.primary else Color.WHITE, fg, 13f, if (done) "check" else null)
+            if (!sel) chip.background = roundRect(Color.WHITE, dp(20).toFloat(), g.primary, dp(1))
+            chip.setOnClickListener { chooseSeason(i) }
+            seasonRow.addView(chip, lin(WRAP, WRAP, r = 6))
+        }
+    }
+
+    private fun chooseSeason(i: Int) {
+        val t = curTab() ?: return
+        val d = curDrama() ?: return
+        if (i == t.season || i !in d.seasonEps.indices) return
+        t.season = i
+        Store.setWatchSeason(d, i)
+        renderSeasons()
+        updateEp(true)
+        softToast("Temporada " + (i + 1), Genres.byKey(d.genre).primary, "tv")
+    }
+
     private fun updateEp(animate: Boolean) {
         val d = curDrama() ?: return
-        val total = totalEps(d)
-        val w = watchedEps(d)
-        epText.text = if (total > 0) "Ep. $w/$total" else "Ep. $w"
+        val t = curTab() ?: return
+        if (t.season !in d.seasonEps.indices) t.season = activeSeason(d)
+        epText.text = counterText(d, t.season)
         if (animate) epText.pop(1.2f)
     }
 
     private fun epPlus() {
         val d = curDrama() ?: return
-        val fin = Store.bump(d)
+        val t = curTab() ?: return
+        val s = t.season
+        if (s !in d.seasonEps.indices) return
+        val total = d.seasonEps[s]
+        if (total > 0 && d.watched[s] >= total) {
+            val more = if (s + 1 < seasonCount(d)) " Escolha a próxima lá embaixo." else ""
+            softToast("Temporada " + (s + 1) + " já está completa." + more, Palette.pink, "check")
+            return
+        }
+        val fin = Store.adjust(d, s, 1)
         updateEp(true)
+        renderSeasons()
         if (fin) {
             softToast("Parabéns, você terminou " + d.title + "!", Color.parseColor("#5CC6A0"), "check")
+        } else if (total > 0 && d.watched[s] >= total && seasonCount(d) > 1) {
+            val more = if (s + 1 < seasonCount(d)) " Toque em T" + (s + 2) + " para seguir." else ""
+            softToast("Temporada " + (s + 1) + " completa!" + more, Genres.byKey(d.genre).primary, "check")
         }
     }
 
     private fun epMinus() {
         val d = curDrama() ?: return
-        var si = -1
-        for (i in d.watched.indices.reversed()) {
-            if (d.watched[i] > 0) {
-                si = i
-                break
-            }
+        val t = curTab() ?: return
+        val s = t.season
+        if (s !in d.seasonEps.indices) return
+        if (d.watched[s] <= 0) {
+            softToast("Essa temporada ainda está zerada", Palette.pink, "tv")
+            return
         }
-        if (si >= 0) Store.adjust(d, si, -1)
+        Store.adjust(d, s, -1)
         updateEp(true)
+        renderSeasons()
     }
 
     // --------------------------------------------------------------- menu
@@ -480,6 +543,7 @@ class WatchActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         curTab()?.web?.onResume()
+        renderSeasons()
         updateEp(false)
     }
 

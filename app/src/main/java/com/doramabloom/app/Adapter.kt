@@ -32,8 +32,8 @@ private fun setPillIcon(t: TextView, name: String, color: Int) {
 }
 
 /**
- * mode 0 = linha da lista, 1 = card do carrossel, 2 = mini pôster horizontal, 3 = pôster da grade,
- * 4 = destaque grande (ocupa toda a área, usado no Início).
+ * mode 0 = linha detalhada da lista, 1 = card do carrossel, 2 = mini pôster horizontal,
+ * 3 = pôster da grade, 4 = destaque grande (ocupa toda a área, usado no Início).
  */
 class DramaAdapter(
     private val mode: Int,
@@ -51,7 +51,8 @@ class DramaAdapter(
 
     private fun sig(d: Drama): String =
         d.title + "|" + d.status + "|" + d.score + "|" + d.favorite + "|" + d.watched + "|" + d.seasonEps +
-            "|" + d.genre + "|" + d.cover + "|" + d.country + "|" + d.year
+            "|" + d.genre + "|" + d.cover + "|" + d.country + "|" + d.year + "|" + d.tags + "|" +
+            d.platform + "|" + d.watchSeason
 
     override fun getItemId(position: Int): Long = items[position].id
 
@@ -71,7 +72,7 @@ class DramaAdapter(
         diff.dispatchUpdatesTo(this)
     }
 
-    /** Atualiza só o item (usado no +1 episódio, sem piscar). */
+    /** Atualiza só o item (sem piscar). */
     fun refresh(d: Drama) {
         val i = items.indexOfFirst { it.id == d.id }
         if (i >= 0) {
@@ -102,7 +103,14 @@ class DramaAdapter(
         val badge: TextView? = null,
         val plus: TextView? = null,
         val fav: View? = null,
-        val scrim: View? = null
+        val scrim: View? = null,
+        val seal: SealView? = null,
+        val dot: FrameLayout? = null,
+        val percent: TextView? = null,
+        val flow: FlowLayout? = null,
+        val plat: TextView? = null,
+        val note: TextView? = null,
+        val frame: View? = null
     ) : RecyclerView.ViewHolder(v)
 
     override fun getItemCount(): Int = items.size
@@ -121,23 +129,40 @@ class DramaAdapter(
         }
     }
 
+    /** Parte que muda com o progresso (também usada na atualização rápida). */
+    private fun bindDynamic(h: VH, d: Drama, g: Genre, st: Status, animate: Boolean) {
+        h.prog?.text = progressText(d)
+        if (animate) h.prog?.pop(1.05f)
+        val bar = h.bar
+        if (bar != null) {
+            bar.barColor = g.primary
+            if (animate) bar.animateTo(progressOf(d)) else bar.progress = progressOf(d)
+        }
+        val pc = h.percent
+        if (pc != null) {
+            pc.text = (progressOf(d) * 100).toInt().toString() + "%"
+            pc.setTextColor(g.dark)
+        }
+        val chip = h.chip
+        if (chip != null) {
+            chip.text = st.label
+            chip.background = roundRect(st.color, chip.dp(14).toFloat())
+            setPillIcon(chip, st.icon, Color.WHITE)
+        }
+        val badge = h.badge
+        if (badge != null) styleBadge(badge, d.score, g.primary)
+        h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
+        val dot = h.dot
+        if (dot != null) {
+            dot.background = ovalGradient(st.color, st.color)
+            (dot.getChildAt(0) as? IconView)?.setIcon(st.icon)
+        }
+    }
+
     override fun onBindViewHolder(h: VH, position: Int, payloads: MutableList<Any>) {
         if (payloads.isNotEmpty()) {
             val d = items[position]
-            val g = Genres.byKey(d.genre)
-            val st = Statuses.byKey(d.status)
-            h.prog?.text = progressText(d)
-            h.prog?.pop(1.05f)
-            h.bar?.animateTo(progressOf(d))
-            val chip = h.chip
-            if (chip != null) {
-                chip.text = st.label
-                chip.background = roundRect(st.color, chip.dp(14).toFloat())
-                setPillIcon(chip, st.icon, Color.WHITE)
-            }
-            val badge = h.badge
-            if (badge != null) styleBadge(badge, d.score, g.primary)
-            h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
+            bindDynamic(h, d, Genres.byKey(d.genre), Statuses.byKey(d.status), true)
             return
         }
         super.onBindViewHolder(h, position, payloads)
@@ -149,7 +174,7 @@ class DramaAdapter(
         val st = Statuses.byKey(d.status)
         val reqW = when (mode) {
             1 -> 500
-            0 -> 260
+            0 -> 300
             2 -> 320
             4 -> 800
             else -> 360
@@ -157,22 +182,18 @@ class DramaAdapter(
         h.cover.bind(d, reqW)
         h.title.text = d.title
         h.sub?.text = subtitle(d)
-        h.prog?.text = progressText(d)
-        val bar = h.bar
-        if (bar != null) {
-            bar.barColor = g.primary
-            bar.progress = progressOf(d)
-        }
+        bindDynamic(h, d, g, st, false)
+        h.seal?.set(g)
+
         val rating = h.rating
         if (rating != null) {
             rating.score = d.score
             rating.color = g.primary
         }
-        val chip = h.chip
-        if (chip != null) {
-            chip.text = st.label
-            chip.background = roundRect(st.color, chip.dp(14).toFloat())
-            setPillIcon(chip, st.icon, Color.WHITE)
+        val note = h.note
+        if (note != null) {
+            note.text = if (d.score > 0) d.score.toString() + "/10" else "Sem nota"
+            note.setTextColor(if (d.score > 0) g.dark else Palette.muted)
         }
         val gc = h.genreChip
         if (gc != null) {
@@ -181,9 +202,37 @@ class DramaAdapter(
             gc.setTextColor(g.dark)
             setPillIcon(gc, g.icon, g.dark)
         }
-        val badge = h.badge
-        if (badge != null) styleBadge(badge, d.score, g.primary)
-        h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
+        val fl = h.flow
+        if (fl != null) {
+            while (fl.childCount > 2) fl.removeViewAt(2)
+            var n = 0
+            for (tk in d.tags) {
+                if (tk == d.genre || !Genres.exists(tk)) continue
+                if (n >= 2) break
+                val tg = Genres.byKey(tk)
+                val tp = fl.context.pill(tg.label, tg.soft, tg.dark, 10.5f, tg.icon)
+                tp.setPadding(fl.dp(9), fl.dp(4), fl.dp(9), fl.dp(4))
+                fl.addView(tp)
+                n++
+            }
+        }
+        val plat = h.plat
+        if (plat != null) {
+            if (d.platform.isBlank()) {
+                plat.visibility = View.GONE
+            } else {
+                plat.visibility = View.VISIBLE
+                plat.text = d.platform
+            }
+        }
+        val fr = h.frame
+        if (fr != null) {
+            if (mode == 0) {
+                fr.background = roundRect(Color.WHITE, fr.dp(24).toFloat(), mixColor(g.primary, Color.WHITE, 0.6f), fr.dp(1))
+            } else {
+                fr.background = roundRect(g.soft, fr.dp(22).toFloat(), mixColor(g.primary, Color.WHITE, 0.55f), fr.dp(1))
+            }
+        }
         val scrim = h.scrim
         if (scrim != null) {
             val dk = g.dark
@@ -213,19 +262,26 @@ class DramaAdapter(
         return t
     }
 
+    /** Lista: cartão detalhado, com selo do gênero, pílulas, nota, plataforma e progresso. */
     private fun buildRow(c: Context): VH {
         val root = LinearLayout(c)
         root.orientation = LinearLayout.HORIZONTAL
-        root.setPadding(c.dp(10), c.dp(10), c.dp(10), c.dp(10))
-        root.background = roundRect(Color.WHITE, c.dp(22).toFloat(), Palette.line, c.dp(1))
+        root.setPadding(c.dp(10), c.dp(10), c.dp(12), c.dp(10))
+        root.background = roundRect(Color.WHITE, c.dp(24).toFloat(), Palette.line, c.dp(1))
         root.elevation = 0f
         val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
         rlp.setMargins(c.dp(4), c.dp(6), c.dp(4), c.dp(6))
         root.layoutParams = rlp
         root.pressable(0.97f)
 
-        val cover = CoverView(c, 16)
-        root.addView(cover, c.lin(c.dp(76), c.dp(112), r = 12))
+        val coverFrame = FrameLayout(c)
+        val cover = CoverView(c, 18)
+        coverFrame.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
+        val seal = SealView(c)
+        val slp = FrameLayout.LayoutParams(c.dp(32), c.dp(32), Gravity.TOP or Gravity.START)
+        slp.setMargins(c.dp(4), c.dp(4), 0, 0)
+        coverFrame.addView(seal, slp)
+        root.addView(coverFrame, c.lin(c.dp(88), c.dp(134), r = 12))
 
         val col = LinearLayout(c)
         col.orientation = LinearLayout.VERTICAL
@@ -236,9 +292,9 @@ class DramaAdapter(
         val title = c.label("", 16f, Palette.text, true, true)
         title.maxLines = 2
         title.ellipsize = TextUtils.TruncateAt.END
-        val badge = c.scoreBadge(32, 14f)
+        val fav = IconView(c, "heart", Palette.pink, 16)
         trow.addView(title, c.lin(0, WRAP, 1f))
-        trow.addView(badge, c.lin(WRAP, WRAP, l = 8))
+        trow.addView(fav, c.lin(WRAP, WRAP, l = 6))
         col.addView(trow, c.lin(MATCH, WRAP))
 
         val sub = c.label("", 11.5f, Palette.muted)
@@ -246,26 +302,49 @@ class DramaAdapter(
         sub.ellipsize = TextUtils.TruncateAt.END
         col.addView(sub, c.lin(MATCH, WRAP, t = 2))
 
-        val chips = LinearLayout(c)
-        chips.orientation = LinearLayout.HORIZONTAL
-        chips.gravity = Gravity.CENTER_VERTICAL
+        val flow = FlowLayout(c)
+        flow.hGap = c.dp(5)
+        flow.vGap = c.dp(5)
         val gc = smallPill(c, "heart")
         val chip = smallPill(c, "play")
-        val fav = IconView(c, "heart", Palette.pink, 15)
-        chips.addView(gc, c.lin(WRAP, WRAP, r = 6))
-        chips.addView(chip, c.lin(WRAP, WRAP, r = 6))
-        chips.addView(fav, c.lin(WRAP, WRAP))
-        col.addView(chips, c.lin(MATCH, WRAP, t = 6))
+        flow.addView(gc)
+        flow.addView(chip)
+        col.addView(flow, c.lin(MATCH, WRAP, t = 7))
 
-        val prog = c.label("", 11.5f, Palette.muted)
-        col.addView(prog, c.lin(WRAP, WRAP, t = 6))
+        val rrow = LinearLayout(c)
+        rrow.orientation = LinearLayout.HORIZONTAL
+        rrow.gravity = Gravity.CENTER_VERTICAL
+        val rating = RatingView(c, 13, false)
+        val note = c.label("", 11.5f, Palette.muted, true)
+        rrow.addView(rating, c.lin(WRAP, WRAP))
+        rrow.addView(note, c.lin(WRAP, WRAP, l = 8))
+        col.addView(rrow, c.lin(MATCH, WRAP, t = 7))
+
+        val plat = c.label("", 11f, Palette.muted)
+        plat.maxLines = 1
+        plat.ellipsize = TextUtils.TruncateAt.END
+        plat.setCompoundDrawables(c.iconDrawable("tv", Palette.muted, c.dp(12)), null, null, null)
+        plat.compoundDrawablePadding = c.dp(5)
+        col.addView(plat, c.lin(MATCH, WRAP, t = 5))
+
+        val prow = LinearLayout(c)
+        prow.orientation = LinearLayout.HORIZONTAL
+        prow.gravity = Gravity.CENTER_VERTICAL
+        val prog = c.label("", 11.5f, Palette.text, true)
+        prog.maxLines = 1
+        prog.ellipsize = TextUtils.TruncateAt.END
+        val percent = c.label("", 11.5f, Palette.pinkDark, true)
+        prow.addView(prog, c.lin(0, WRAP, 1f, r = 6))
+        prow.addView(percent, c.lin(WRAP, WRAP))
+        col.addView(prow, c.lin(MATCH, WRAP, t = 8))
         val bar = SoftBar(c)
-        col.addView(bar, c.lin(MATCH, c.dp(7), t = 3))
+        col.addView(bar, c.lin(MATCH, c.dp(8), t = 4))
 
         root.addView(col, c.lin(0, WRAP, 1f))
         return VH(
-            root, cover, title, sub = sub, prog = prog, bar = bar,
-            chip = chip, genreChip = gc, badge = badge, fav = fav
+            root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
+            chip = chip, genreChip = gc, fav = fav, seal = seal, percent = percent,
+            flow = flow, plat = plat, note = note, frame = root
         )
     }
 
@@ -313,7 +392,7 @@ class DramaAdapter(
         val bar = SoftBar(c)
         col.addView(bar, c.lin(MATCH, c.dp(9), t = 4))
 
-        val plus = c.pill("+1 episódio", Palette.pink, Color.WHITE, 13f, "play")
+        val plus = c.pill("Continuar assistindo", Palette.pink, Color.WHITE, 13f, "play")
         plus.setPadding(c.dp(14), c.dp(9), c.dp(14), c.dp(9))
         col.addView(plus, c.lin(MATCH, WRAP, t = 10))
 
@@ -324,6 +403,7 @@ class DramaAdapter(
         )
     }
 
+    /** Início: capa grande com selo do gênero e o botão "Continuar assistindo". */
     private fun buildFeatured(c: Context): VH {
         val root = LinearLayout(c)
         root.orientation = LinearLayout.VERTICAL
@@ -340,7 +420,7 @@ class DramaAdapter(
         val cover = CoverView(c, 0)
         hero.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
         val scrim = View(c)
-        hero.addView(scrim, FrameLayout.LayoutParams(MATCH, c.dp(170), Gravity.BOTTOM))
+        hero.addView(scrim, FrameLayout.LayoutParams(MATCH, c.dp(190), Gravity.BOTTOM))
 
         val badge = c.scoreBadge(40, 17f)
         val blp = FrameLayout.LayoutParams(c.dp(40), c.dp(40))
@@ -354,16 +434,22 @@ class DramaAdapter(
         flp.setMargins(0, c.dp(14), c.dp(14), 0)
         hero.addView(fav, flp)
 
+        val seal = SealView(c, true)
+        seal.rotation = -8f
+        val slp = FrameLayout.LayoutParams(c.dp(80), c.dp(80), Gravity.BOTTOM or Gravity.END)
+        slp.setMargins(0, 0, c.dp(12), c.dp(12))
+        hero.addView(seal, slp)
+
         val tcol = LinearLayout(c)
         tcol.orientation = LinearLayout.VERTICAL
-        tcol.setPadding(c.dp(18), 0, c.dp(18), c.dp(14))
+        tcol.setPadding(c.dp(18), 0, c.dp(100), c.dp(14))
         val title = c.label("", 26f, Color.WHITE, true, true)
         title.maxLines = 2
         title.ellipsize = TextUtils.TruncateAt.END
         title.setShadowLayer(6f, 0f, 2f, Color.parseColor("#66000000"))
         tcol.addView(title, c.lin(MATCH, WRAP))
         val sub = c.label("", 12.5f, Color.parseColor("#F2FFFFFF"))
-        sub.maxLines = 1
+        sub.maxLines = 2
         sub.ellipsize = TextUtils.TruncateAt.END
         tcol.addView(sub, c.lin(MATCH, WRAP, t = 2))
         hero.addView(tcol, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
@@ -396,17 +482,19 @@ class DramaAdapter(
         val bar = SoftBar(c)
         info.addView(bar, c.lin(MATCH, c.dp(11), t = 6))
 
-        val plus = c.pill("+1 episódio", Palette.pink, Color.WHITE, 15f, "play")
+        val plus = c.pill("Continuar assistindo", Palette.pink, Color.WHITE, 15f, "play")
         plus.setPadding(c.dp(18), c.dp(13), c.dp(18), c.dp(13))
         info.addView(plus, c.lin(MATCH, WRAP, t = 12))
         root.addView(info, c.lin(MATCH, WRAP))
 
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
-            chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav, scrim = scrim
+            chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav, scrim = scrim,
+            seal = seal
         )
     }
 
+    /** Grade: pôster com moldura na cor do gênero, selo, nota, status e progresso. */
     private fun buildPoster(c: Context, wParam: Int, hPx: Int, withBar: Boolean): VH {
         val root = LinearLayout(c)
         root.orientation = LinearLayout.VERTICAL
@@ -415,16 +503,17 @@ class DramaAdapter(
         root.layoutParams = rlp
         root.pressable(0.95f)
 
+        val outer = FrameLayout(c)
+        outer.setPadding(c.dp(3), c.dp(3), c.dp(3), c.dp(3))
         val frame = FrameLayout(c)
         val cover = CoverView(c, 18)
         cover.elevation = 0f
         frame.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        val badge = c.scoreBadge(28, 12f)
-        val blp = FrameLayout.LayoutParams(WRAP, WRAP)
-        blp.gravity = Gravity.BOTTOM or Gravity.START
-        blp.setMargins(c.dp(6), 0, 0, c.dp(6))
-        frame.addView(badge, blp)
+        val seal = SealView(c)
+        val slp = FrameLayout.LayoutParams(c.dp(30), c.dp(30), Gravity.TOP or Gravity.START)
+        slp.setMargins(c.dp(4), c.dp(4), 0, 0)
+        frame.addView(seal, slp)
 
         val fav = c.favBadge()
         val flp = FrameLayout.LayoutParams(c.dp(24), c.dp(24))
@@ -432,19 +521,41 @@ class DramaAdapter(
         flp.setMargins(0, c.dp(6), c.dp(6), 0)
         frame.addView(fav, flp)
 
-        root.addView(frame, c.lin(MATCH, hPx))
+        val badge = c.scoreBadge(28, 12f)
+        val blp = FrameLayout.LayoutParams(WRAP, WRAP)
+        blp.gravity = Gravity.BOTTOM or Gravity.START
+        blp.setMargins(c.dp(6), 0, 0, c.dp(6))
+        frame.addView(badge, blp)
 
-        val title = c.label("", 12f, Palette.text, true)
+        val dot = FrameLayout(c)
+        dot.addView(IconView(c, "play", Color.WHITE, 12), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        val dlp = FrameLayout.LayoutParams(c.dp(24), c.dp(24), Gravity.BOTTOM or Gravity.END)
+        dlp.setMargins(0, 0, c.dp(6), c.dp(6))
+        frame.addView(dot, dlp)
+
+        outer.addView(frame, FrameLayout.LayoutParams(MATCH, hPx))
+        root.addView(outer, c.lin(MATCH, WRAP))
+
+        val title = c.label("", 12.5f, Palette.text, true)
         title.maxLines = 2
         title.ellipsize = TextUtils.TruncateAt.END
-        root.addView(title, c.lin(MATCH, WRAP, t = 6))
+        root.addView(title, c.lin(MATCH, WRAP, t = 6, l = 2))
 
         var bar: SoftBar? = null
+        var prog: TextView? = null
         if (withBar) {
+            val p = c.label("", 10.5f, Palette.muted, true)
+            p.maxLines = 1
+            p.ellipsize = TextUtils.TruncateAt.END
+            root.addView(p, c.lin(MATCH, WRAP, t = 1, l = 2))
+            prog = p
             val b = SoftBar(c)
-            root.addView(b, c.lin(MATCH, c.dp(5), t = 4))
+            root.addView(b, c.lin(MATCH, c.dp(6), t = 4, l = 2, r = 2))
             bar = b
         }
-        return VH(root, cover, title, bar = bar, badge = badge, fav = fav)
+        return VH(
+            root, cover, title, prog = prog, bar = bar, badge = badge, fav = fav,
+            seal = seal, dot = dot, frame = outer
+        )
     }
 }

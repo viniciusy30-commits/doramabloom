@@ -59,7 +59,14 @@ object Icons {
         "more" to "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
         "link" to "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z",
         "forward" to "M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z",
-        "globe" to "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
+        "globe" to "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z",
+        "eye" to "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z",
+        "cross" to "M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z",
+        "music" to "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z",
+        "trophy" to "M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z",
+        "crown" to "M4 19h16v2H4zM3.2 7l4.6 4.2L12 4.5l4.2 6.7L20.8 7 19 17H5z",
+        "rocket" to "M12 2c3.2 2.6 4.8 6.2 4.8 10.4V16l2.2 2.6V21l-3.4-1.4H8.4L5 21v-2.4L7.2 16v-3.6C7.2 8.2 8.8 4.6 12 2zM12 9.2a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z",
+        "coffee" to "M4 8h12.5v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16.5 9.5h1.3a2.6 2.6 0 0 1 0 5.2h-1.3V13h1.3a.9.9 0 0 0 0-1.8h-1.3zM3 21h15v-1.6H3z"
     )
 
     private val cache = HashMap<String, Path>()
@@ -76,6 +83,7 @@ object Icons {
         if (name == "blossom") return blossom()
         if (name == "petal") return petalCentered()
         if (name == "ghost") return ghost()
+        if (name == "skull") return skull()
         val d = svg[name] ?: return Path()
         return try {
             PathParser.createPathFromPathData(d)
@@ -114,6 +122,17 @@ object Icons {
             all.addPath(q)
         }
         return all
+    }
+
+    private fun skull(): Path {
+        val p = Path()
+        p.addCircle(12f, 10.5f, 8.5f, Path.Direction.CW)
+        p.addRoundRect(7.8f, 15f, 16.2f, 21.5f, 1.5f, 1.5f, Path.Direction.CW)
+        p.addCircle(8.8f, 11f, 2.2f, Path.Direction.CCW)
+        p.addCircle(15.2f, 11f, 2.2f, Path.Direction.CCW)
+        p.addRect(10.2f, 17f, 10.9f, 21.5f, Path.Direction.CCW)
+        p.addRect(13.1f, 17f, 13.8f, 21.5f, Path.Direction.CCW)
+        return p
     }
 
     private fun ghost(): Path {

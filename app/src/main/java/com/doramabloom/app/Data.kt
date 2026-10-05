@@ -21,13 +21,22 @@ data class Genre(
     val soft: Int,
     val dark: Int,
     val petals: List<String>,
-    val tagline: String
+    val tagline: String,
+    val custom: Boolean = false
 )
+
+/** Mistura duas cores (f = 0 fica em a, f = 1 fica em b). */
+fun mixColor(a: Int, b: Int, f: Float): Int {
+    val r = (Color.red(a) + (Color.red(b) - Color.red(a)) * f).toInt()
+    val g = (Color.green(a) + (Color.green(b) - Color.green(a)) * f).toInt()
+    val bl = (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * f).toInt()
+    return Color.rgb(r.coerceIn(0, 255), g.coerceIn(0, 255), bl.coerceIn(0, 255))
+}
 
 object Genres {
     private fun c(s: String): Int = Color.parseColor(s)
 
-    val all: List<Genre> = listOf(
+    private val builtin: List<Genre> = listOf(
         Genre("romance", "Romance", "heart", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
             listOf("petal", "heart", "blossom"), "Para suspirar abraçada na almofada"),
         Genre("comedia", "Comédia", "smile", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
@@ -45,10 +54,52 @@ object Genres {
         Genre("escolar", "Escolar", "school", c("#7FD1AE"), c("#E1F7EC"), c("#226B4B"),
             listOf("star", "leaf", "blossom"), "Uniformes, amizades e primeiros amores"),
         Genre("drama", "Drama", "drop", c("#C38BD8"), c("#F6E6FB"), c("#6E2F86"),
-            listOf("drop", "petal", "leaf"), "Lencinho por perto, vai ter choro")
+            listOf("drop", "petal", "leaf"), "Lencinho por perto, vai ter choro"),
+        Genre("suspense", "Suspense", "eye", c("#4F6D9A"), c("#E3EAF5"), c("#24395A"),
+            listOf("eye", "sparkle", "moon"), "Segura a respiração, a trama não dá trégua"),
+        Genre("medico", "Médico", "cross", c("#3FB6C9"), c("#DDF4F8"), c("#17657A"),
+            listOf("cross", "heart", "sparkle"), "Plantões, jalecos e corações em tratamento"),
+        Genre("familia", "Família", "home", c("#F29B5C"), c("#FFEBDC"), c("#96501A"),
+            listOf("home", "heart", "petal"), "Mesa farta, abraço apertado e muito afeto"),
+        Genre("musical", "Musical", "music", c("#E36BC4"), c("#FDE4F6"), c("#8A2A72"),
+            listOf("music", "star", "sparkle"), "Melodias que grudam no coração"),
+        Genre("esporte", "Esporte", "trophy", c("#5DB56E"), c("#E1F5E5"), c("#226B35"),
+            listOf("trophy", "star", "bolt"), "Suor, garra e superação em campo"),
+        Genre("realeza", "Realeza", "crown", c("#E0A93B"), c("#FFF1CC"), c("#7A5A00"),
+            listOf("crown", "sparkle", "blossom"), "Coroas, tronos e segredos do palácio"),
+        Genre("scifi", "Ficção científica", "rocket", c("#6C63FF"), c("#E7E5FF"), c("#2E2A99"),
+            listOf("rocket", "star", "sparkle"), "Futuro, viagens no tempo e mistérios do espaço"),
+        Genre("vida", "Vida real", "coffee", c("#C79A7B"), c("#F6E9DF"), c("#6B4630"),
+            listOf("coffee", "leaf", "petal"), "Cotidiano gostoso, café quentinho e paz"),
+        Genre("vinganca", "Vingança", "skull", c("#B03A5B"), c("#F8DDE5"), c("#5E1128"),
+            listOf("skull", "drop", "moon"), "Frieza, planos e a hora do acerto de contas")
     )
 
-    fun byKey(k: String): Genre = all.firstOrNull { it.key == k } ?: all[0]
+    private var extra: List<Genre> = emptyList()
+
+    /** Os gêneros de fábrica e depois os que você criou. */
+    val all: List<Genre> get() = builtin + extra
+
+    fun custom(): List<Genre> = extra
+
+    fun setCustom(l: List<Genre>) {
+        extra = l
+    }
+
+    fun exists(k: String): Boolean = all.any { it.key == k }
+
+    fun byKey(k: String): Genre = all.firstOrNull { it.key == k } ?: builtin[0]
+
+    /** Monta um gênero novo a partir de nome, ícone e cor; o resto (tons claro e escuro) sai da cor. */
+    fun makeCustom(key: String, label: String, icon: String, primary: Int, tagline: String): Genre =
+        Genre(
+            key, label, icon, primary,
+            mixColor(primary, Color.WHITE, 0.84f),
+            mixColor(primary, Color.BLACK, 0.42f),
+            listOf(icon, "sparkle", "petal"),
+            if (tagline.isBlank()) "Seu gênero $label" else tagline,
+            true
+        )
 }
 
 data class Status(val key: String, val label: String, val icon: String, val color: Int)
@@ -94,12 +145,18 @@ data class Drama(
     var cover: String,
     var addedAt: Long,
     var link: String = "",
-    var lastUrl: String = ""
+    var lastUrl: String = "",
+    var watchSeason: Int = -1
 )
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
 fun watchedEps(d: Drama): Int = d.watched.sum()
 fun seasonCount(d: Drama): Int = d.seasonEps.size
+
+fun allTotalsKnown(d: Drama): Boolean = d.seasonEps.all { it > 0 }
+
+fun seasonDone(d: Drama, i: Int): Boolean =
+    i in d.seasonEps.indices && d.seasonEps[i] > 0 && d.watched[i] >= d.seasonEps[i]
 
 fun currentSeason(d: Drama): Int {
     for (i in d.seasonEps.indices) {
@@ -109,21 +166,40 @@ fun currentSeason(d: Drama): Int {
     return maxOf(0, d.seasonEps.size - 1)
 }
 
+/** Temporada que você está assistindo: a escolhida no navegador ou, se nenhuma, a primeira em andamento. */
+fun activeSeason(d: Drama): Int =
+    if (d.watchSeason in d.seasonEps.indices) d.watchSeason else currentSeason(d)
+
+/** Texto do contador do navegador, ex.: "T2 · Ep. 5/12". */
+fun counterText(d: Drama, s: Int): String {
+    val t = d.seasonEps[s]
+    val w = d.watched[s]
+    val ep = if (t > 0) "Ep. $w/$t" else "Ep. $w"
+    return if (seasonCount(d) > 1) "T${s + 1} · $ep" else ep
+}
+
 fun progressText(d: Drama): String {
     val t = totalEps(d)
     val w = watchedEps(d)
     if (seasonCount(d) <= 1) {
         return if (t > 0) "Ep. $w de $t" else "Ep. $w"
     }
-    val cs = currentSeason(d)
+    val cs = activeSeason(d)
     val st = d.seasonEps[cs]
     val part = if (st > 0) "${d.watched[cs]}/$st" else "${d.watched[cs]}"
     return "Temp. ${cs + 1} · Ep. $part"
 }
 
 fun progressOf(d: Drama): Float {
-    val t = totalEps(d)
-    return if (t > 0) watchedEps(d).toFloat() / t.toFloat() else 0f
+    var t = 0
+    var w = 0
+    for (i in d.seasonEps.indices) {
+        if (d.seasonEps[i] > 0) {
+            t += d.seasonEps[i]
+            w += minOf(d.watched[i], d.seasonEps[i])
+        }
+    }
+    return if (t > 0) w.toFloat() / t.toFloat() else 0f
 }
 
 fun subtitle(d: Drama): String {
@@ -152,6 +228,7 @@ fun normalize(d: Drama) {
     }
     d.seasonEps = e
     d.watched = w
+    if (d.watchSeason < -1 || d.watchSeason >= e.size) d.watchSeason = -1
 }
 
 fun applyStatus(d: Drama, key: String) {
@@ -220,6 +297,7 @@ private fun Drama.toJson(): JSONObject {
     o.put("addedAt", addedAt)
     o.put("link", link)
     o.put("lastUrl", lastUrl)
+    o.put("watchSeason", watchSeason)
     return o
 }
 
@@ -257,7 +335,8 @@ private fun dramaFromJson(o: JSONObject): Drama {
         cover = o.optString("cover", ""),
         addedAt = o.optLong("addedAt", System.currentTimeMillis()),
         link = o.optString("link", ""),
-        lastUrl = o.optString("lastUrl", "")
+        lastUrl = o.optString("lastUrl", ""),
+        watchSeason = o.optInt("watchSeason", -1)
     )
     normalize(d)
     return d
@@ -280,6 +359,7 @@ object Store {
         if (loaded) return
         appContext = c.applicationContext
         prefs = appContext.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+        loadGenres()
         load()
         loaded = true
     }
@@ -312,6 +392,78 @@ object Store {
         set(v) {
             prefs.edit().putBoolean("askedName", v).apply()
         }
+
+    private const val GKEY = "customGenres"
+
+    private fun genreToJson(g: Genre): JSONObject {
+        val o = JSONObject()
+        o.put("key", g.key)
+        o.put("label", g.label)
+        o.put("icon", g.icon)
+        o.put("color", g.primary)
+        o.put("tagline", g.tagline)
+        return o
+    }
+
+    private fun loadGenres() {
+        val r = ArrayList<Genre>()
+        try {
+            val arr = JSONArray(prefs.getString(GKEY, "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val k = o.optString("key", "")
+                val l = o.optString("label", "")
+                if (k.isBlank() || l.isBlank()) continue
+                r.add(
+                    Genres.makeCustom(
+                        k, l, o.optString("icon", "heart"),
+                        o.optInt("color", Palette.pink), o.optString("tagline", "")
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            // dados corrompidos: sem gêneros próprios
+        }
+        Genres.setCustom(r)
+    }
+
+    private fun persistGenres() {
+        version++
+        val arr = JSONArray()
+        for (g in Genres.custom()) arr.put(genreToJson(g))
+        prefs.edit().putString(GKEY, arr.toString()).apply()
+    }
+
+    fun addGenre(g: Genre) {
+        val l = ArrayList(Genres.custom())
+        l.removeAll { it.key == g.key }
+        l.add(g)
+        Genres.setCustom(l)
+        persistGenres()
+    }
+
+    /** Apaga um gênero criado por você; os doramas dele voltam para Romance. */
+    fun removeGenre(key: String) {
+        Genres.setCustom(Genres.custom().filter { it.key != key })
+        var changed = false
+        for (d in list) {
+            if (d.genre == key) {
+                d.genre = "romance"
+                changed = true
+            }
+            if (d.tags.contains(key)) {
+                d.tags = d.tags.filter { it != key }
+                changed = true
+            }
+        }
+        persistGenres()
+        if (changed) persist()
+    }
+
+    fun setWatchSeason(d: Drama, s: Int) {
+        d.watchSeason = s
+        persist()
+    }
 
     private fun load() {
         list.clear()
@@ -356,19 +508,25 @@ object Store {
         persist()
     }
 
-    /** Soma um episódio na temporada em andamento. Devolve true se acabou de concluir o dorama. */
+    /** Soma um episódio na temporada que você está assistindo (ou na primeira em andamento). Devolve true se acabou de concluir o dorama. */
     fun bump(d: Drama): Boolean {
         val w = d.watched.toMutableList()
-        var moved = false
-        for (i in d.seasonEps.indices) {
-            val t = d.seasonEps[i]
-            if (t == 0 || w[i] < t) {
-                w[i] = w[i] + 1
-                moved = true
-                break
+        var target = -1
+        val a = activeSeason(d)
+        val ta = d.seasonEps[a]
+        if (ta == 0 || w[a] < ta) {
+            target = a
+        } else {
+            for (i in d.seasonEps.indices) {
+                val t = d.seasonEps[i]
+                if (t == 0 || w[i] < t) {
+                    target = i
+                    break
+                }
             }
         }
-        if (!moved) return false
+        if (target < 0) return false
+        w[target] = w[target] + 1
         d.watched = w
         return afterProgress(d)
     }
@@ -416,13 +574,43 @@ object Store {
             o.put("cover", "")
             arr.put(o)
         }
-        return arr.toString()
+        val ga = JSONArray()
+        for (g in Genres.custom()) ga.put(genreToJson(g))
+        val root = JSONObject()
+        root.put("genres", ga)
+        root.put("dramas", arr)
+        return root.toString()
     }
 
-    /** Importa um backup. Devolve quantos foram adicionados, ou -1 se o texto for inválido. */
+    /** Importa um backup (novo ou antigo). Devolve quantos foram adicionados, ou -1 se o texto for inválido. */
     fun importJson(s: String): Int {
         return try {
-            val arr = JSONArray(s.trim())
+            val t = s.trim()
+            val arr: JSONArray
+            if (t.startsWith("{")) {
+                val root = JSONObject(t)
+                val ga = root.optJSONArray("genres")
+                if (ga != null) {
+                    val cur = ArrayList(Genres.custom())
+                    for (i in 0 until ga.length()) {
+                        val o = ga.getJSONObject(i)
+                        val k = o.optString("key", "")
+                        val l = o.optString("label", "")
+                        if (k.isBlank() || l.isBlank() || Genres.exists(k)) continue
+                        cur.add(
+                            Genres.makeCustom(
+                                k, l, o.optString("icon", "heart"),
+                                o.optInt("color", Palette.pink), o.optString("tagline", "")
+                            )
+                        )
+                    }
+                    Genres.setCustom(cur)
+                    persistGenres()
+                }
+                arr = root.optJSONArray("dramas") ?: JSONArray()
+            } else {
+                arr = JSONArray(t)
+            }
             var n = 0
             for (i in 0 until arr.length()) {
                 val d = dramaFromJson(arr.getJSONObject(i))

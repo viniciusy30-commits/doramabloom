@@ -171,6 +171,11 @@ class DetailActivity : AppCompatActivity() {
         val cover = CoverView(this, 20)
         cover.bind(d, 600)
         ring.addView(cover, FrameLayout.LayoutParams(dp(112), dp(166)))
+        val heroSeal = SealView(this)
+        heroSeal.set(g)
+        val hsl = FrameLayout.LayoutParams(dp(42), dp(42), Gravity.BOTTOM or Gravity.END)
+        hsl.setMargins(0, 0, dp(4), dp(4))
+        ring.addView(heroSeal, hsl)
         hrow.addView(ring, lin(WRAP, WRAP, r = 14))
 
         val info = LinearLayout(this)
@@ -190,7 +195,7 @@ class DetailActivity : AppCompatActivity() {
         flow.vGap = dp(6)
         flow.addView(pill(g.label, glass, Color.WHITE, 11f, g.icon))
         for (tk in d.tags) {
-            if (tk == d.genre) continue
+            if (tk == d.genre || !Genres.exists(tk)) continue
             val tg = Genres.byKey(tk)
             flow.addView(pill(tg.label, glass, Color.WHITE, 11f, tg.icon))
         }
@@ -221,7 +226,10 @@ class DetailActivity : AppCompatActivity() {
         rcol.addView(rv)
         rcol.addView(label("nota de 10", 11f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 3))
         strip.addView(rcol, lin(0, WRAP, 1f))
-        heroCol.addView(strip, lin(MATCH, WRAP, l = 14, r = 14, b = 14))
+        heroCol.addView(strip, lin(MATCH, WRAP, l = 14, r = 14, b = 8))
+        val tagLine = label(g.tagline, 12f, Color.parseColor("#F2FFFFFF"))
+        tagLine.gravity = Gravity.CENTER
+        heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 14))
 
         hero.addView(heroCol, FrameLayout.LayoutParams(MATCH, WRAP))
         col.addView(hero, lin(MATCH, WRAP, t = 10))
@@ -276,7 +284,7 @@ class DetailActivity : AppCompatActivity() {
                 wsmall.text = "PRONTO PARA COMEÇAR"
                 wbig.text = "Assistir agora"
             } else {
-                wsmall.text = "DE ONDE VOCÊ PAROU"
+                wsmall.text = progressText(d).uppercase(Locale("pt", "BR"))
                 wbig.text = "Continuar assistindo"
             }
         }
@@ -297,7 +305,8 @@ class DetailActivity : AppCompatActivity() {
         tiles.addView(tRew.first, lin(0, WRAP, 1f))
         col.addView(tiles, lin(MATCH, WRAP, t = 14))
         updaters.add {
-            val txt = if (tw > 0) watchedEps(d).toString() + "/" + tw else watchedEps(d).toString()
+            val tw2 = totalEps(d)
+            val txt = if (tw2 > 0 && allTotalsKnown(d)) watchedEps(d).toString() + "/" + tw2 else watchedEps(d).toString()
             if (tEps.second.text.toString() != txt) {
                 tEps.second.text = txt
                 tEps.second.pop(1.3f)
@@ -415,7 +424,7 @@ class DetailActivity : AppCompatActivity() {
         updaters.add {
             val total = totalEps(d)
             val w = watchedEps(d)
-            val txt = if (total > 0) "$w de $total episódios" else "$w episódios assistidos"
+            val txt = if (total > 0 && allTotalsKnown(d)) "$w de $total episódios" else "$w episódios assistidos"
             if (overall.text.toString() != txt) {
                 overall.text = txt
                 if (!firstProgress) overall.pop(1.06f)
