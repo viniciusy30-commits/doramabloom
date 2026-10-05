@@ -17,7 +17,7 @@ import androidx.recyclerview.widget.RecyclerView
 fun Context.favBadge(): FrameLayout {
     val f = FrameLayout(this)
     f.background = ovalGradient(Color.WHITE, Color.WHITE)
-    f.elevation = dp(2).toFloat()
+    f.elevation = 0f
     val ic = IconView(this, "heart", Palette.pink, 13)
     f.addView(ic, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
     return f
@@ -218,7 +218,7 @@ class DramaAdapter(
         root.orientation = LinearLayout.HORIZONTAL
         root.setPadding(c.dp(10), c.dp(10), c.dp(10), c.dp(10))
         root.background = roundRect(Color.WHITE, c.dp(22).toFloat(), Palette.line, c.dp(1))
-        root.elevation = c.dp(2).toFloat()
+        root.elevation = 0f
         val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
         rlp.setMargins(c.dp(4), c.dp(6), c.dp(4), c.dp(6))
         root.layoutParams = rlp
@@ -274,7 +274,7 @@ class DramaAdapter(
         root.orientation = LinearLayout.HORIZONTAL
         root.setPadding(c.dp(12), c.dp(12), c.dp(12), c.dp(12))
         root.background = roundRect(Color.WHITE, c.dp(28).toFloat(), Palette.line, c.dp(1))
-        root.elevation = c.dp(4).toFloat()
+        root.elevation = 0f
         val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
         rlp.setMargins(c.dp(6), c.dp(6), c.dp(6), c.dp(10))
         root.layoutParams = rlp
@@ -417,7 +417,7 @@ class DramaAdapter(
 
         val frame = FrameLayout(c)
         val cover = CoverView(c, 18)
-        cover.elevation = c.dp(3).toFloat()
+        cover.elevation = 0f
         frame.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
 
         val badge = c.scoreBadge(28, 12f)

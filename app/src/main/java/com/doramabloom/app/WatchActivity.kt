@@ -213,6 +213,7 @@ class WatchActivity : AppCompatActivity() {
         s.domStorageEnabled = true
         s.loadWithOverviewMode = true
         s.useWideViewPort = true
+        s.textZoom = Store.textZoom
         s.mediaPlaybackRequiresUserGesture = false
         s.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         w.setBackgroundColor(Color.WHITE)
@@ -231,7 +232,9 @@ class WatchActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                if (view != null && isCur(view)) updateNavButtons()
+                if (view == null) return
+                if (isCur(view)) updateNavButtons()
+                tabs.firstOrNull { it.web === view }?.let { saveUrl(it) }
             }
         }
         w.webChromeClient = object : WebChromeClient() {
@@ -289,8 +292,12 @@ class WatchActivity : AppCompatActivity() {
         val d = Store.get(id) ?: return
         val w = makeWeb()
         tabs.add(Tab(id, w))
-        val start = if (d.lastUrl.isNotBlank()) d.lastUrl else d.link
-        if (start.isNotBlank()) w.loadUrl(start)
+        val start = when {
+            d.lastUrl.isNotBlank() -> d.lastUrl
+            d.link.isNotBlank() -> d.link
+            else -> Store.homeUrl
+        }
+        w.loadUrl(start)
         select(tabs.size - 1)
     }
 
@@ -364,9 +371,9 @@ class WatchActivity : AppCompatActivity() {
     }
 
     private fun pickDrama() {
-        val list = Store.all().filter { it.link.isNotBlank() && tabs.none { t -> t.id == it.id } }
+        val list = Store.all().filter { d -> tabs.none { t -> t.id == d.id } }
         if (list.isEmpty()) {
-            softToast("Nenhum outro dorama com link ainda", Palette.pink, "globe")
+            softToast("Nenhum outro dorama na estante", Palette.pink, "globe")
             return
         }
         val names = list.map { it.title }.toTypedArray()
@@ -422,7 +429,7 @@ class WatchActivity : AppCompatActivity() {
         val d = Store.get(t.id) ?: return
         val pm = PopupMenu(this, anchor)
         pm.menu.add(0, 1, 0, "Usar esta página como link do dorama")
-        pm.menu.add(0, 2, 1, "Voltar para o link inicial")
+        pm.menu.add(0, 2, 1, "Ir para a página inicial")
         pm.menu.add(0, 3, 2, "Abrir no navegador do celular")
         pm.menu.add(0, 4, 3, "Copiar endereço")
         pm.setOnMenuItemClickListener { item ->
@@ -434,7 +441,7 @@ class WatchActivity : AppCompatActivity() {
                     Store.save(d)
                     softToast("Link do dorama atualizado!", Palette.pink, "link")
                 }
-                2 -> if (d.link.isNotBlank()) t.web.loadUrl(d.link)
+                2 -> t.web.loadUrl(if (d.link.isNotBlank()) d.link else Store.homeUrl)
                 3 -> if (u.isNotBlank()) {
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
@@ -492,6 +499,7 @@ class WatchActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         for (t in tabs) {
+            saveUrl(t)
             (t.web.parent as? ViewGroup)?.removeView(t.web)
             t.web.destroy()
         }

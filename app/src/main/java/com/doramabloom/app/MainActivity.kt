@@ -152,7 +152,7 @@ class MainActivity : AppCompatActivity() {
         val bar = FrameLayout(this)
         bar.setPadding(dp(8), dp(8), dp(8), dp(8))
         bar.background = roundRect(Color.WHITE, dp(30).toFloat(), Palette.line, dp(1))
-        bar.elevation = dp(8).toFloat()
+        bar.elevation = 0f
         navBar = bar
 
         navIndicator = View(this)
@@ -170,9 +170,9 @@ class MainActivity : AppCompatActivity() {
         holder.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP))
 
         navItems.clear()
-        val icons = listOf("home", "grid", "add", "chart")
-        val names = listOf("Início", "Estante", "", "Números")
-        val tabs = listOf(0, 1, -1, 2)
+        val icons = listOf("home", "grid", "add", "chart", "tune")
+        val names = listOf("Início", "Estante", "", "Números", "Config.")
+        val tabs = listOf(0, 1, -1, 2, 4)
         for (i in icons.indices) {
             val box = LinearLayout(this)
             box.orientation = LinearLayout.VERTICAL
@@ -181,13 +181,13 @@ class MainActivity : AppCompatActivity() {
                 box.setPadding(dp(2), dp(2), dp(2), dp(2))
                 val circle = FrameLayout(this)
                 circle.background = ovalGradient(lighten(Palette.pink, 0.22f), Palette.pink)
-                circle.elevation = dp(5).toFloat()
+                circle.elevation = 0f
                 circle.addView(IconView(this, "add", Color.WHITE, 26), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
                 addCircle = circle
                 box.addView(circle, lin(dp(48), dp(48)))
                 box.setOnClickListener { openEdit(circle) }
                 box.pressable(0.9f)
-                navRow.addView(box, lin(0, WRAP, 0.9f, l = 2, r = 2))
+                navRow.addView(box, lin(0, WRAP, 1f, l = 2, r = 2))
                 navItems.add(NavItem(box, null, null, -1))
             } else {
                 box.setPadding(dp(2), dp(8), dp(2), dp(8))
@@ -305,6 +305,7 @@ class MainActivity : AppCompatActivity() {
                 when (t) {
                     0 -> buildHome()
                     1 -> buildListTab()
+                    4 -> buildSettings()
                     else -> buildStats()
                 }
             }
@@ -360,7 +361,7 @@ class MainActivity : AppCompatActivity() {
             Color.parseColor("#FF9DBF"), Color.parseColor("#FF6B9D"),
             dp(28).toFloat(), GradientDrawable.Orientation.TL_BR
         )
-        hiWrap.elevation = dp(4).toFloat()
+        hiWrap.elevation = 0f
         val deco = IconView(this, "blossom", Color.parseColor("#44FFFFFF"), 96)
         val dlp = FrameLayout.LayoutParams(WRAP, WRAP)
         dlp.gravity = Gravity.END or Gravity.TOP
@@ -379,8 +380,6 @@ class MainActivity : AppCompatActivity() {
         hi.addView(label("O que vamos assistir hoje?", 13f, Color.WHITE), lin(WRAP, WRAP, t = 2))
         hiWrap.addView(hi, FrameLayout.LayoutParams(MATCH, WRAP))
 
-        hiWrap.setOnClickListener { askName() }
-        hiWrap.pressable(0.985f)
         col.addView(hiWrap, lin(MATCH, WRAP))
 
         // destaque: ocupa todo o espaço entre o cartão e a barra de baixo
@@ -395,7 +394,7 @@ class MainActivity : AppCompatActivity() {
             e.gravity = Gravity.CENTER
             e.setPadding(dp(26), dp(26), dp(26), dp(26))
             e.background = roundRect(Color.WHITE, dp(34).toFloat(), Palette.line, dp(1))
-            e.elevation = dp(5).toFloat()
+            e.elevation = 0f
             val big = FrameLayout(this)
             big.background = ovalGradient(Palette.pinkSoft, Color.parseColor("#FFC2D8"))
             big.addView(IconView(this, "blossom", Palette.pink, 64), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
@@ -1035,6 +1034,130 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        return sv
+    }
+
+    // --------------------------------------------------------------- CONFIG
+
+    private fun askHome(show: TextView) {
+        val et = EditText(this)
+        et.hint = "https://..."
+        et.setSingleLine(true)
+        et.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        et.setText(Store.homeUrl)
+        val box = FrameLayout(this)
+        box.setPadding(dp(22), dp(8), dp(22), 0)
+        box.addView(et, FrameLayout.LayoutParams(MATCH, WRAP))
+        AlertDialog.Builder(this)
+            .setTitle("Página inicial")
+            .setMessage("É onde cada dorama abre na primeira vez.")
+            .setView(box)
+            .setPositiveButton("Salvar") { _, _ ->
+                var v = et.text.toString().trim()
+                if (v.isEmpty()) v = Store.DEFAULT_HOME
+                else if (!v.startsWith("http://") && !v.startsWith("https://")) v = "https://$v"
+                Store.homeUrl = v
+                show.text = "Página inicial: $v"
+            }
+            .setNeutralButton("Google") { _, _ ->
+                Store.homeUrl = Store.DEFAULT_HOME
+                show.text = "Página inicial: " + Store.DEFAULT_HOME
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun buildSettings(): View {
+        val sv = ScrollView(this)
+        sv.isVerticalScrollBarEnabled = false
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.setPadding(dp(16), dp(14), dp(16), dp(28))
+        sv.addView(col)
+
+        val head = LinearLayout(this)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.addView(IconView(this, "tune", Palette.pink, 24))
+        head.addView(label("Configurações", 26f, Palette.text, true, true), lin(WRAP, WRAP, l = 10))
+        col.addView(head, lin(MATCH, WRAP, l = 4, b = 2))
+
+        // perfil
+        col.addView(section("Perfil", "person"))
+        val pc = card(14, 22)
+        val nm = Store.userName
+        pc.addView(label(if (nm.isBlank()) "Ainda sem nome" else "Olá, $nm!", 16f, Palette.text, true, true))
+        pc.addView(label("É assim que o app te chama na tela inicial.", 12f, Palette.muted), lin(WRAP, WRAP, t = 2))
+        val nb = pill("Mudar nome", Palette.pink, Color.WHITE, 13f, "edit")
+        nb.setOnClickListener { askName() }
+        pc.addView(nb, lin(WRAP, WRAP, t = 10))
+        col.addView(pc, lin(MATCH, WRAP))
+
+        // navegador
+        col.addView(section("Navegador", "globe"))
+        val nc = card(14, 22)
+        nc.addView(label("Tamanho do texto nas páginas", 12.5f, Palette.muted))
+        val zr = LinearLayout(this)
+        zr.orientation = LinearLayout.HORIZONTAL
+        zr.gravity = Gravity.CENTER_VERTICAL
+        val zTxt = label(Store.textZoom.toString() + "%", 18f, Palette.text, true, true)
+        zTxt.gravity = Gravity.CENTER
+        fun stepZoom(delta: Int) {
+            val nv = (Store.textZoom + delta).coerceIn(50, 200)
+            if (nv != Store.textZoom) {
+                Store.textZoom = nv
+                zTxt.text = nv.toString() + "%"
+                zTxt.pop(1.2f)
+            }
+        }
+        zr.addView(roundBtn("minus", Palette.pink, false, 16) { stepZoom(-10) }, lin(dp(42), dp(42)))
+        zr.addView(zTxt, lin(0, WRAP, 1f))
+        zr.addView(roundBtn("add", Palette.pink, true, 16) { stepZoom(10) }, lin(dp(42), dp(42)))
+        nc.addView(zr, lin(MATCH, WRAP, t = 8))
+
+        val homeTxt = label("Página inicial: " + Store.homeUrl, 12.5f, Palette.muted)
+        nc.addView(homeTxt, lin(MATCH, WRAP, t = 16))
+        val hb = pill("Mudar página inicial", Palette.pinkSoft, Palette.pinkDark, 13f, "globe")
+        hb.setOnClickListener { askHome(homeTxt) }
+        nc.addView(hb, lin(WRAP, WRAP, t = 8))
+
+        val fb = pill("Esquecer páginas salvas", Palette.pinkSoft, Palette.pinkDark, 13f, "clock")
+        fb.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Esquecer páginas salvas?")
+                .setMessage("Cada dorama volta a abrir na página inicial. Seus doramas e progresso não mudam.")
+                .setPositiveButton("Esquecer") { _, _ ->
+                    for (d in Store.all()) {
+                        if (d.lastUrl.isNotBlank()) {
+                            d.lastUrl = ""
+                            Store.save(d)
+                        }
+                    }
+                    softToast("Páginas esquecidas", Palette.pink, "check")
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+        nc.addView(fb, lin(WRAP, WRAP, t = 10))
+
+        val cb = pill("Limpar cookies e cache", Palette.pinkSoft, Palette.pinkDark, 13f, "delete")
+        cb.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Limpar cookies e cache?")
+                .setMessage("Você vai sair das contas dos sites onde estiver logada.")
+                .setPositiveButton("Limpar") { _, _ ->
+                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                    android.webkit.CookieManager.getInstance().flush()
+                    android.webkit.WebStorage.getInstance().deleteAllData()
+                    softToast("Tudo limpinho", Palette.pink, "check")
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+        nc.addView(cb, lin(WRAP, WRAP, t = 10))
+        col.addView(nc, lin(MATCH, WRAP))
+
+        // backup
         col.addView(section("Backup", "download"))
         val bc = card(14, 22)
         bc.addView(
@@ -1054,6 +1177,9 @@ class MainActivity : AppCompatActivity() {
         bc.addView(brow, lin(WRAP, WRAP, t = 10))
         col.addView(bc, lin(MATCH, WRAP))
 
+        val foot = label("Dorama Bloom · feito com carinho", 11.5f, Palette.muted)
+        foot.gravity = Gravity.CENTER
+        col.addView(foot, lin(MATCH, WRAP, t = 22))
         return sv
     }
 
@@ -1081,7 +1207,7 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "Esse texto não parece um backup.", Toast.LENGTH_LONG).show()
                 } else {
                     Toast.makeText(this, n.toString() + " doramas adicionados.", Toast.LENGTH_LONG).show()
-                    showTab(2)
+                    showTab(4)
                 }
             }
             .setNegativeButton("Cancelar", null)

@@ -284,6 +284,23 @@ object Store {
         loaded = true
     }
 
+    const val DEFAULT_HOME = "https://www.google.com"
+
+    var textZoom: Int
+        get() = prefs.getInt("textZoom", 100)
+        set(v) {
+            prefs.edit().putInt("textZoom", v).apply()
+        }
+
+    var homeUrl: String
+        get() {
+            val u = prefs.getString("homeUrl", DEFAULT_HOME) ?: DEFAULT_HOME
+            return if (u.isBlank()) DEFAULT_HOME else u
+        }
+        set(v) {
+            prefs.edit().putString("homeUrl", v).apply()
+        }
+
     var userName: String
         get() = prefs.getString("userName", "") ?: ""
         set(v) {

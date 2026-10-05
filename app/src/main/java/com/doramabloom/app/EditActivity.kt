@@ -113,7 +113,7 @@ class EditActivity : AppCompatActivity() {
         coverRow.orientation = LinearLayout.HORIZONTAL
         coverRow.gravity = Gravity.CENTER_VERTICAL
         coverView = CoverView(this, 20)
-        coverView.elevation = dp(4).toFloat()
+        coverView.elevation = 0f
         coverRow.addView(coverView, lin(dp(104), dp(150), r = 16))
         val coverBtns = LinearLayout(this)
         coverBtns.orientation = LinearLayout.VERTICAL
@@ -326,7 +326,7 @@ class EditActivity : AppCompatActivity() {
             Color.parseColor("#FF8FB7"), Color.parseColor("#FF5C93"),
             dp(28).toFloat(), android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT
         )
-        saveBtn.elevation = dp(6).toFloat()
+        saveBtn.elevation = 0f
         saveBtn.setOnClickListener { save() }
         saveBtn.pressable(0.96f)
         page.addView(saveBtn, lin(MATCH, WRAP, l = 16, t = 6, r = 16, b = 14))

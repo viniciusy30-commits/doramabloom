@@ -113,7 +113,7 @@ fun Context.card(pad: Int = 14, radius: Int = 22, bg: Int = Color.WHITE): Linear
     c.orientation = LinearLayout.VERTICAL
     c.setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
     c.background = roundRect(bg, dp(radius).toFloat(), Palette.line, dp(1))
-    c.elevation = dp(3).toFloat()
+    c.elevation = 0f
     return c
 }
 
@@ -164,7 +164,7 @@ fun Context.scoreBadge(sizeDp: Int, textSp: Float): TextView {
     t.gravity = Gravity.CENTER
     t.minWidth = dp(sizeDp)
     t.minHeight = dp(sizeDp)
-    t.elevation = dp(2).toFloat()
+    t.elevation = 0f
     return t
 }
 

@@ -141,7 +141,7 @@ class DetailActivity : AppCompatActivity() {
         // ---- hero
         val hero = FrameLayout(this)
         hero.background = gradient(g.primary, g.dark, dp(32).toFloat(), GradientDrawable.Orientation.TL_BR)
-        hero.elevation = dp(5).toFloat()
+        hero.elevation = 0f
         hero.clipToOutline = true
         val deco = IconView(this, "blossom", Color.parseColor("#22FFFFFF"), 130)
         val dlp = FrameLayout.LayoutParams(WRAP, WRAP)
@@ -252,7 +252,7 @@ class DetailActivity : AppCompatActivity() {
         wcard.gravity = Gravity.CENTER_VERTICAL
         wcard.setPadding(dp(14), dp(14), dp(18), dp(14))
         wcard.background = gradient(g.primary, g.dark, dp(26).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
-        wcard.elevation = dp(4).toFloat()
+        wcard.elevation = 0f
         val pbub = FrameLayout(this)
         pbub.background = roundRect(Color.parseColor("#33FFFFFF"), dp(18).toFloat())
         pbub.addView(IconView(this, "play", Color.WHITE, 24), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
@@ -267,15 +267,12 @@ class DetailActivity : AppCompatActivity() {
         wcard.addView(wtx, lin(0, WRAP, 1f))
         wcard.addView(IconView(this, "forward", Color.WHITE, 20))
         wcard.pressable(0.97f)
-        wcard.setOnClickListener { if (d.link.isBlank()) askLink(d, g) else openWatch(d) }
+        wcard.setOnClickListener { openWatch(d) }
         watchRow.addView(wcard, lin(0, WRAP, 1f))
         watchRow.addView(roundBtn("link", g.primary, false, 20) { askLink(d, g) }, lin(dp(52), dp(52), l = 10))
         col.addView(watchRow, lin(MATCH, WRAP, t = 14))
         updaters.add {
-            if (d.link.isBlank()) {
-                wsmall.text = "SEM LINK AINDA"
-                wbig.text = "Adicionar onde assistir"
-            } else if (watchedEps(d) == 0 && d.lastUrl.isBlank()) {
+            if (d.lastUrl.isBlank() && watchedEps(d) == 0) {
                 wsmall.text = "PRONTO PARA COMEÇAR"
                 wbig.text = "Assistir agora"
             } else {
@@ -578,8 +575,8 @@ class DetailActivity : AppCompatActivity() {
         box.setPadding(dp(22), dp(8), dp(22), 0)
         box.addView(et, FrameLayout.LayoutParams(MATCH, WRAP))
         val b = AlertDialog.Builder(this)
-            .setTitle("Onde você assiste?")
-            .setMessage("Cole o link da página deste dorama. Ele abre numa aba só dele.")
+            .setTitle("Link de início")
+            .setMessage("Opcional: a página onde você assiste. Sem link, a aba abre no Google. Depois, ela sempre volta de onde você parou.")
             .setView(box)
             .setPositiveButton("Salvar") { _, _ ->
                 var v = et.text.toString().trim()
