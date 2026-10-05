@@ -40,6 +40,7 @@ class EditActivity : AppCompatActivity() {
     private var saved = false
 
     private lateinit var coverView: CoverView
+    private var petalsView: PetalsView? = null
     private lateinit var seasonBox: LinearLayout
     private lateinit var seasonCountTv: TextView
     private lateinit var rewatchTv: TextView
@@ -143,21 +144,29 @@ class EditActivity : AppCompatActivity() {
         c2.addView(sectionTitle("Classificação", "tag"))
         c2.addView(fieldLabel("País"))
         val cOpts = ArrayList<Opt>()
-        for (c in countries) cOpts.add(Opt(c, c, Palette.pink, "flag"))
-        c2.addView(chipScroller(cOpts, country) { country = it }, lin(MATCH, WRAP))
+        for (c in countries) cOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
+        c2.addView(chipScroller(cOpts, country) {
+            country = it
+            updateEffects()
+        }, lin(MATCH, WRAP))
         c2.addView(fieldLabel("Gênero principal (define o tema do dorama)"))
         val gOpts = ArrayList<Opt>()
         for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon))
         c2.addView(chipScroller(gOpts, genreKey) {
             genreKey = it
             refreshCover()
+            coverView.pop(1.25f)
+            updateEffects()
         }, lin(MATCH, WRAP))
         c2.addView(fieldLabel("Outros gêneros"))
         c2.addView(multiChips(gOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
         c2.addView(fieldLabel("Status"))
         val sOpts = ArrayList<Opt>()
         for (s in Statuses.all) sOpts.add(Opt(s.key, s.label, s.color, s.icon))
-        c2.addView(chipScroller(sOpts, statusKey) { statusKey = it }, lin(MATCH, WRAP))
+        c2.addView(chipScroller(sOpts, statusKey) {
+            statusKey = it
+            updateEffects()
+        }, lin(MATCH, WRAP))
         col.addView(c2, lin(MATCH, WRAP, t = 12))
 
         // ---------------- temporadas
@@ -319,10 +328,33 @@ class EditActivity : AppCompatActivity() {
         )
         saveBtn.elevation = dp(6).toFloat()
         saveBtn.setOnClickListener { save() }
+        saveBtn.pressable(0.96f)
         page.addView(saveBtn, lin(MATCH, WRAP, l = 16, t = 6, r = 16, b = 14))
+
+        val pv = PetalsView(this, listOf("petal", "petal", "blossom"), Palette.pink, 12)
+        petalsView = pv
+        root.addView(pv, FrameLayout.LayoutParams(MATCH, MATCH))
 
         setContentView(root)
         refreshCover()
+        updateEffects()
+
+        head.riseIn(0L, 12, 320L)
+        for (i in 0 until col.childCount) col.getChildAt(i).riseIn(90L + minOf(i, 7) * 60L, 22, 420L)
+        saveBtn.riseIn(400L, 30, 420L)
+    }
+
+    /** O tema (pétalas e cor) acompanha o gênero, o status e o país escolhidos. */
+    private fun updateEffects() {
+        val pv = petalsView ?: return
+        val a = Atmosphere.of(genreKey, statusKey, country)
+        pv.setTheme(a.icons, a.tints)
+        window.statusBarColor = Palette.bgTop
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(R.anim.screen_back_in, R.anim.screen_back_out)
     }
 
     private fun fieldLabel(t: String): TextView {

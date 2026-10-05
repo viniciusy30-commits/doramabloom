@@ -9,6 +9,8 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.graphics.drawable.GradientDrawable
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
 /** Coraçãozinho branco redondo usado nos pôsteres de favoritos. */
@@ -30,19 +32,61 @@ private fun setPillIcon(t: TextView, name: String, color: Int) {
 }
 
 /**
- * mode 0 = linha da lista, 1 = card do carrossel, 2 = mini pôster horizontal, 3 = pôster da grade.
+ * mode 0 = linha da lista, 1 = card do carrossel, 2 = mini pôster horizontal, 3 = pôster da grade,
+ * 4 = destaque grande (ocupa toda a área, usado no Início).
  */
 class DramaAdapter(
     private val mode: Int,
     private val onClick: (Drama) -> Unit,
-    private val onPlus: ((Drama) -> Unit)? = null
+    private val onPlus: ((Drama, View) -> Unit)? = null
 ) : RecyclerView.Adapter<DramaAdapter.VH>() {
 
     var items: List<Drama> = emptyList()
+    private var sigs: List<String> = emptyList()
+    private var lastAnimated = -1
 
+    init {
+        setHasStableIds(true)
+    }
+
+    private fun sig(d: Drama): String =
+        d.title + "|" + d.status + "|" + d.score + "|" + d.favorite + "|" + d.watched + "|" + d.seasonEps +
+            "|" + d.genre + "|" + d.cover + "|" + d.country + "|" + d.year
+
+    override fun getItemId(position: Int): Long = items[position].id
+
+    /** Atualiza a lista com animação (entram, saem e se mexem suavemente). */
     fun submit(l: List<Drama>) {
+        val oldItems = items
+        val oldSigs = sigs
+        val newSigs = l.map { sig(it) }
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize(): Int = oldItems.size
+            override fun getNewListSize(): Int = l.size
+            override fun areItemsTheSame(o: Int, n: Int): Boolean = oldItems[o].id == l[n].id
+            override fun areContentsTheSame(o: Int, n: Int): Boolean = oldSigs[o] == newSigs[n]
+        })
         items = l
-        notifyDataSetChanged()
+        sigs = newSigs
+        diff.dispatchUpdatesTo(this)
+    }
+
+    /** Atualiza só o item (usado no +1 episódio, sem piscar). */
+    fun refresh(d: Drama) {
+        val i = items.indexOfFirst { it.id == d.id }
+        if (i >= 0) {
+            val m = sigs.toMutableList()
+            m[i] = sig(d)
+            sigs = m
+            notifyItemChanged(i, "progress")
+        }
+    }
+
+    override fun onViewRecycled(holder: VH) {
+        holder.itemView.animate().cancel()
+        holder.itemView.alpha = 1f
+        holder.itemView.translationY = 0f
+        super.onViewRecycled(holder)
     }
 
     class VH(
@@ -57,7 +101,8 @@ class DramaAdapter(
         val genreChip: TextView? = null,
         val badge: TextView? = null,
         val plus: TextView? = null,
-        val fav: View? = null
+        val fav: View? = null,
+        val scrim: View? = null
     ) : RecyclerView.ViewHolder(v)
 
     override fun getItemCount(): Int = items.size
@@ -68,11 +113,34 @@ class DramaAdapter(
             0 -> buildRow(c)
             1 -> buildCard(c)
             2 -> buildPoster(c, c.dp(112), c.dp(160), false)
+            4 -> buildFeatured(c)
             else -> {
                 val cell = (c.resources.displayMetrics.widthPixels - c.dp(28)) / 3 - c.dp(8)
                 buildPoster(c, MATCH, cell * 3 / 2, true)
             }
         }
+    }
+
+    override fun onBindViewHolder(h: VH, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty()) {
+            val d = items[position]
+            val g = Genres.byKey(d.genre)
+            val st = Statuses.byKey(d.status)
+            h.prog?.text = progressText(d)
+            h.prog?.pop(1.05f)
+            h.bar?.animateTo(progressOf(d))
+            val chip = h.chip
+            if (chip != null) {
+                chip.text = st.label
+                chip.background = roundRect(st.color, chip.dp(14).toFloat())
+                setPillIcon(chip, st.icon, Color.WHITE)
+            }
+            val badge = h.badge
+            if (badge != null) styleBadge(badge, d.score, g.primary)
+            h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
+            return
+        }
+        super.onBindViewHolder(h, position, payloads)
     }
 
     override fun onBindViewHolder(h: VH, position: Int) {
@@ -83,6 +151,7 @@ class DramaAdapter(
             1 -> 500
             0 -> 260
             2 -> 320
+            4 -> 800
             else -> 360
         }
         h.cover.bind(d, reqW)
@@ -91,8 +160,8 @@ class DramaAdapter(
         h.prog?.text = progressText(d)
         val bar = h.bar
         if (bar != null) {
-            bar.progress = progressOf(d)
             bar.barColor = g.primary
+            bar.progress = progressOf(d)
         }
         val rating = h.rating
         if (rating != null) {
@@ -115,12 +184,27 @@ class DramaAdapter(
         val badge = h.badge
         if (badge != null) styleBadge(badge, d.score, g.primary)
         h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
+        val scrim = h.scrim
+        if (scrim != null) {
+            val dk = g.dark
+            val deep = Color.argb(215, Color.red(dk), Color.green(dk), Color.blue(dk))
+            scrim.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.TRANSPARENT, deep))
+        }
         val plus = h.plus
         if (plus != null) {
-            plus.background = roundRect(g.primary, plus.dp(22).toFloat())
-            plus.setOnClickListener { onPlus?.invoke(d) }
+            plus.background = roundRect(g.primary, plus.dp(if (mode == 4) 26 else 22).toFloat())
+            plus.setOnClickListener { onPlus?.invoke(d, plus) }
         }
         h.itemView.setOnClickListener { onClick(d) }
+
+        // entrada suave em cascata (só na primeira vez que o item aparece)
+        if ((mode == 0 || mode == 3) && position > lastAnimated) {
+            lastAnimated = position
+            h.itemView.riseIn(minOf(position, 8) * 45L, 18, 380L)
+        } else {
+            h.itemView.alpha = 1f
+            h.itemView.translationY = 0f
+        }
     }
 
     private fun smallPill(c: Context, icon: String): TextView {
@@ -138,6 +222,7 @@ class DramaAdapter(
         val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
         rlp.setMargins(c.dp(4), c.dp(6), c.dp(4), c.dp(6))
         root.layoutParams = rlp
+        root.pressable(0.97f)
 
         val cover = CoverView(c, 16)
         root.addView(cover, c.lin(c.dp(76), c.dp(112), r = 12))
@@ -193,6 +278,7 @@ class DramaAdapter(
         val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
         rlp.setMargins(c.dp(6), c.dp(6), c.dp(6), c.dp(10))
         root.layoutParams = rlp
+        root.pressable(0.97f)
 
         val cover = CoverView(c, 20)
         root.addView(cover, c.lin(c.dp(116), c.dp(172), r = 14))
@@ -238,12 +324,91 @@ class DramaAdapter(
         )
     }
 
+    private fun buildFeatured(c: Context): VH {
+        val root = LinearLayout(c)
+        root.orientation = LinearLayout.VERTICAL
+        root.background = roundRect(Color.WHITE, c.dp(34).toFloat(), Palette.line, c.dp(1))
+        root.elevation = c.dp(6).toFloat()
+        root.clipToOutline = true
+        val rlp = RecyclerView.LayoutParams(MATCH, MATCH)
+        rlp.setMargins(c.dp(2), c.dp(4), c.dp(2), c.dp(8))
+        root.layoutParams = rlp
+        root.pressable(0.985f)
+
+        // ---- capa grande
+        val hero = FrameLayout(c)
+        val cover = CoverView(c, 0)
+        hero.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
+        val scrim = View(c)
+        hero.addView(scrim, FrameLayout.LayoutParams(MATCH, c.dp(170), Gravity.BOTTOM))
+
+        val badge = c.scoreBadge(40, 17f)
+        val blp = FrameLayout.LayoutParams(c.dp(40), c.dp(40))
+        blp.gravity = Gravity.TOP or Gravity.START
+        blp.setMargins(c.dp(14), c.dp(14), 0, 0)
+        hero.addView(badge, blp)
+
+        val fav = c.favBadge()
+        val flp = FrameLayout.LayoutParams(c.dp(36), c.dp(36))
+        flp.gravity = Gravity.TOP or Gravity.END
+        flp.setMargins(0, c.dp(14), c.dp(14), 0)
+        hero.addView(fav, flp)
+
+        val tcol = LinearLayout(c)
+        tcol.orientation = LinearLayout.VERTICAL
+        tcol.setPadding(c.dp(18), 0, c.dp(18), c.dp(14))
+        val title = c.label("", 26f, Color.WHITE, true, true)
+        title.maxLines = 2
+        title.ellipsize = TextUtils.TruncateAt.END
+        title.setShadowLayer(6f, 0f, 2f, Color.parseColor("#66000000"))
+        tcol.addView(title, c.lin(MATCH, WRAP))
+        val sub = c.label("", 12.5f, Color.parseColor("#F2FFFFFF"))
+        sub.maxLines = 1
+        sub.ellipsize = TextUtils.TruncateAt.END
+        tcol.addView(sub, c.lin(MATCH, WRAP, t = 2))
+        hero.addView(tcol, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
+        root.addView(hero, c.lin(MATCH, 0, 1f))
+
+        // ---- informações e botão
+        val info = LinearLayout(c)
+        info.orientation = LinearLayout.VERTICAL
+        info.setPadding(c.dp(18), c.dp(14), c.dp(18), c.dp(16))
+
+        val chips = LinearLayout(c)
+        chips.orientation = LinearLayout.HORIZONTAL
+        chips.gravity = Gravity.CENTER_VERTICAL
+        val gc = smallPill(c, "heart")
+        val chip = smallPill(c, "play")
+        chips.addView(gc, c.lin(WRAP, WRAP, r = 6))
+        chips.addView(chip, c.lin(WRAP, WRAP, r = 6))
+        chips.addView(View(c), c.lin(0, c.dp(1), 1f))
+        val rating = RatingView(c, 17, false)
+        chips.addView(rating, c.lin(WRAP, WRAP))
+        info.addView(chips, c.lin(MATCH, WRAP))
+
+        val prog = c.label("", 14f, Palette.text, true)
+        info.addView(prog, c.lin(WRAP, WRAP, t = 12))
+        val bar = SoftBar(c)
+        info.addView(bar, c.lin(MATCH, c.dp(11), t = 6))
+
+        val plus = c.pill("+1 episódio", Palette.pink, Color.WHITE, 15f, "play")
+        plus.setPadding(c.dp(18), c.dp(13), c.dp(18), c.dp(13))
+        info.addView(plus, c.lin(MATCH, WRAP, t = 12))
+        root.addView(info, c.lin(MATCH, WRAP))
+
+        return VH(
+            root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
+            chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav, scrim = scrim
+        )
+    }
+
     private fun buildPoster(c: Context, wParam: Int, hPx: Int, withBar: Boolean): VH {
         val root = LinearLayout(c)
         root.orientation = LinearLayout.VERTICAL
         val rlp = RecyclerView.LayoutParams(wParam, WRAP)
         if (withBar) rlp.setMargins(c.dp(4), c.dp(4), c.dp(4), c.dp(10)) else rlp.setMargins(0, c.dp(4), c.dp(10), c.dp(8))
         root.layoutParams = rlp
+        root.pressable(0.95f)
 
         val frame = FrameLayout(c)
         val cover = CoverView(c, 18)

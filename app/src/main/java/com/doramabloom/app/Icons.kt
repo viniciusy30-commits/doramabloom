@@ -284,17 +284,28 @@ class RatingView(ctx: Context, private val heartDp: Int, private val editable: B
     }
 }
 
-/** Pétalas e símbolos caindo suavemente, desenhados com os ícones próprios. */
-class PetalsView(ctx: Context, private var icons: List<String>, private var tint: Int, private val count: Int = 14) : View(ctx) {
+/** Pétalas e símbolos caindo suavemente, desenhados com os ícones próprios. Muda de tema com fade e solta explosões de confete. */
+class PetalsView(ctx: Context, icons: List<String>, tint: Int, private val count: Int = 14) : View(ctx) {
     private class P(
         var x: Float, var y: Float, var vy: Float, var size: Float,
         var phase: Float, var rot: Float, var vr: Float, var e: Int, var a: Int
     )
 
+    private class B(
+        var x: Float, var y: Float, var vx: Float, var vy: Float, var size: Float,
+        var rot: Float, var vr: Float, var life: Float, var icon: String, var color: Int
+    )
+
+    private var icons: List<String> = icons
+    private var tints: List<Int> = listOf(tint)
     private val ps = ArrayList<P>()
+    private val bursts = ArrayList<B>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rnd = java.util.Random()
     private var last = 0L
+    private var master = 1f
+    private var fadeAnim: android.animation.ValueAnimator? = null
+    private var themeKey = ""
 
     private fun spawn(anywhere: Boolean): P {
         val size = (dp(12) + rnd.nextInt(dp(14))).toFloat()
@@ -309,6 +320,64 @@ class PetalsView(ctx: Context, private var icons: List<String>, private var tint
             rnd.nextInt(icons.size),
             70 + rnd.nextInt(80)
         )
+    }
+
+    /** Troca o tema das pétalas com um fade suave (some, troca, volta). */
+    fun setTheme(newIcons: List<String>, newTints: List<Int>) {
+        val key = newIcons.joinToString(",") + "|" + newTints.joinToString(",")
+        if (key == themeKey) return
+        val first = themeKey.isEmpty()
+        themeKey = key
+        if (first || width == 0) {
+            icons = newIcons
+            tints = newTints
+            for (p in ps) p.e = rnd.nextInt(icons.size)
+            return
+        }
+        fadeAnim?.cancel()
+        val out = android.animation.ValueAnimator.ofFloat(master, 0f)
+        out.duration = 180
+        out.addUpdateListener { master = it.animatedValue as Float }
+        out.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                icons = newIcons
+                tints = newTints
+                for (p in ps) p.e = rnd.nextInt(icons.size)
+                val inn = android.animation.ValueAnimator.ofFloat(0f, 1f)
+                inn.duration = 420
+                inn.addUpdateListener { master = it.animatedValue as Float }
+                fadeAnim = inn
+                inn.start()
+            }
+        })
+        fadeAnim = out
+        out.start()
+        invalidate()
+    }
+
+    /** Explosão de símbolos a partir de um ponto (coordenadas desta view). */
+    fun burst(cx: Float, cy: Float, bIcons: List<String>, bColors: List<Int>, n: Int = 18) {
+        for (i in 0 until n) {
+            val ang = rnd.nextFloat() * 6.2831f
+            val sp = dp(90) + rnd.nextFloat() * dp(190)
+            bursts.add(
+                B(
+                    cx, cy, (kotlin.math.cos(ang.toDouble()) * sp).toFloat(), (kotlin.math.sin(ang.toDouble()) * sp).toFloat() - dp(90),
+                    (dp(10) + rnd.nextInt(dp(12))).toFloat(), rnd.nextFloat() * 360f, (rnd.nextFloat() - 0.5f) * 520f, 1f,
+                    bIcons[rnd.nextInt(bIcons.size)], bColors[rnd.nextInt(bColors.size)]
+                )
+            )
+        }
+        invalidate()
+    }
+
+    /** Explosão a partir do centro de outra view (qualquer view na mesma tela). */
+    fun burstFrom(v: View, bIcons: List<String>, bColors: List<Int>, n: Int = 18) {
+        val loc = IntArray(2)
+        val mine = IntArray(2)
+        v.getLocationInWindow(loc)
+        getLocationInWindow(mine)
+        burst(loc[0] - mine[0] + v.width / 2f, loc[1] - mine[1] + v.height / 2f, bIcons, bColors, n)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -339,8 +408,8 @@ class PetalsView(ctx: Context, private var icons: List<String>, private var tint
                 ps[i] = p
             }
             val sx = p.x + (sin(p.phase.toDouble()) * dp(16)).toFloat()
-            paint.color = tint
-            paint.alpha = p.a
+            paint.color = tints[p.e % tints.size]
+            paint.alpha = (p.a * master).toInt().coerceIn(0, 255)
             c.save()
             c.translate(sx, p.y)
             c.rotate(p.rot)
@@ -350,7 +419,97 @@ class PetalsView(ctx: Context, private var icons: List<String>, private var tint
             c.drawPath(Icons.path(icons[p.e % icons.size]), paint)
             c.restore()
         }
+        val it = bursts.iterator()
+        while (it.hasNext()) {
+            val b = it.next()
+            b.life -= dt * 0.95f
+            if (b.life <= 0f) {
+                it.remove()
+                continue
+            }
+            b.vy += dp(260) * dt
+            b.x += b.vx * dt
+            b.y += b.vy * dt
+            b.rot += b.vr * dt
+            paint.color = b.color
+            paint.alpha = (255 * b.life.coerceIn(0f, 1f)).toInt()
+            c.save()
+            c.translate(b.x, b.y)
+            c.rotate(b.rot)
+            val s = b.size / 24f * (0.6f + 0.4f * b.life)
+            c.scale(s, s)
+            c.translate(-12f, -12f)
+            c.drawPath(Icons.path(b.icon), paint)
+            c.restore()
+        }
         postInvalidateOnAnimation()
+    }
+}
+
+/** Gráfico em anel, com fatias que crescem. */
+class DonutView(ctx: Context) : View(ctx) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rect = android.graphics.RectF()
+    private var values: List<Float> = emptyList()
+    private var colors: List<Int> = emptyList()
+    private var grow = 1f
+    var centerText: String = ""
+    var centerSub: String = ""
+    private val tp = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    fun set(v: List<Float>, c: List<Int>, big: String, sub: String) {
+        values = v
+        colors = c
+        centerText = big
+        centerSub = sub
+        grow = 0f
+        val a = android.animation.ValueAnimator.ofFloat(0f, 1f)
+        a.duration = 900
+        a.startDelay = 150
+        a.interpolator = android.view.animation.DecelerateInterpolator(1.6f)
+        a.addUpdateListener {
+            grow = it.animatedValue as Float
+            invalidate()
+        }
+        a.start()
+        invalidate()
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val s = dp(132)
+        setMeasuredDimension(s, s)
+    }
+
+    override fun onDraw(c: Canvas) {
+        val stroke = dp(16).toFloat()
+        val pad = stroke / 2f + dp(2)
+        rect.set(pad, pad, width - pad, height - pad)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = stroke
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.color = Color.parseColor("#F6DCE6")
+        c.drawArc(rect, 0f, 360f, false, paint)
+        val total = values.sum()
+        if (total > 0f) {
+            var start = -90f
+            for (i in values.indices) {
+                if (values[i] <= 0f) continue
+                val sweep = values[i] / total * 360f * grow
+                val gap = if (values.count { it > 0f } > 1) 6f else 0f
+                paint.color = colors[i]
+                if (sweep > gap) c.drawArc(rect, start + gap / 2f, sweep - gap, false, paint)
+                start += values[i] / total * 360f * grow
+            }
+        }
+        tp.textAlign = Paint.Align.CENTER
+        tp.color = Palette.pinkDark
+        tp.typeface = android.graphics.Typeface.create("casual", android.graphics.Typeface.BOLD)
+        tp.textSize = dp(26).toFloat()
+        c.drawText(centerText, width / 2f, height / 2f + dp(4), tp)
+        tp.color = Palette.muted
+        tp.typeface = android.graphics.Typeface.DEFAULT
+        tp.textSize = dp(11).toFloat()
+        c.drawText(centerSub, width / 2f, height / 2f + dp(20), tp)
     }
 }
 

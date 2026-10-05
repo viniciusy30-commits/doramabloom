@@ -1,5 +1,8 @@
 package com.doramabloom.app
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -16,6 +19,10 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.MotionEvent
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
+import android.view.animation.AccelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -97,6 +104,7 @@ fun Context.pill(s: String, bg: Int, fg: Int, size: Float = 12f, icon: String? =
         t.setCompoundDrawables(iconDrawable(icon, fg, px), null, null, null)
         t.compoundDrawablePadding = dp(6)
     }
+    t.pressable()
     return t
 }
 
@@ -165,6 +173,8 @@ private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int) {
     tv.setTextColor(fg)
     val dr = tv.compoundDrawables[0]
     if (dr is IconDrawable) dr.color = fg
+    if (sel && tv.getTag(TAG_SEL) != true) tv.pop()
+    tv.setTag(TAG_SEL, sel)
 }
 
 /** Faixa de chips com seleção única. */
@@ -185,13 +195,23 @@ fun Context.chipScroller(options: List<Opt>, initial: String, onSelect: (String)
         }
     }
 
+    val setter: (String) -> Unit = { k ->
+        current = k
+        restyle()
+    }
+    sv.setTag(TAG_SELECT, setter)
+
     for (i in options.indices) {
         val o = options[i]
         val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
         tv.setOnClickListener {
-            current = o.key
-            restyle()
-            onSelect(current)
+            if (current != o.key) {
+                current = o.key
+                restyle()
+                onSelect(current)
+            } else {
+                tv.pop(1.2f)
+            }
         }
         views.add(tv)
         row.addView(tv, lin(WRAP, WRAP, r = 8))
@@ -233,7 +253,7 @@ fun Context.multiChips(options: List<Opt>, initial: Set<String>, onChange: (Set<
     return sv
 }
 
-/** Barrinha de progresso arredondada. */
+/** Barrinha de progresso arredondada, com animação suave. */
 class SoftBar(ctx: Context) : View(ctx) {
     var progress: Float = 0f
         set(v) {
@@ -247,6 +267,26 @@ class SoftBar(ctx: Context) : View(ctx) {
         }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
+    private var anim: ValueAnimator? = null
+
+    /** Vai até o valor com uma animação; pode começar de outro ponto. */
+    fun animateTo(target: Float, from: Float = progress, delay: Long = 0L, dur: Long = 600L) {
+        anim?.cancel()
+        val t = target.coerceIn(0f, 1f)
+        progress = from
+        val a = ValueAnimator.ofFloat(from.coerceIn(0f, 1f), t)
+        a.duration = dur
+        a.startDelay = delay
+        a.interpolator = DecelerateInterpolator(1.6f)
+        a.addUpdateListener { progress = it.animatedValue as Float }
+        anim = a
+        a.start()
+    }
+
+    override fun onDetachedFromWindow() {
+        anim?.cancel()
+        super.onDetachedFromWindow()
+    }
 
     override fun onDraw(c: Canvas) {
         val h = height.toFloat()
@@ -362,5 +402,237 @@ fun Context.roundBtn(icon: String, color: Int, filled: Boolean, sizeDp: Int = 16
         FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER)
     )
     f.setOnClickListener { onClick() }
+    f.pressable(0.86f)
     return f
+}
+
+
+// ================================================================ ANIMAÇÕES
+
+const val TAG_SEL = 0x7f0a0001
+const val TAG_SELECT = 0x7f0a0002
+
+/** Seleciona um chip de fora (usado quando o status muda sozinho). */
+@Suppress("UNCHECKED_CAST")
+fun View.selectChip(key: String) {
+    (getTag(TAG_SELECT) as? ((String) -> Unit))?.invoke(key)
+}
+
+/** Encolhe um pouquinho ao tocar e volta com mola ao soltar. Não atrapalha o clique. */
+fun View.pressable(scale: Float = 0.95f) {
+    setOnTouchListener { v, e ->
+        if (!v.isClickable) return@setOnTouchListener false
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN ->
+                v.animate().scaleX(scale).scaleY(scale).setDuration(90).setInterpolator(DecelerateInterpolator()).start()
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                v.animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(OvershootInterpolator(3f)).start()
+        }
+        false
+    }
+}
+
+/** Pulinho de alegria (usado ao selecionar algo). */
+fun View.pop(peak: Float = 1.14f) {
+    animate().cancel()
+    scaleX = 0.9f
+    scaleY = 0.9f
+    animate().scaleX(1f).scaleY(1f).setDuration(320).setInterpolator(OvershootInterpolator(peak * 3f)).start()
+}
+
+/** Entra deslizando de baixo com fade. */
+fun View.riseIn(delay: Long = 0L, distDp: Int = 22, dur: Long = 420L) {
+    animate().cancel()
+    alpha = 0f
+    translationY = dp(distDp).toFloat()
+    animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(dur)
+        .setInterpolator(DecelerateInterpolator(1.8f)).start()
+}
+
+/** Aparece com fade e leve escala. */
+fun View.fadeScaleIn(delay: Long = 0L, dur: Long = 380L) {
+    animate().cancel()
+    alpha = 0f
+    scaleX = 0.92f
+    scaleY = 0.92f
+    animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(delay).setDuration(dur)
+        .setInterpolator(DecelerateInterpolator(1.6f)).start()
+}
+
+/** Entrada em cascata dos filhos de um LinearLayout. */
+fun LinearLayout.staggerIn(step: Long = 55L, maxItems: Int = 10) {
+    for (i in 0 until childCount) {
+        getChildAt(i).riseIn(minOf(i, maxItems) * step)
+    }
+}
+
+/** Troca de tela: entra deslizando de lado. dir = 1 (veio da direita) ou -1. */
+fun View.slideIn(dir: Int) {
+    animate().cancel()
+    alpha = 0f
+    translationX = dir * dp(36).toFloat()
+    animate().alpha(1f).translationX(0f).setDuration(320).setInterpolator(DecelerateInterpolator(1.8f)).start()
+}
+
+/** Conta de um número até outro. */
+fun TextView.countTo(target: Int, from: Int = 0, delay: Long = 0L, dur: Long = 700L, fmt: (Int) -> String = { it.toString() }) {
+    val a = ValueAnimator.ofInt(from, target)
+    a.duration = dur
+    a.startDelay = delay
+    a.interpolator = DecelerateInterpolator(1.5f)
+    text = fmt(from)
+    a.addUpdateListener { text = fmt(it.animatedValue as Int) }
+    a.start()
+}
+
+/** Muda a cor de um fundo/ícone com transição suave. */
+fun animateColor(from: Int, to: Int, dur: Long = 260L, onUpdate: (Int) -> Unit) {
+    val a = ValueAnimator.ofObject(ArgbEvaluator(), from, to)
+    a.duration = dur
+    a.addUpdateListener { onUpdate(it.animatedValue as Int) }
+    a.start()
+}
+
+/** Abre uma área com altura animada. */
+fun View.expand(dur: Long = 320L) {
+    if (visibility == View.VISIBLE && layoutParams.height == WRAP && alpha == 1f) return
+    animate().cancel()
+    measure(
+        View.MeasureSpec.makeMeasureSpec((parent as View).width.coerceAtLeast(1), View.MeasureSpec.AT_MOST),
+        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+    )
+    val target = measuredHeight
+    layoutParams.height = 0
+    alpha = 0f
+    visibility = View.VISIBLE
+    val a = ValueAnimator.ofInt(0, target)
+    a.duration = dur
+    a.interpolator = DecelerateInterpolator(1.6f)
+    a.addUpdateListener {
+        layoutParams.height = it.animatedValue as Int
+        alpha = it.animatedFraction
+        requestLayout()
+    }
+    a.addListener(object : android.animation.AnimatorListenerAdapter() {
+        override fun onAnimationEnd(animation: android.animation.Animator) {
+            layoutParams.height = WRAP
+            alpha = 1f
+            requestLayout()
+        }
+    })
+    a.start()
+}
+
+/** Fecha uma área com altura animada. */
+fun View.collapse(dur: Long = 260L) {
+    if (visibility == View.GONE) return
+    val start = height
+    val a = ValueAnimator.ofInt(start, 0)
+    a.duration = dur
+    a.interpolator = AccelerateInterpolator(1.2f)
+    a.addUpdateListener {
+        layoutParams.height = it.animatedValue as Int
+        alpha = 1f - it.animatedFraction
+        requestLayout()
+    }
+    a.addListener(object : android.animation.AnimatorListenerAdapter() {
+        override fun onAnimationEnd(animation: android.animation.Animator) {
+            visibility = View.GONE
+            layoutParams.height = WRAP
+            alpha = 1f
+        }
+    })
+    a.start()
+}
+
+/** Aviso fofo que desce do topo e some sozinho. */
+fun Activity.softToast(msg: String, color: Int = Palette.pink, icon: String = "sparkle") {
+    val host = findViewById<ViewGroup>(android.R.id.content) ?: return
+    val t = pill(msg, color, Color.WHITE, 14f, icon)
+    t.setPadding(dp(18), dp(12), dp(20), dp(12))
+    t.elevation = dp(12).toFloat()
+    val lp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+    lp.topMargin = dp(36)
+    host.addView(t, lp)
+    t.alpha = 0f
+    t.translationY = -dp(60).toFloat()
+    t.scaleX = 0.8f
+    t.scaleY = 0.8f
+    t.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(420)
+        .setInterpolator(OvershootInterpolator(1.6f)).start()
+    t.postDelayed({
+        t.animate().alpha(0f).translationY(-dp(40).toFloat()).setDuration(300).withEndAction { host.removeView(t) }.start()
+    }, 2600)
+}
+
+/** Cor de status/gênero/país para os "efeitos" dos filtros. */
+class Atmos(val icons: List<String>, val tints: List<Int>)
+
+object Atmosphere {
+    private fun c(s: String) = Color.parseColor(s)
+
+    fun country(name: String): Pair<String, Int> = when (name) {
+        "Coreia do Sul" -> Pair("blossom", c("#FF8FB7"))
+        "Japão" -> Pair("blossom", c("#E8505B"))
+        "China" -> Pair("star", c("#E5A93B"))
+        "Tailândia" -> Pair("leaf", c("#4FA8C7"))
+        "Taiwan" -> Pair("sparkle", c("#5B7FD9"))
+        else -> Pair("sparkle", c("#B98AA0"))
+    }
+
+    fun status(key: String): Atmos = when (key) {
+        "fav" -> Atmos(listOf("heart", "star"), listOf(Palette.pink, c("#FFB84D")))
+        else -> {
+            val s = Statuses.byKey(key)
+            Atmos(listOf(s.icon, "sparkle"), listOf(s.color, s.color))
+        }
+    }
+
+    /** Mistura o que está ativo: gênero manda; status e país entram como acento. */
+    fun of(genre: String, status: String, country: String): Atmos {
+        val icons = ArrayList<String>()
+        val tints = ArrayList<Int>()
+        if (genre != "all") {
+            val g = Genres.byKey(genre)
+            for (ic in g.petals) {
+                icons.add(ic)
+                tints.add(g.primary)
+            }
+        }
+        if (status != "all") {
+            val a = status(status)
+            for (i in a.icons.indices) {
+                icons.add(a.icons[i])
+                tints.add(a.tints[i])
+            }
+        }
+        if (country != "all") {
+            val (ic, col) = country(country)
+            icons.add(ic)
+            tints.add(col)
+            icons.add("petal")
+            tints.add(col)
+        }
+        if (icons.isEmpty()) {
+            icons.addAll(listOf("petal", "petal", "blossom"))
+            tints.addAll(listOf(Palette.pink, Palette.pink, Palette.pink))
+        }
+        return Atmos(icons, tints)
+    }
+
+    /** Tela de um dorama: pétalas do gênero + símbolo do status. */
+    fun ofDrama(d: Drama): Atmos {
+        val g = Genres.byKey(d.genre)
+        val s = Statuses.byKey(d.status)
+        val icons = ArrayList<String>(g.petals)
+        val tints = ArrayList<Int>()
+        for (i in g.petals.indices) tints.add(g.primary)
+        icons.add(s.icon)
+        tints.add(s.color)
+        if (d.favorite) {
+            icons.add("heart")
+            tints.add(Palette.pink)
+        }
+        return Atmos(icons, tints)
+    }
 }

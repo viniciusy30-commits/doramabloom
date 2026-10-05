@@ -266,6 +266,10 @@ object Store {
     private val list = ArrayList<Drama>()
     private var loaded = false
 
+    /** Sobe a cada gravação; as telas usam para saber se precisam se atualizar. */
+    var version = 0
+        private set
+
     fun init(c: Context) {
         if (loaded) return
         appContext = c.applicationContext
@@ -299,6 +303,7 @@ object Store {
     }
 
     private fun persist() {
+        version++
         val arr = JSONArray()
         for (d in list) arr.put(d.toJson())
         prefs.edit().putString(KEY, arr.toString()).apply()

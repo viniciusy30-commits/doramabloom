@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.view.animation.OvershootInterpolator
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
@@ -26,8 +27,16 @@ class MainActivity : AppCompatActivity() {
     private class NavItem(val box: LinearLayout, val icon: IconView, val text: TextView)
 
     private lateinit var contentFrame: FrameLayout
+    private lateinit var petals: PetalsView
+    private lateinit var fab: FrameLayout
+    private lateinit var navBar: FrameLayout
+    private lateinit var navIndicator: View
+    private lateinit var navRow: LinearLayout
     private val navItems = ArrayList<NavItem>()
     private var tab = 0
+    private var shownTab = -1
+    private var seenVersion = -1
+    private var accent = Palette.pink
 
     private var statusFilter = "all"
     private var genreFilter = "all"
@@ -38,8 +47,22 @@ class MainActivity : AppCompatActivity() {
     private var filtersOpen = false
 
     private var listAdapter: DramaAdapter? = null
+    private var listRv: RecyclerView? = null
     private var listEmpty: TextView? = null
     private var listInfo: TextView? = null
+    private var searchBox: LinearLayout? = null
+    private var filterPill: TextView? = null
+    private var clearPill: TextView? = null
+    private var effBox: LinearLayout? = null
+    private var effIcon: IconView? = null
+    private var effTitle: TextView? = null
+    private var effSub: TextView? = null
+    private var listBtn: FrameLayout? = null
+    private var gridBtn: FrameLayout? = null
+
+    private var homeWatching: List<Drama> = emptyList()
+    private var homePage = 0
+    private var homeAdapter: DramaAdapter? = null
 
     private fun errorView(titulo: String, e: Throwable): View {
         val tv = TextView(this)
@@ -74,7 +97,6 @@ class MainActivity : AppCompatActivity() {
         col.orientation = LinearLayout.VERTICAL
         root.addView(col, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        col.addView(buildHeader(), lin(MATCH, WRAP))
         contentFrame = FrameLayout(this)
         col.addView(contentFrame, lin(MATCH, 0, 1f))
         col.addView(
@@ -82,20 +104,20 @@ class MainActivity : AppCompatActivity() {
             lin(MATCH, WRAP)
         )
 
-        root.addView(
-            PetalsView(this, listOf("petal", "petal", "blossom"), Palette.pink, 14),
-            FrameLayout.LayoutParams(MATCH, MATCH)
-        )
+        petals = PetalsView(this, listOf("petal", "petal", "blossom"), Palette.pink, 14)
+        root.addView(petals, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        val fab = FrameLayout(this)
+        fab = FrameLayout(this)
         fab.background = ovalGradient(Color.parseColor("#FF8FB7"), Color.parseColor("#FF5C93"))
         fab.elevation = dp(10).toFloat()
         fab.addView(IconView(this, "add", Color.WHITE, 28), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        fab.setOnClickListener { startActivity(Intent(this, EditActivity::class.java)) }
+        fab.setOnClickListener { openEdit(fab) }
+        fab.pressable(0.88f)
         val flp = FrameLayout.LayoutParams(dp(62), dp(62))
         flp.gravity = Gravity.BOTTOM or Gravity.END
         flp.setMargins(0, 0, dp(22), dp(102))
         root.addView(fab, flp)
+        fab.visibility = View.GONE
 
         setContentView(root)
 
@@ -106,43 +128,52 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        showTab(tab)
+        if (contentFrame.childCount == 0) {
+            seenVersion = Store.version
+            showTab(tab, true)
+            return
+        }
+        if (seenVersion != Store.version) {
+            seenVersion = Store.version
+            if (tab == 1 && listAdapter != null) {
+                refreshList()
+            } else {
+                showTab(tab, false)
+            }
+        }
     }
 
-    // ------------------------------------------------------- cabeçalho e menu
-
-    private fun buildHeader(): View {
-        val f = FrameLayout(this)
-        val r = dp(30).toFloat()
-        val bg = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.parseColor("#FFDCE9"), Color.parseColor("#FFC2D8"))
-        )
-        bg.cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, r, r, r, r)
-        f.background = bg
-        f.elevation = dp(4).toFloat()
-        f.addView(HeaderArt(this), FrameLayout.LayoutParams(MATCH, MATCH))
-
-        val row = LinearLayout(this)
-        row.orientation = LinearLayout.HORIZONTAL
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.setPadding(dp(22), dp(8), dp(22), dp(18))
-        row.addView(IconView(this, "blossom", Color.WHITE, 34))
-        val txt = LinearLayout(this)
-        txt.orientation = LinearLayout.VERTICAL
-        txt.addView(label("Dorama Bloom", 27f, Palette.pinkDark, true, true))
-        txt.addView(label("minha estante de doramas", 12f, Palette.pinkDark))
-        row.addView(txt, lin(WRAP, WRAP, l = 10))
-        f.addView(row, FrameLayout.LayoutParams(MATCH, WRAP))
-        return f
+    private fun openEdit(from: View?) {
+        if (from != null) {
+            from.animate().rotation(90f).setDuration(220).withEndAction { from.rotation = 0f }.start()
+        }
+        startActivity(Intent(this, EditActivity::class.java))
+        overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
     }
+
+    private fun lighten(c: Int, f: Float): Int {
+        val r = Color.red(c) + ((255 - Color.red(c)) * f).toInt()
+        val g = Color.green(c) + ((255 - Color.green(c)) * f).toInt()
+        val b = Color.blue(c) + ((255 - Color.blue(c)) * f).toInt()
+        return Color.rgb(r, g, b)
+    }
+
+    // ------------------------------------------------------- menu e atmosfera
 
     private fun buildNav(): View {
-        val bar = LinearLayout(this)
-        bar.orientation = LinearLayout.HORIZONTAL
+        val bar = FrameLayout(this)
         bar.setPadding(dp(8), dp(8), dp(8), dp(8))
         bar.background = roundRect(Color.WHITE, dp(30).toFloat(), Palette.line, dp(1))
         bar.elevation = dp(8).toFloat()
+        navBar = bar
+
+        navIndicator = View(this)
+        navIndicator.background = roundRect(Palette.pink, dp(22).toFloat())
+        bar.addView(navIndicator, FrameLayout.LayoutParams(0, MATCH))
+
+        navRow = LinearLayout(this)
+        navRow.orientation = LinearLayout.HORIZONTAL
+        bar.addView(navRow, FrameLayout.LayoutParams(MATCH, WRAP))
 
         val holder = FrameLayout(this)
         holder.clipToPadding = false
@@ -162,26 +193,116 @@ class MainActivity : AppCompatActivity() {
             val tx = label(names[i], 11f, Palette.muted, true)
             box.addView(ic, lin(WRAP, WRAP))
             box.addView(tx, lin(WRAP, WRAP, t = 2))
-            box.setOnClickListener { showTab(i) }
-            bar.addView(box, lin(0, WRAP, 1f, l = 2, r = 2))
+            box.setOnClickListener { if (tab != i) showTab(i, true) else box.pop() }
+            box.pressable(0.92f)
+            navRow.addView(box, lin(0, WRAP, 1f, l = 2, r = 2))
             navItems.add(NavItem(box, ic, tx))
         }
+        navRow.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeIndicator(false) }
         return holder
     }
 
-    private fun updateNav() {
-        for (i in navItems.indices) {
-            val sel = i == tab
-            val n = navItems[i]
-            if (sel) n.box.background = roundRect(Palette.pink, dp(22).toFloat()) else n.box.background = null
-            n.icon.tint = if (sel) Color.WHITE else Palette.muted
-            n.text.setTextColor(if (sel) Color.WHITE else Palette.muted)
+    private fun placeIndicator(animated: Boolean) {
+        if (navItems.isEmpty()) return
+        val box = navItems[tab].box
+        if (box.width <= 0) return
+        val lp = navIndicator.layoutParams as FrameLayout.LayoutParams
+        val wide = box.width - dp(4)
+        if (lp.width != wide) {
+            lp.width = wide
+            navIndicator.layoutParams = lp
+        }
+        val x = box.left.toFloat() + dp(2)
+        if (animated) {
+            navIndicator.animate().translationX(x).setDuration(380)
+                .setInterpolator(OvershootInterpolator(1.1f)).start()
+        } else {
+            navIndicator.animate().cancel()
+            navIndicator.translationX = x
         }
     }
 
-    private fun showTab(t: Int) {
+    private fun updateNav(animated: Boolean) {
+        for (i in navItems.indices) {
+            val sel = i == tab
+            val n = navItems[i]
+            val to = if (sel) Color.WHITE else Palette.muted
+            val from = n.icon.tint
+            if (animated && from != to) {
+                animateColor(from, to) { c ->
+                    n.icon.tint = c
+                    n.text.setTextColor(c)
+                }
+            } else {
+                n.icon.tint = to
+                n.text.setTextColor(to)
+            }
+            if (sel && animated) n.icon.pop(1.3f)
+        }
+        placeIndicator(animated)
+    }
+
+    /** Cor de destaque da tela atual: muda com o dorama em destaque e com os filtros. */
+    private fun currentAccent(): Int {
+        return when (tab) {
+            0 -> {
+                val d = homeWatching.getOrNull(homePage)
+                if (d != null) Genres.byKey(d.genre).primary else Palette.pink
+            }
+            1 -> when {
+                genreFilter != "all" -> Genres.byKey(genreFilter).primary
+                statusFilter == "fav" -> Palette.pink
+                statusFilter != "all" -> Statuses.byKey(statusFilter).color
+                countryFilter != "all" -> Atmosphere.country(countryFilter).second
+                else -> Palette.pink
+            }
+            else -> Palette.pink
+        }
+    }
+
+    private fun applyAtmos() {
+        val a: Atmos = when (tab) {
+            0 -> {
+                val d = homeWatching.getOrNull(homePage)
+                if (d != null) Atmosphere.ofDrama(d) else Atmosphere.of("all", "all", "all")
+            }
+            1 -> Atmosphere.of(genreFilter, statusFilter, countryFilter)
+            else -> Atmosphere.of("all", "all", "all")
+        }
+        petals.setTheme(a.icons, a.tints)
+        val to = currentAccent()
+        val from = accent
+        accent = to
+        animateColor(from, to, 380L) { c ->
+            fab.background = ovalGradient(lighten(c, 0.22f), c)
+            navIndicator.background = roundRect(c, dp(22).toFloat())
+            searchBox?.background = roundRect(Color.WHITE, dp(24).toFloat(), if (tab == 1) c else Palette.line, dp(if (c == Palette.pink) 1 else 2))
+            listInfo?.setTextColor(c)
+        }
+    }
+
+    private fun showFab(visible: Boolean) {
+        if (visible) {
+            if (fab.visibility == View.VISIBLE) return
+            fab.visibility = View.VISIBLE
+            fab.scaleX = 0f
+            fab.scaleY = 0f
+            fab.rotation = -90f
+            fab.animate().scaleX(1f).scaleY(1f).rotation(0f).setDuration(420)
+                .setInterpolator(OvershootInterpolator(2f)).start()
+        } else {
+            if (fab.visibility != View.VISIBLE) return
+            fab.animate().scaleX(0f).scaleY(0f).setDuration(200)
+                .withEndAction { fab.visibility = View.GONE }.start()
+        }
+    }
+
+    private fun showTab(t: Int, animate: Boolean = true) {
+        val dir = if (t >= tab) 1 else -1
         tab = t
         contentFrame.removeAllViews()
+        listAdapter = null
+        listRv = null
         val v: View = try {
             val crash = getSharedPreferences("doramabloom_crash", MODE_PRIVATE)
             val last = crash.getString("last", null)
@@ -199,13 +320,25 @@ class MainActivity : AppCompatActivity() {
             errorView("Erro ao montar a tela " + t, e)
         }
         contentFrame.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
-        updateNav()
+        val changed = shownTab != t
+        shownTab = t
+        updateNav(animate && changed)
+        showFab(t != 0)
+        applyAtmos()
+        if (animate) {
+            v.slideIn(dir)
+            if (v is ScrollView && v.childCount > 0) {
+                val inner = v.getChildAt(0)
+                if (inner is LinearLayout) inner.staggerIn(60L)
+            }
+        }
     }
 
     private fun open(d: Drama) {
         val i = Intent(this, DetailActivity::class.java)
         i.putExtra("id", d.id)
         startActivity(i)
+        overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
     }
 
     private fun section(t: String, icon: String): View {
@@ -220,12 +353,14 @@ class MainActivity : AppCompatActivity() {
         val all = Store.all()
         val watching = all.filter { it.status == "assistindo" }
         val done = all.filter { it.status == "concluido" }
+        homeWatching = watching
+        if (homePage >= watching.size) homePage = 0
 
         val sv = ScrollView(this)
         sv.isVerticalScrollBarEnabled = false
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        col.setPadding(dp(16), dp(14), dp(16), dp(160))
+        col.setPadding(dp(16), dp(10), dp(16), dp(24))
         sv.addView(col)
 
         // cartão de boas-vindas
@@ -249,87 +384,167 @@ class MainActivity : AppCompatActivity() {
 
         val hi = LinearLayout(this)
         hi.orientation = LinearLayout.VERTICAL
-        hi.setPadding(dp(20), dp(18), dp(20), dp(18))
+        hi.setPadding(dp(20), dp(16), dp(20), dp(16))
         hi.addView(label(if (name.isBlank()) "Oi, bem-vinda!" else "Oi, $name!", 25f, Color.WHITE, true, true))
         hi.addView(label("O que vamos assistir hoje?", 13f, Color.WHITE), lin(WRAP, WRAP, t = 2))
         val stats = LinearLayout(this)
         stats.orientation = LinearLayout.HORIZONTAL
         val glass = Color.parseColor("#44FFFFFF")
-        stats.addView(pill(all.size.toString() + " doramas", glass, Color.WHITE, 11.5f, "heart"), lin(WRAP, WRAP, r = 6))
-        stats.addView(pill(watching.size.toString() + " vendo", glass, Color.WHITE, 11.5f, "play"), lin(WRAP, WRAP, r = 6))
-        stats.addView(pill(done.size.toString() + " fim", glass, Color.WHITE, 11.5f, "check"), lin(WRAP, WRAP))
+        val p1 = pill(all.size.toString() + " doramas", glass, Color.WHITE, 11.5f, "heart")
+        val p2 = pill(watching.size.toString() + " vendo", glass, Color.WHITE, 11.5f, "play")
+        val p3 = pill(done.size.toString() + " fim", glass, Color.WHITE, 11.5f, "check")
+        stats.addView(p1, lin(WRAP, WRAP, r = 6))
+        stats.addView(p2, lin(WRAP, WRAP, r = 6))
+        stats.addView(p3, lin(WRAP, WRAP))
         hi.addView(stats, lin(WRAP, WRAP, t = 12))
         hiWrap.addView(hi, FrameLayout.LayoutParams(MATCH, WRAP))
+
+        // botão + dentro do cartão
+        val addBtn = FrameLayout(this)
+        addBtn.background = ovalGradient(Color.parseColor("#66FFFFFF"), Color.parseColor("#44FFFFFF"))
+        addBtn.addView(IconView(this, "add", Color.WHITE, 24), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        addBtn.setOnClickListener { openEdit(addBtn) }
+        addBtn.pressable(0.86f)
+        val alp = FrameLayout.LayoutParams(dp(46), dp(46), Gravity.END or Gravity.CENTER_VERTICAL)
+        alp.setMargins(0, 0, dp(18), 0)
+        hiWrap.addView(addBtn, alp)
+
         hiWrap.setOnClickListener { askName() }
+        hiWrap.pressable(0.985f)
         col.addView(hiWrap, lin(MATCH, WRAP))
 
-        // assistindo agora
-        col.addView(section("Assistindo agora", "play"))
+        // destaque: ocupa todo o espaço entre o cartão e a barra de baixo
+        val feat = FrameLayout(this)
+        feat.clipChildren = false
+        col.addView(feat, lin(MATCH, dp(460), t = 14))
+
+        var dotsBox: LinearLayout? = null
         if (watching.isEmpty()) {
-            val e = card(16, 22)
-            e.addView(label("Nada em andamento ainda", 15f, Palette.text, true, true))
-            e.addView(label("Toque no botão + para começar um dorama novo!", 13f, Palette.muted), lin(WRAP, WRAP, t = 4))
-            col.addView(e, lin(MATCH, WRAP))
+            val e = LinearLayout(this)
+            e.orientation = LinearLayout.VERTICAL
+            e.gravity = Gravity.CENTER
+            e.setPadding(dp(26), dp(26), dp(26), dp(26))
+            e.background = roundRect(Color.WHITE, dp(34).toFloat(), Palette.line, dp(1))
+            e.elevation = dp(5).toFloat()
+            val big = FrameLayout(this)
+            big.background = ovalGradient(Palette.pinkSoft, Color.parseColor("#FFC2D8"))
+            big.addView(IconView(this, "blossom", Palette.pink, 64), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+            e.addView(big, lin(dp(120), dp(120)))
+            big.postDelayed({ big.pop(1.4f) }, 300)
+            if (all.isEmpty()) {
+                e.addView(label("Sua estante está vazia", 22f, Palette.text, true, true), lin(WRAP, WRAP, t = 18))
+                val m = label("Adicione seu primeiro dorama, com capa, nota, temporadas e muito carinho.", 13.5f, Palette.muted)
+                m.gravity = Gravity.CENTER
+                e.addView(m, lin(WRAP, WRAP, t = 6))
+            } else {
+                e.addView(label("Nada em andamento", 22f, Palette.text, true, true), lin(WRAP, WRAP, t = 18))
+                val m = label("Que tal começar algum dos que você quer ver?", 13.5f, Palette.muted)
+                m.gravity = Gravity.CENTER
+                e.addView(m, lin(WRAP, WRAP, t = 6))
+            }
+            val b = pill("Adicionar dorama", Palette.pink, Color.WHITE, 15f, "add")
+            b.setPadding(dp(22), dp(13), dp(22), dp(13))
+            b.setOnClickListener { openEdit(null) }
+            e.addView(b, lin(WRAP, WRAP, t = 18))
+            feat.addView(e, FrameLayout.LayoutParams(MATCH, MATCH))
         } else {
             val rv = RecyclerView(this)
             rv.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
             rv.clipToPadding = false
-            val ad = DramaAdapter(1, { open(it) }, { d ->
+            rv.itemAnimator = null
+            val ad = DramaAdapter(4, { open(it) }, { d, btn ->
+                val g = Genres.byKey(d.genre)
                 val finished = Store.bump(d)
+                seenVersion = Store.version
+                homeAdapter?.refresh(d)
+                val green = Color.parseColor("#5CC6A0")
+                petals.burstFrom(
+                    btn, listOf(g.icon, "heart", "blossom", "sparkle"),
+                    listOf(g.primary, Color.WHITE, g.soft, Palette.pink), 16
+                )
                 if (finished) {
-                    Toast.makeText(this, "Parabéns, você terminou " + d.title + "!", Toast.LENGTH_LONG).show()
+                    petals.burstFrom(
+                        btn, listOf("check", "heart", "star", "sparkle", "blossom"),
+                        listOf(g.primary, Palette.pink, green, Color.parseColor("#FFB84D")), 36
+                    )
+                    softToast("Parabéns, você terminou " + d.title + "!", green, "check")
+                    sv.postDelayed({ if (tab == 0 && !isFinishing) showTab(0, false) }, 1700)
                 }
-                val lm = rv.layoutManager as LinearLayoutManager
-                val pos = lm.findFirstVisibleItemPosition()
-                rv.adapter?.notifyDataSetChanged()
-                if (pos >= 0) lm.scrollToPosition(pos)
             })
             ad.submit(watching)
+            homeAdapter = ad
             rv.adapter = ad
-            PagerSnapHelper().attachToRecyclerView(rv)
-            col.addView(rv, lin(MATCH, WRAP))
+            val snap = PagerSnapHelper()
+            snap.attachToRecyclerView(rv)
+            feat.addView(rv, FrameLayout.LayoutParams(MATCH, MATCH))
+            rv.post { (rv.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(homePage, 0) }
 
             if (watching.size > 1) {
                 val dots = LinearLayout(this)
                 dots.gravity = Gravity.CENTER_HORIZONTAL
-                fun setDots(active: Int) {
-                    dots.removeAllViews()
-                    for (i in watching.indices) {
-                        val dot = View(this)
-                        dot.background = roundRect(
-                            if (i == active) Palette.pink else Color.parseColor("#F3C6D8"),
-                            dp(4).toFloat()
-                        )
-                        dots.addView(dot, lin(dp(if (i == active) 18 else 8), dp(8), l = 3, r = 3))
+                dotsBox = dots
+                val dotViews = ArrayList<View>()
+                for (i in watching.indices) {
+                    val dot = View(this)
+                    dotViews.add(dot)
+                    dots.addView(dot, lin(dp(if (i == homePage) 18 else 8), dp(8), l = 3, r = 3))
+                }
+                fun setDots(active: Int, animated: Boolean) {
+                    for (i in dotViews.indices) {
+                        val dot = dotViews[i]
+                        val wTo = dp(if (i == active) 18 else 8)
+                        val cTo = if (i == active) accent else Color.parseColor("#F3C6D8")
+                        val lp = dot.layoutParams
+                        if (animated && lp.width != wTo) {
+                            val a = android.animation.ValueAnimator.ofInt(lp.width, wTo)
+                            a.duration = 240
+                            a.addUpdateListener {
+                                lp.width = it.animatedValue as Int
+                                dot.layoutParams = lp
+                            }
+                            a.start()
+                        } else {
+                            lp.width = wTo
+                            dot.layoutParams = lp
+                        }
+                        dot.background = roundRect(cTo, dp(4).toFloat())
                     }
                 }
-                setDots(0)
-                col.addView(dots, lin(MATCH, WRAP, t = 2))
+                setDots(homePage, false)
+                col.addView(dots, lin(MATCH, WRAP, t = 8))
+                var lastPage = homePage
                 rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                    override fun onScrollStateChanged(r: RecyclerView, newState: Int) {
-                        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                            val lm = r.layoutManager as LinearLayoutManager
-                            val p = lm.findFirstCompletelyVisibleItemPosition()
-                            if (p >= 0) setDots(p)
+                    override fun onScrolled(r: RecyclerView, dx: Int, dy: Int) {
+                        val sv2 = snap.findSnapView(r.layoutManager) ?: return
+                        val p = r.getChildAdapterPosition(sv2)
+                        if (p >= 0 && p != lastPage) {
+                            lastPage = p
+                            homePage = p
+                            applyAtmos()
+                            setDots(p, true)
                         }
                     }
                 })
             }
         }
 
+        // ajusta a altura do destaque para preencher a tela
+        val dotsH = if (dotsBox != null) dp(24) else 0
+        sv.post {
+            val avail = sv.height
+            val gh = hiWrap.height
+            if (avail > 0 && gh > 0) {
+                val h = maxOf(dp(430), avail - gh - dp(10) - dp(14) - dotsH - dp(24))
+                if (feat.layoutParams.height != h) {
+                    feat.layoutParams.height = h
+                    feat.requestLayout()
+                }
+            }
+        }
+
         addMiniRow(col, "Quero ver", "bookmark", all.filter { it.status == "quero" })
         addMiniRow(col, "Favoritos", "heart", all.filter { it.favorite })
         addMiniRow(col, "Concluídos", "check", done)
-
-        if (all.isEmpty()) {
-            val e = card(18, 24)
-            e.addView(label("Sua estante está vazia", 17f, Palette.text, true, true))
-            e.addView(
-                label("Toque no botão + para adicionar seu primeiro dorama, com capa, nota, temporadas e muito carinho.", 13f, Palette.muted),
-                lin(WRAP, WRAP, t = 4)
-            )
-            col.addView(e, lin(MATCH, WRAP, t = 18))
-        }
         return sv
     }
 
@@ -400,6 +615,80 @@ class MainActivity : AppCompatActivity() {
         else -> "Ano"
     }
 
+    private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || countryFilter != "all"
+
+    private fun filterCount(): Int =
+        (if (statusFilter != "all") 1 else 0) + (if (genreFilter != "all") 1 else 0) + (if (countryFilter != "all") 1 else 0)
+
+    private fun statusTagline(k: String): String = when (k) {
+        "fav" -> "Os queridinhos do seu coração"
+        "assistindo" -> "O que está rolando agora"
+        "quero" -> "Sua listinha de desejos"
+        "concluido" -> "Maratonas finalizadas, que orgulho!"
+        "pausado" -> "Esperando a hora certa"
+        else -> "Os que ficaram pelo caminho"
+    }
+
+    /** Faixa que mostra o "efeito" dos filtros ativos. */
+    private fun updateEffect() {
+        val box = effBox ?: return
+        if (!anyFilter()) {
+            if (box.visibility == View.VISIBLE) box.collapse()
+            return
+        }
+        val parts = ArrayList<String>()
+        var icon: String
+        var title: String
+        var sub: String
+        var col: Int
+        var soft: Int
+        if (genreFilter != "all") {
+            val g = Genres.byKey(genreFilter)
+            icon = g.icon; title = g.label; sub = g.tagline; col = g.dark; soft = g.soft
+        } else if (statusFilter != "all") {
+            if (statusFilter == "fav") {
+                icon = "star"; title = "Favoritos"; col = Palette.pinkDark; soft = Palette.pinkSoft
+            } else {
+                val st = Statuses.byKey(statusFilter)
+                icon = st.icon; title = st.label; col = st.color; soft = lighten(st.color, 0.82f)
+            }
+            sub = statusTagline(statusFilter)
+        } else {
+            val cc = Atmosphere.country(countryFilter)
+            icon = "flag"; title = countryFilter; col = cc.second; soft = lighten(cc.second, 0.85f)
+            sub = "Doramas direto de " + countryFilter
+        }
+        if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
+        if (statusFilter != "all") parts.add(if (statusFilter == "fav") "Favoritos" else Statuses.byKey(statusFilter).label)
+        if (countryFilter != "all") parts.add(countryFilter)
+        effIcon?.setIcon(icon)
+        effIcon?.tint = col
+        effTitle?.text = if (parts.size > 1) parts.joinToString(" · ") else title
+        effTitle?.setTextColor(col)
+        effSub?.text = sub
+        box.background = roundRect(soft, dp(22).toFloat(), lighten(col, 0.5f), dp(1))
+        if (box.visibility != View.VISIBLE) box.expand() else box.pop(1.05f)
+    }
+
+    private fun updateFilterPills() {
+        val n = filterCount()
+        filterPill?.text = if (n > 0) "Filtros · $n" else "Filtros"
+        val cp = clearPill ?: return
+        if (n > 0 && cp.visibility != View.VISIBLE) {
+            cp.visibility = View.VISIBLE
+            cp.fadeScaleIn()
+        } else if (n == 0 && cp.visibility == View.VISIBLE) {
+            cp.visibility = View.GONE
+        }
+    }
+
+    private fun filtersChanged() {
+        refreshList()
+        updateEffect()
+        updateFilterPills()
+        applyAtmos()
+    }
+
     private fun refreshList() {
         val l = filtered()
         listAdapter?.submit(l)
@@ -409,7 +698,13 @@ class MainActivity : AppCompatActivity() {
         } else {
             "Nenhum dorama por aqui."
         }
-        listInfo?.text = l.size.toString() + (if (l.size == 1) " dorama" else " doramas")
+        if (l.isEmpty()) listEmpty?.fadeScaleIn()
+        val info = listInfo
+        if (info != null) {
+            val prev = info.text.toString().substringBefore(" ").toIntOrNull() ?: 0
+            info.text = l.size.toString() + (if (l.size == 1) " dorama" else " doramas")
+            if (prev != l.size) info.pop(1.08f)
+        }
     }
 
     private fun applyView(rv: RecyclerView) {
@@ -426,7 +721,28 @@ class MainActivity : AppCompatActivity() {
             IconView(this, icon, if (selected) Color.WHITE else Palette.pink, 20),
             FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER)
         )
+        f.pressable(0.88f)
         return f
+    }
+
+    private fun styleSquare(f: FrameLayout?, selected: Boolean) {
+        if (f == null) return
+        f.background = roundRect(if (selected) Palette.pink else Color.WHITE, dp(16).toFloat(), Palette.line, dp(1))
+        (f.getChildAt(0) as IconView).tint = if (selected) Color.WHITE else Palette.pink
+        if (selected) f.pop(1.2f)
+    }
+
+    private fun switchView(grid: Boolean) {
+        if (gridMode == grid) return
+        gridMode = grid
+        styleSquare(listBtn, !gridMode)
+        styleSquare(gridBtn, gridMode)
+        val rv = listRv ?: return
+        rv.animate().cancel()
+        rv.animate().alpha(0f).setDuration(130).withEndAction {
+            applyView(rv)
+            rv.animate().alpha(1f).setDuration(260).start()
+        }.start()
     }
 
     private fun buildListTab(): View {
@@ -443,6 +759,7 @@ class MainActivity : AppCompatActivity() {
         sbox.gravity = Gravity.CENTER_VERTICAL
         sbox.setPadding(dp(14), 0, dp(10), 0)
         sbox.background = roundRect(Color.WHITE, dp(24).toFloat(), Palette.line, dp(1))
+        searchBox = sbox
         sbox.addView(IconView(this, "search", Palette.muted, 20))
         val search = EditText(this)
         search.hint = "Buscar título, elenco, plataforma"
@@ -459,10 +776,12 @@ class MainActivity : AppCompatActivity() {
         sbox.addView(search, lin(0, WRAP, 1f, l = 8))
         top.addView(sbox, lin(0, dp(46), 1f))
 
-        val listBtn = squareBtn("list", !gridMode)
-        val gridBtn = squareBtn("grid", gridMode)
-        top.addView(listBtn, lin(dp(46), dp(46), l = 8))
-        top.addView(gridBtn, lin(dp(46), dp(46), l = 6))
+        val lb = squareBtn("list", !gridMode)
+        val gb = squareBtn("grid", gridMode)
+        listBtn = lb
+        gridBtn = gb
+        top.addView(lb, lin(dp(46), dp(46), l = 8))
+        top.addView(gb, lin(dp(46), dp(46), l = 6))
         col.addView(top, lin(MATCH, WRAP))
 
         // status
@@ -472,7 +791,7 @@ class MainActivity : AppCompatActivity() {
         for (s in Statuses.all) statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
         col.addView(chipScroller(statusOpts, statusFilter) {
             statusFilter = it
-            refreshList()
+            filtersChanged()
         }, lin(MATCH, WRAP, t = 10))
 
         // filtros extras (gênero e país)
@@ -484,16 +803,37 @@ class MainActivity : AppCompatActivity() {
         for (g in Genres.all) genreOpts.add(Opt(g.key, g.label, g.primary, g.icon))
         panel.addView(chipScroller(genreOpts, genreFilter) {
             genreFilter = it
-            refreshList()
+            filtersChanged()
         }, lin(MATCH, WRAP, t = 4))
         val countryOpts = ArrayList<Opt>()
         countryOpts.add(Opt("all", "Todos os países", Palette.pink, "flag"))
-        for (c in countries) countryOpts.add(Opt(c, c, Palette.pinkDark, "flag"))
+        for (c in countries) countryOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
         panel.addView(chipScroller(countryOpts, countryFilter) {
             countryFilter = it
-            refreshList()
+            filtersChanged()
         }, lin(MATCH, WRAP, t = 4))
         col.addView(panel, lin(MATCH, WRAP))
+
+        // faixa com o efeito dos filtros ativos
+        val eb = LinearLayout(this)
+        eb.orientation = LinearLayout.HORIZONTAL
+        eb.gravity = Gravity.CENTER_VERTICAL
+        eb.setPadding(dp(14), dp(10), dp(14), dp(10))
+        val ei = IconView(this, "heart", Palette.pink, 30)
+        eb.addView(ei)
+        val etx = LinearLayout(this)
+        etx.orientation = LinearLayout.VERTICAL
+        val et = label("", 16f, Palette.pinkDark, true, true)
+        val es = label("", 12f, Palette.muted)
+        etx.addView(et)
+        etx.addView(es)
+        eb.addView(etx, lin(0, WRAP, 1f, l = 12))
+        eb.visibility = if (anyFilter()) View.VISIBLE else View.GONE
+        effBox = eb
+        effIcon = ei
+        effTitle = et
+        effSub = es
+        col.addView(eb, lin(MATCH, WRAP, t = 8))
 
         // contagem + filtros + ordenar
         val info = LinearLayout(this)
@@ -502,16 +842,28 @@ class MainActivity : AppCompatActivity() {
         val count = label("", 13f, Palette.muted, true)
         listInfo = count
         info.addView(count, lin(0, WRAP, 1f))
+        val clr = pill("Limpar", Palette.pinkSoft, Palette.pinkDark, 12f, "close")
+        clr.visibility = View.GONE
+        clr.setOnClickListener {
+            statusFilter = "all"
+            genreFilter = "all"
+            countryFilter = "all"
+            showTab(1, false)
+        }
+        clearPill = clr
+        info.addView(clr, lin(WRAP, WRAP, r = 6))
         val fb = pill("Filtros", Color.WHITE, Palette.pink, 12f, "filter")
+        filterPill = fb
         fb.setOnClickListener {
             filtersOpen = !filtersOpen
-            panel.visibility = if (filtersOpen) View.VISIBLE else View.GONE
+            if (filtersOpen) panel.expand() else panel.collapse()
         }
         info.addView(fb, lin(WRAP, WRAP, r = 6))
         val sb = pill(sortLabel(), Color.WHITE, Palette.pink, 12f, "sort")
         sb.setOnClickListener {
             sortMode = (sortMode + 1) % 4
             sb.text = sortLabel()
+            sb.pop(1.2f)
             refreshList()
         }
         info.addView(sb, lin(WRAP, WRAP))
@@ -519,7 +871,8 @@ class MainActivity : AppCompatActivity() {
 
         val rv = RecyclerView(this)
         rv.clipToPadding = false
-        rv.setPadding(0, dp(4), 0, dp(160))
+        rv.setPadding(0, dp(4), 0, dp(24))
+        listRv = rv
 
         val empty = label("", 15f, Palette.muted, true, true)
         empty.gravity = Gravity.CENTER
@@ -530,44 +883,55 @@ class MainActivity : AppCompatActivity() {
         frame.addView(empty, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         col.addView(frame, lin(MATCH, 0, 1f))
 
-        listBtn.setOnClickListener {
-            if (gridMode) {
-                gridMode = false
-                showTab(1)
-            }
-        }
-        gridBtn.setOnClickListener {
-            if (!gridMode) {
-                gridMode = true
-                showTab(1)
-            }
-        }
+        lb.setOnClickListener { switchView(false) }
+        gb.setOnClickListener { switchView(true) }
 
         applyView(rv)
+        updateFilterPills()
+        if (anyFilter()) {
+            // preenche a faixa já aberta, sem animar
+            val keep = eb.visibility
+            eb.visibility = View.VISIBLE
+            updateEffectNow()
+            eb.visibility = keep
+        }
         return col
+    }
+
+    private fun updateEffectNow() {
+        val box = effBox ?: return
+        val saved = box.visibility
+        box.visibility = View.VISIBLE
+        updateEffect()
+        box.visibility = saved
     }
 
     // --------------------------------------------------------------- NÚMEROS
 
-    private fun statBox(icon: String, value: String, name: String): LinearLayout {
+    private fun statBox(icon: String, value: String, name: String, count: Int? = null, fmt: (Int) -> String = { it.toString() }): LinearLayout {
         val b = card(12, 20)
         b.gravity = Gravity.CENTER_HORIZONTAL
         b.addView(IconView(this, icon, Palette.pink, 22))
-        b.addView(label(value, 19f, Palette.pinkDark, true, true), lin(WRAP, WRAP, t = 4))
+        val v = label(value, 19f, Palette.pinkDark, true, true)
+        b.addView(v, lin(WRAP, WRAP, t = 4))
+        if (count != null) v.countTo(count, 0, 250L, 800L, fmt)
         b.addView(label(name, 11f, Palette.muted), lin(WRAP, WRAP, t = 2))
+        b.pressable(0.95f)
         return b
     }
 
-    private fun barRow(name: String, n: Int, frac: Float, color: Int): View {
+    private fun barRow(name: String, n: Int, frac: Float, color: Int, delay: Long = 300L): View {
         val r = LinearLayout(this)
         r.orientation = LinearLayout.HORIZONTAL
         r.gravity = Gravity.CENTER_VERTICAL
         r.addView(label(name, 13f, Palette.text, true), lin(dp(96), WRAP))
         val bar = SoftBar(this)
-        bar.progress = frac
         bar.barColor = color
+        bar.animateTo(frac, 0f, delay, 700L)
         r.addView(bar, lin(0, dp(10), 1f, l = 4, r = 8))
-        r.addView(label(n.toString(), 13f, Palette.muted, true), lin(dp(24), WRAP))
+        val cnt = label(n.toString(), 13f, Palette.muted, true)
+        cnt.countTo(n, 0, delay, 700L)
+        r.addView(cnt, lin(dp(24), WRAP))
         return r
     }
 
@@ -577,7 +941,7 @@ class MainActivity : AppCompatActivity() {
         sv.isVerticalScrollBarEnabled = false
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        col.setPadding(dp(16), dp(14), dp(16), dp(160))
+        col.setPadding(dp(16), dp(14), dp(16), dp(24))
         sv.addView(col)
 
         val rated = all.filter { it.score > 0 }
@@ -587,9 +951,9 @@ class MainActivity : AppCompatActivity() {
 
         val top = LinearLayout(this)
         top.orientation = LinearLayout.HORIZONTAL
-        top.addView(statBox("heart", all.size.toString(), "doramas"), lin(0, WRAP, 1f, r = 6))
-        top.addView(statBox("play", eps.toString(), "episódios"), lin(0, WRAP, 1f, r = 6))
-        top.addView(statBox("clock", "%.0f h".format(hours), "assistidas"), lin(0, WRAP, 1f, r = 6))
+        top.addView(statBox("heart", all.size.toString(), "doramas", all.size), lin(0, WRAP, 1f, r = 6))
+        top.addView(statBox("play", eps.toString(), "episódios", eps), lin(0, WRAP, 1f, r = 6))
+        top.addView(statBox("clock", "%.0f h".format(hours), "assistidas", hours.toInt()) { "$it h" }, lin(0, WRAP, 1f, r = 6))
         top.addView(statBox("star", if (rated.isEmpty()) "-" else "%.1f".format(avg), "nota média"), lin(0, WRAP, 1f))
         col.addView(top, lin(MATCH, WRAP))
 
@@ -605,7 +969,9 @@ class MainActivity : AppCompatActivity() {
             val favRow = LinearLayout(this)
             favRow.orientation = LinearLayout.HORIZONTAL
             favRow.gravity = Gravity.CENTER_VERTICAL
-            favRow.addView(IconView(this, fav.icon, fav.primary, 38))
+            val favIcon = IconView(this, fav.icon, fav.primary, 38)
+            favRow.addView(favIcon)
+            favIcon.postDelayed({ favIcon.pop(1.5f) }, 450)
             val ft = LinearLayout(this)
             ft.orientation = LinearLayout.VERTICAL
             ft.addView(label("Seu gênero favorito", 11.5f, Palette.muted))
@@ -613,23 +979,48 @@ class MainActivity : AppCompatActivity() {
             ft.addView(label(fav.tagline, 12f, Palette.muted))
             favRow.addView(ft, lin(WRAP, WRAP, l = 14))
             favCard.addView(favRow)
+            favCard.pressable(0.98f)
             col.addView(favCard, lin(MATCH, WRAP, t = 14))
 
-            col.addView(section("Por status", "bookmark"))
-            val sc = card(14, 22)
-            val maxN = maxOf(1, all.size)
+            // anel por status
+            col.addView(section("Minha estante", "bookmark"))
+            val sc = card(16, 24)
+            val srow = LinearLayout(this)
+            srow.orientation = LinearLayout.HORIZONTAL
+            srow.gravity = Gravity.CENTER_VERTICAL
+            val donut = DonutView(this)
+            donut.set(
+                Statuses.all.map { s -> all.count { it.status == s.key }.toFloat() },
+                Statuses.all.map { it.color },
+                all.size.toString(), if (all.size == 1) "dorama" else "doramas"
+            )
+            srow.addView(donut, lin(WRAP, WRAP))
+            val legend = LinearLayout(this)
+            legend.orientation = LinearLayout.VERTICAL
             for (s in Statuses.all) {
                 val n = all.count { it.status == s.key }
-                sc.addView(barRow(s.label, n, n.toFloat() / maxN, s.color), lin(MATCH, WRAP, t = 6))
+                val lr = LinearLayout(this)
+                lr.orientation = LinearLayout.HORIZONTAL
+                lr.gravity = Gravity.CENTER_VERTICAL
+                val dot = View(this)
+                dot.background = ovalGradient(s.color, s.color)
+                lr.addView(dot, lin(dp(10), dp(10), r = 8))
+                lr.addView(label(s.label, 13f, Palette.text, true), lin(0, WRAP, 1f))
+                lr.addView(label(n.toString(), 13f, Palette.muted, true), lin(WRAP, WRAP))
+                legend.addView(lr, lin(MATCH, WRAP, t = 5))
             }
+            srow.addView(legend, lin(0, WRAP, 1f, l = 18))
+            sc.addView(srow)
             col.addView(sc, lin(MATCH, WRAP))
 
             col.addView(section("Por gênero", "tag"))
             val gc = card(14, 22)
             val maxG = maxOf(1, byGenre[0].value.size)
+            var gi = 0
             for (e in byGenre) {
                 val g = Genres.byKey(e.key)
-                gc.addView(barRow(g.label, e.value.size, e.value.size.toFloat() / maxG, g.primary), lin(MATCH, WRAP, t = 6))
+                gc.addView(barRow(g.label, e.value.size, e.value.size.toFloat() / maxG, g.primary, 300L + gi * 70L), lin(MATCH, WRAP, t = 6))
+                gi++
             }
             col.addView(gc, lin(MATCH, WRAP))
 
@@ -637,8 +1028,10 @@ class MainActivity : AppCompatActivity() {
             val cc = card(14, 22)
             val byCountry = all.groupBy { it.country }.entries.sortedByDescending { it.value.size }
             val maxC = maxOf(1, byCountry[0].value.size)
+            var ci = 0
             for (e in byCountry) {
-                cc.addView(barRow(e.key, e.value.size, e.value.size.toFloat() / maxC, Palette.pinkDark), lin(MATCH, WRAP, t = 6))
+                cc.addView(barRow(e.key, e.value.size, e.value.size.toFloat() / maxC, Atmosphere.country(e.key).second, 300L + ci * 70L), lin(MATCH, WRAP, t = 6))
+                ci++
             }
             col.addView(cc, lin(MATCH, WRAP))
 
@@ -646,9 +1039,11 @@ class MainActivity : AppCompatActivity() {
                 col.addView(section("Distribuição das notas", "star"))
                 val dc = card(14, 22)
                 val maxS = maxOf(1, (1..10).map { s -> rated.count { it.score == s } }.maxOrNull() ?: 1)
+                var si = 0
                 for (s in 10 downTo 1) {
                     val n = rated.count { it.score == s }
-                    dc.addView(barRow("Nota $s", n, n.toFloat() / maxS, Palette.pink), lin(MATCH, WRAP, t = 4))
+                    dc.addView(barRow("Nota $s", n, n.toFloat() / maxS, Palette.pink, 300L + si * 50L), lin(MATCH, WRAP, t = 4))
+                    si++
                 }
                 col.addView(dc, lin(MATCH, WRAP))
 
@@ -668,6 +1063,7 @@ class MainActivity : AppCompatActivity() {
                     rv.color = Genres.byKey(d.genre).primary
                     r.addView(rv, lin(WRAP, WRAP, l = 8))
                     r.setOnClickListener { open(d) }
+                    r.pressable(0.97f)
                     tc.addView(r, lin(MATCH, WRAP))
                 }
                 col.addView(tc, lin(MATCH, WRAP))
