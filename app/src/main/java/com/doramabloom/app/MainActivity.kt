@@ -41,8 +41,30 @@ class MainActivity : AppCompatActivity() {
     private var listEmpty: TextView? = null
     private var listInfo: TextView? = null
 
+    private fun errorView(titulo: String, e: Throwable): View {
+        val tv = TextView(this)
+        tv.setTextIsSelectable(true)
+        tv.textSize = 12f
+        tv.setTextColor(Color.parseColor("#B00020"))
+        tv.setBackgroundColor(Color.WHITE)
+        tv.setPadding(dp(14), dp(14), dp(14), dp(14))
+        tv.text = titulo + "\n\n" + android.util.Log.getStackTraceString(e).take(1800)
+        val sv = ScrollView(this)
+        sv.addView(tv)
+        return sv
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try {
+                getSharedPreferences("doramabloom_crash", MODE_PRIVATE).edit()
+                    .putString("last", android.util.Log.getStackTraceString(e)).commit()
+            } catch (_: Throwable) {
+            }
+            oldHandler?.uncaughtException(t, e)
+        }
         Store.init(this)
 
         val root = FrameLayout(this)
@@ -55,7 +77,10 @@ class MainActivity : AppCompatActivity() {
         col.addView(buildHeader(), lin(MATCH, WRAP))
         contentFrame = FrameLayout(this)
         col.addView(contentFrame, lin(MATCH, 0, 1f))
-        col.addView(buildNav(), lin(MATCH, WRAP))
+        col.addView(
+            try { buildNav() } catch (e: Throwable) { errorView("Erro ao montar a barra de baixo", e) },
+            lin(MATCH, WRAP)
+        )
 
         root.addView(
             PetalsView(this, listOf("petal", "petal", "blossom"), Palette.pink, 14),
@@ -157,10 +182,21 @@ class MainActivity : AppCompatActivity() {
     private fun showTab(t: Int) {
         tab = t
         contentFrame.removeAllViews()
-        val v: View = when (t) {
-            0 -> buildHome()
-            1 -> buildListTab()
-            else -> buildStats()
+        val v: View = try {
+            val crash = getSharedPreferences("doramabloom_crash", MODE_PRIVATE)
+            val last = crash.getString("last", null)
+            if (last != null) {
+                crash.edit().remove("last").commit()
+                errorView("O app fechou da última vez com este erro", RuntimeException(last))
+            } else {
+                when (t) {
+                    0 -> buildHome()
+                    1 -> buildListTab()
+                    else -> buildStats()
+                }
+            }
+        } catch (e: Throwable) {
+            errorView("Erro ao montar a tela " + t, e)
         }
         contentFrame.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
         updateNav()
