@@ -116,7 +116,7 @@ class DetailActivity : AppCompatActivity() {
         }, lin(dp(40), dp(40), r = 8))
 
         val favBtn = FrameLayout(this)
-        val favIcon = IconView(this, "heart", g.primary, 18)
+        val favIcon = IconView(this, "heart", g.primary, 28)
         favBtn.addView(favIcon, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         fun styleFav() {
             val bg = GradientDrawable()
@@ -135,11 +135,11 @@ class DetailActivity : AppCompatActivity() {
             styleFav()
             favIcon.pop(1.9f)
             if (d.favorite) {
-                petals.burstFrom(favBtn, listOf("heart", "heart", "sparkle"), listOf(g.primary, Palette.pink, Color.WHITE), 14)
+                petals.burstFrom(favBtn, listOf("heart", "heart", "sparkle"), listOf(g.primary, g.dark, Color.WHITE), 14)
             }
             updatePetals(d)
         }
-        top.addView(favBtn, lin(dp(40), dp(40)))
+        top.addView(favBtn, lin(dp(52), dp(52)))
         col.addView(top, lin(MATCH, WRAP))
 
         // ---- hero: capa grande no centro, fundo tirado da própria capa, pilha de capas atrás
@@ -404,9 +404,6 @@ class DetailActivity : AppCompatActivity() {
         obar.barColor = g.primary
         pc.addView(obar, lin(MATCH, dp(12), t = 8))
 
-        val plus = bigPill("+1 episódio", g.primary, Color.WHITE, 15f, "play")
-        pc.addView(plus, lin(MATCH, WRAP, t = 14))
-
         val seasonBars = ArrayList<SoftBar>()
         val seasonTxt = ArrayList<TextView>()
         val seasonLbl = ArrayList<TextView>()
@@ -457,16 +454,7 @@ class DetailActivity : AppCompatActivity() {
             }
             bot.addView(addB, lin(dp(32), dp(32), l = 8))
             box.addView(bot, lin(MATCH, WRAP, t = 8))
-            pc.addView(box, lin(MATCH, WRAP, t = 10))
-        }
-
-        plus.setOnClickListener {
-            val finished = Store.bump(d)
-            sync()
-            refreshAll()
-            statusChips.selectChip(d.status)
-            petals.burstFrom(plus, listOf(g.icon, "heart", "sparkle", "blossom"), listOf(g.primary, Palette.pink, Color.WHITE), 14)
-            if (finished) celebrate(d, g, plus, statusChips)
+            pc.addView(box, lin(MATCH, WRAP, t = if (i == 0) 16 else 10))
         }
 
         val rw = LinearLayout(this)
@@ -530,10 +518,6 @@ class DetailActivity : AppCompatActivity() {
                     if (!firstProgress) seasonTxt[i].pop(1.3f)
                 }
             }
-            val complete = total > 0 && d.seasonEps.all { it > 0 } && w >= total
-            plus.text = if (complete) "Tudo assistido!" else "+1 episódio" + (if (seasonCount(d) > 1) " · Temp. " + (activeSeason(d) + 1) else "")
-            (plus.compoundDrawables[0] as? IconDrawable)?.name = if (complete) "check" else "play"
-            plus.alpha = if (complete) 0.6f else 1f
             val rt = d.rewatch.toString()
             if (rewTxt.text.toString() != rt) {
                 rewTxt.text = rt

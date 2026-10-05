@@ -43,6 +43,7 @@ class EditActivity : AppCompatActivity() {
     private lateinit var coverSeal: SealView
     private lateinit var genreBox: LinearLayout
     private var petalsView: PetalsView? = null
+    private var favPill: TextView? = null
     private lateinit var seasonBox: LinearLayout
     private lateinit var seasonCountTv: TextView
     private lateinit var rewatchTv: TextView
@@ -216,21 +217,15 @@ class EditActivity : AppCompatActivity() {
         }
         c4.addView(rating, lin(WRAP, WRAP, t = 10))
         c4.addView(scoreTv, lin(WRAP, WRAP, t = 6))
-        val favTv = pill(
-            if (favorite) "Nos favoritos" else "Marcar como favorito",
-            if (favorite) Palette.pink else Color.WHITE,
-            if (favorite) Color.WHITE else Palette.pink,
-            13f, "heart"
-        )
+        val favTv = pill("Marcar como favorito", Color.WHITE, Palette.pink, 15f, "heart")
+        favTv.setPadding(dp(18), dp(10), dp(20), dp(10))
+        favPill = favTv
         favTv.setOnClickListener {
             favorite = !favorite
-            favTv.text = if (favorite) "Nos favoritos" else "Marcar como favorito"
-            favTv.background = roundRect(if (favorite) Palette.pink else Color.WHITE, dp(20).toFloat(), Palette.pink, dp(1))
-            favTv.setTextColor(if (favorite) Color.WHITE else Palette.pink)
-            val dr = favTv.compoundDrawables[0]
-            if (dr is IconDrawable) dr.color = if (favorite) Color.WHITE else Palette.pink
+            styleFavPill()
+            favTv.pop(1.3f)
         }
-        favTv.background = roundRect(if (favorite) Palette.pink else Color.WHITE, dp(20).toFloat(), Palette.pink, dp(1))
+        styleFavPill()
         c4.addView(favTv, lin(WRAP, WRAP, t = 12))
 
         val rwRow = LinearLayout(this)
@@ -345,15 +340,46 @@ class EditActivity : AppCompatActivity() {
         saveBtn.riseIn(400L, 30, 420L)
     }
 
-    /** Gênero principal e "outros gêneros"; refeito quando você cria um gênero novo. */
+    /** Gênero principal (em destaque, porque define o tema) e "outros gêneros"; refeito quando você cria um gênero novo. */
     private fun buildGenreArea() {
         genreBox.removeAllViews()
+
+        val panel = LinearLayout(this)
+        panel.orientation = LinearLayout.VERTICAL
+        panel.setPadding(dp(14), dp(14), dp(14), dp(14))
+
+        val titleTv = label("Gênero principal", 19f, Palette.text, true, true)
+        val star = IconView(this, "sparkle", Palette.pink, 20)
+        fun stylePanel() {
+            val g = Genres.byKey(genreKey)
+            panel.background = roundRect(g.soft, dp(22).toFloat(), g.primary, dp(2))
+            titleTv.setTextColor(g.dark)
+            star.tint = g.primary
+        }
+
         val head = LinearLayout(this)
         head.orientation = LinearLayout.HORIZONTAL
         head.gravity = Gravity.CENTER_VERTICAL
-        head.addView(fieldLabel("Gênero principal"), lin(0, WRAP, 1f))
-        val newG = pill("Novo gênero", Palette.pinkSoft, Palette.pinkDark, 12f, "add")
-        newG.setPadding(dp(14), dp(8), dp(14), dp(8))
+        head.addView(star, lin(WRAP, WRAP, r = 8))
+        head.addView(titleTv, lin(WRAP, WRAP))
+        panel.addView(head, lin(MATCH, WRAP))
+        panel.addView(
+            label("Ele define o tema do dorama: cores, símbolos e pétalas.", 12f, Palette.muted),
+            lin(MATCH, WRAP, t = 4, b = 12)
+        )
+
+        val gOpts = ArrayList<Opt>()
+        for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon))
+        val flow = chipFlow(gOpts, genreKey) {
+            genreKey = it
+            stylePanel()
+            refreshCover()
+            coverView.pop(1.25f)
+            updateEffects()
+        }
+        // "Novo gênero" faz parte da própria lista de chips (nada fica cortado)
+        val newG = pill("Novo gênero", Color.WHITE, Palette.pinkDark, 13f, "add")
+        newG.background = roundRect(Color.WHITE, dp(20).toFloat(), Palette.pinkDark, dp(1))
         newG.setOnClickListener {
             showGenreCreator { g ->
                 genreKey = g.key
@@ -362,25 +388,30 @@ class EditActivity : AppCompatActivity() {
                 updateEffects()
             }
         }
-        head.addView(newG, lin(WRAP, WRAP, t = 10))
-        genreBox.addView(head, lin(MATCH, WRAP))
-        genreBox.addView(label("Define o tema, as cores e as pétalas do dorama", 11.5f, Palette.muted), lin(MATCH, WRAP, l = 2, b = 8))
-
-        val gOpts = ArrayList<Opt>()
-        for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon))
-        genreBox.addView(chipFlow(gOpts, genreKey) {
-            genreKey = it
-            refreshCover()
-            coverView.pop(1.25f)
-            updateEffects()
-        }, lin(MATCH, WRAP))
+        flow.addView(newG)
+        panel.addView(flow, lin(MATCH, WRAP))
+        stylePanel()
+        genreBox.addView(panel, lin(MATCH, WRAP, t = 12))
 
         genreBox.addView(fieldLabel("Outros gêneros"))
         genreBox.addView(multiFlow(gOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
     }
 
+    /** Botão de favorito na cor do gênero escolhido. */
+    private fun styleFavPill() {
+        val tv = favPill ?: return
+        val c = Genres.byKey(genreKey).primary
+        val fg = if (favorite) Color.WHITE else c
+        tv.text = if (favorite) "Nos favoritos" else "Marcar como favorito"
+        tv.background = roundRect(if (favorite) c else Color.WHITE, dp(24).toFloat(), c, dp(2))
+        tv.setTextColor(fg)
+        tv.setCompoundDrawables(iconDrawable("heart", fg, dp(24)), null, null, null)
+        tv.compoundDrawablePadding = dp(8)
+    }
+
     /** O tema (pétalas e cor) acompanha o gênero, o status e o país escolhidos. */
     private fun updateEffects() {
+        styleFavPill()
         val pv = petalsView ?: return
         val a = Atmosphere.of(genreKey, statusKey, country)
         pv.setTheme(a.icons, a.tints)

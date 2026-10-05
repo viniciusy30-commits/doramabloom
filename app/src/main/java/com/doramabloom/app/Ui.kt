@@ -760,7 +760,7 @@ object Atmosphere {
         val m = Mix()
         m.addGenre(g)
         m.add(statusIcons(d.status)[0], s.color)
-        if (d.favorite) m.add("heart", Palette.pink)
+        if (d.favorite) m.add("heart", g.primary)
         return m.done()
     }
 }

@@ -13,14 +13,20 @@ import android.graphics.drawable.GradientDrawable
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
-/** Coraçãozinho branco redondo usado nos pôsteres de favoritos. */
-fun Context.favBadge(): FrameLayout {
+/** Coração de favorito: círculo branco com coração grande; a cor do coração segue o tema do gênero. */
+fun Context.favBadge(heartDp: Int = 22): FrameLayout {
     val f = FrameLayout(this)
     f.background = ovalGradient(Color.WHITE, Color.WHITE)
     f.elevation = 0f
-    val ic = IconView(this, "heart", Palette.pink, 13)
+    val ic = IconView(this, "heart", Palette.pink, heartDp)
     f.addView(ic, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
     return f
+}
+
+/** Pinta o coração de favorito (solto ou dentro do círculo) com a cor do tema. */
+private fun tintFav(v: View?, color: Int) {
+    if (v is IconView) v.tint = color
+    else ((v as? ViewGroup)?.getChildAt(0) as? IconView)?.tint = color
 }
 
 private fun setPillIcon(t: TextView, name: String, color: Int) {
@@ -152,6 +158,7 @@ class DramaAdapter(
         val badge = h.badge
         if (badge != null) styleBadge(badge, d.score, g.primary)
         h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
+        tintFav(h.fav, g.primary)
         val dot = h.dot
         if (dot != null) {
             dot.background = ovalGradient(st.color, st.color)
@@ -292,7 +299,7 @@ class DramaAdapter(
         val title = c.label("", 16f, Palette.text, true, true)
         title.maxLines = 2
         title.ellipsize = TextUtils.TruncateAt.END
-        val fav = IconView(c, "heart", Palette.pink, 16)
+        val fav = IconView(c, "heart", Palette.pink, 24)
         trow.addView(title, c.lin(0, WRAP, 1f))
         trow.addView(fav, c.lin(WRAP, WRAP, l = 6))
         col.addView(trow, c.lin(MATCH, WRAP))
@@ -371,7 +378,7 @@ class DramaAdapter(
         val title = c.label("", 19f, Palette.text, true, true)
         title.maxLines = 2
         title.ellipsize = TextUtils.TruncateAt.END
-        val fav = IconView(c, "heart", Palette.pink, 18)
+        val fav = IconView(c, "heart", Palette.pink, 26)
         trow.addView(title, c.lin(0, WRAP, 1f))
         trow.addView(fav, c.lin(WRAP, WRAP, l = 6))
         col.addView(trow, c.lin(MATCH, WRAP))
@@ -428,10 +435,10 @@ class DramaAdapter(
         blp.setMargins(c.dp(14), c.dp(14), 0, 0)
         hero.addView(badge, blp)
 
-        val fav = c.favBadge()
-        val flp = FrameLayout.LayoutParams(c.dp(36), c.dp(36))
+        val fav = c.favBadge(30)
+        val flp = FrameLayout.LayoutParams(c.dp(52), c.dp(52))
         flp.gravity = Gravity.TOP or Gravity.END
-        flp.setMargins(0, c.dp(14), c.dp(14), 0)
+        flp.setMargins(0, c.dp(12), c.dp(12), 0)
         hero.addView(fav, flp)
 
         val seal = SealView(c, true)
@@ -515,10 +522,10 @@ class DramaAdapter(
         slp.setMargins(c.dp(4), c.dp(4), 0, 0)
         frame.addView(seal, slp)
 
-        val fav = c.favBadge()
-        val flp = FrameLayout.LayoutParams(c.dp(24), c.dp(24))
+        val fav = c.favBadge(22)
+        val flp = FrameLayout.LayoutParams(c.dp(36), c.dp(36))
         flp.gravity = Gravity.TOP or Gravity.END
-        flp.setMargins(0, c.dp(6), c.dp(6), 0)
+        flp.setMargins(0, c.dp(4), c.dp(4), 0)
         frame.addView(fav, flp)
 
         val badge = c.scoreBadge(28, 12f)
