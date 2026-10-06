@@ -18,6 +18,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -360,7 +361,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildHome(): View {
         val all = Store.all()
-        val watching = all.filter { it.status == "assistindo" }
+        val watchingAll = all.filter { it.status == "assistindo" }
+        val watching = if (sortMode == 4) manualOrder(watchingAll) else watchingAll
         homeWatching = watching
         if (homePage >= watching.size) homePage = 0
 
@@ -574,7 +576,8 @@ class MainActivity : AppCompatActivity() {
             0 -> l.sortedByDescending { it.addedAt }
             1 -> l.sortedBy { it.title.lowercase() }
             2 -> l.sortedByDescending { it.score }
-            else -> l.sortedByDescending { it.year }
+            3 -> l.sortedByDescending { it.year }
+            else -> manualOrder(l)
         }
     }
 
@@ -582,7 +585,8 @@ class MainActivity : AppCompatActivity() {
         0 -> "Recentes"
         1 -> "A–Z"
         2 -> "Melhor nota"
-        else -> "Ano"
+        3 -> "Ano"
+        else -> "Minha ordem"
     }
 
     private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || countryFilter != "all"
@@ -685,11 +689,54 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var touchHelper: ItemTouchHelper? = null
+
     private fun applyView(rv: RecyclerView) {
         rv.layoutManager = if (gridMode) GridLayoutManager(this, 2) else LinearLayoutManager(this)
         listAdapter = DramaAdapter(if (gridMode) 3 else 0, { open(it, filtered()) })
         rv.adapter = listAdapter
         refreshList()
+
+        // arrastar para reordenar (vale quando a ordem é "Minha ordem"; segure e arraste)
+        touchHelper?.attachToRecyclerView(null)
+        val th = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT, 0
+        ) {
+            override fun isLongPressDragEnabled(): Boolean = sortMode == 4
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val a = viewHolder.bindingAdapterPosition
+                val b = target.bindingAdapterPosition
+                if (a < 0 || b < 0) return false
+                listAdapter?.move(a, b)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+            override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+                super.onSelectedChanged(viewHolder, actionState)
+                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder != null) {
+                    viewHolder.itemView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    viewHolder.itemView.animate().scaleX(1.04f).scaleY(1.04f).setDuration(120).start()
+                    viewHolder.itemView.elevation = dp(10).toFloat()
+                }
+            }
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                viewHolder.itemView.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                viewHolder.itemView.elevation = 0f
+                val l = listAdapter?.items ?: return
+                if (sortMode == 4) Store.reorder(l.map { it.id })
+            }
+        })
+        th.attachToRecyclerView(rv)
+        touchHelper = th
     }
 
     private fun squareBtn(icon: String, selected: Boolean): FrameLayout {
@@ -852,10 +899,11 @@ class MainActivity : AppCompatActivity() {
         info.addView(fb, lin(WRAP, WRAP, r = 6))
         val sb = pill(sortLabel(), Palette.card, Palette.pink, 12f, "sort")
         sb.setOnClickListener {
-            sortMode = (sortMode + 1) % 4
+            sortMode = (sortMode + 1) % 5
             sb.text = sortLabel()
             sb.pop(1.2f)
             refreshList()
+            if (sortMode == 4) softToast("Segure um dorama e arraste para mudar a ordem", Palette.pink, "sort")
         }
         info.addView(sb, lin(WRAP, WRAP))
         col.addView(info, lin(MATCH, WRAP, t = 8, b = 2))

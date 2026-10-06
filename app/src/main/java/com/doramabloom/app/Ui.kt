@@ -550,6 +550,8 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
         clipToOutline = true
     }
 
+    private val wave = android.graphics.Path()
+
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
         val g = deco ?: return
@@ -559,51 +561,100 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
         val h = height.toFloat()
         val p = decoPaint
         p.style = Paint.Style.FILL
+        val soft = mixColor(g.primary, Palette.card, 0.55f)
+        val paper = mixColor(g.primary, Palette.card, 0.82f)
 
-        // bolhas suaves de luz
-        p.color = a(g.primary, 46)
-        c.drawCircle(w * 0.95f, h * 0.05f, 96f * u, p)
-        p.color = a(g.primary, 34)
+        // luzes suaves na cor do gênero (sem cinza)
+        p.color = a(g.primary, 44)
+        c.drawCircle(w * 0.96f, h * 0.04f, 100f * u, p)
+        p.color = a(g.primary, 30)
         c.drawCircle(w * 0.02f, h * 0.98f, 120f * u, p)
-        p.color = a(Color.WHITE, 90)
-        c.drawCircle(w * 0.10f, h * 0.16f, 46f * u, p)
-        c.drawCircle(w * 0.92f, h * 0.70f, 30f * u, p)
 
         // marcas d'água grandes do símbolo do gênero
-        drawIcon(c, g.icon, a(g.primary, 44), w * 0.84f, h * 0.24f, 130f * u, 14f)
-        drawIcon(c, g.icon, a(g.primary, 34), w * 0.12f, h * 0.76f, 92f * u, -16f)
+        drawIcon(c, g.icon, a(g.primary, 46), w * 0.84f, h * 0.24f, 130f * u, 14f)
+        drawIcon(c, g.icon, a(g.primary, 36), w * 0.12f, h * 0.76f, 92f * u, -16f)
 
-        // símbolos pequenos espalhados
+        // símbolos pequenos espalhados (cores cheias, nítidas)
         val set = (g.petals + listOf("sparkle", "heart")).distinct()
         val pos = arrayOf(
-            floatArrayOf(0.09f, 0.08f, 20f, -12f), floatArrayOf(0.93f, 0.50f, 18f, 10f),
-            floatArrayOf(0.05f, 0.46f, 15f, 18f), floatArrayOf(0.95f, 0.90f, 22f, -8f),
-            floatArrayOf(0.52f, 0.04f, 14f, 0f), floatArrayOf(0.30f, 0.97f, 18f, 12f),
-            floatArrayOf(0.74f, 0.97f, 14f, -10f), floatArrayOf(0.20f, 0.30f, 12f, 8f)
+            floatArrayOf(0.09f, 0.09f, 20f, -12f), floatArrayOf(0.93f, 0.50f, 18f, 10f),
+            floatArrayOf(0.05f, 0.47f, 15f, 18f), floatArrayOf(0.95f, 0.88f, 20f, -8f),
+            floatArrayOf(0.52f, 0.05f, 14f, 0f), floatArrayOf(0.30f, 0.94f, 17f, 12f),
+            floatArrayOf(0.72f, 0.95f, 14f, -10f), floatArrayOf(0.20f, 0.30f, 12f, 8f),
+            floatArrayOf(0.88f, 0.30f, 13f, -14f)
         )
         for (i in pos.indices) {
             val q = pos[i]
-            val col = if (i % 2 == 0) a(g.primary, 120) else a(Color.WHITE, 190)
+            val col = if (i % 2 == 0) soft else Color.WHITE
             drawIcon(c, set[i % set.size], col, w * q[0], h * q[1], q[2] * u, q[3])
         }
 
-        // duas "cartas" inclinadas atrás da capa (efeito de pilha de fotos)
+        // duas "folhas" inclinadas atrás da capa (cores sólidas, bordas nítidas)
         if (img.visibility == View.VISIBLE && img.width > 0) {
             val cx = (img.left + img.right) / 2f
             val cy = (img.top + img.bottom) / 2f
             val grow = 3f * u
             decoRect.set(img.left - grow, img.top - grow, img.right + grow, img.bottom + grow)
+            val stroke = Paint(Paint.ANTI_ALIAS_FLAG)
+            stroke.style = Paint.Style.STROKE
+            stroke.strokeWidth = 1.5f * u
+            stroke.color = mixColor(g.primary, Palette.card, 0.35f)
+
             c.save()
             c.rotate(-5.5f, cx, cy)
-            p.color = a(g.primary, 120)
+            p.color = soft
             c.drawRoundRect(decoRect, 22f * u, 22f * u, p)
+            c.drawRoundRect(decoRect, 22f * u, 22f * u, stroke)
             c.restore()
+
             c.save()
             c.rotate(4.5f, cx, cy)
-            p.color = a(Color.WHITE, 150)
+            p.color = paper
             c.drawRoundRect(decoRect, 22f * u, 22f * u, p)
+            c.drawRoundRect(decoRect, 22f * u, 22f * u, stroke)
             c.restore()
         }
+
+        // borda de baixo ondulada, na cor do cartão (transição fofa para a parte de baixo)
+        val amp = 7f * u
+        val n = 7
+        val seg = w / n
+        wave.reset()
+        wave.moveTo(0f, h + 1f)
+        wave.lineTo(0f, h - amp)
+        for (i in 0 until n) {
+            val x0 = i * seg
+            val up = if (i % 2 == 0) -amp else amp
+            wave.quadTo(x0 + seg / 2f, h - amp + up * 1.6f, x0 + seg, h - amp)
+        }
+        wave.lineTo(w, h + 1f)
+        wave.close()
+        p.color = Palette.card
+        c.drawPath(wave, p)
+    }
+
+    /** Detalhes por cima da capa: uma fitinha adesiva no topo. */
+    override fun dispatchDraw(c: Canvas) {
+        super.dispatchDraw(c)
+        val g = deco ?: return
+        if (!fit || img.visibility != View.VISIBLE || img.width <= 0) return
+        val u = resources.displayMetrics.density
+        val p = decoPaint
+        val cx = (img.left + img.right) / 2f
+        val cy = img.top + 2f * u
+        decoRect.set(cx - 30f * u, cy - 10f * u, cx + 30f * u, cy + 10f * u)
+        c.save()
+        c.rotate(-6f, cx, cy)
+        p.style = Paint.Style.FILL
+        p.color = mixColor(g.primary, Color.WHITE, 0.45f)
+        c.drawRoundRect(decoRect, 4f * u, 4f * u, p)
+        p.color = a(Color.WHITE, 150)
+        var x = decoRect.left + 6f * u
+        while (x < decoRect.right - 6f * u) {
+            c.drawRect(x, decoRect.top + 3f * u, x + 3f * u, decoRect.bottom - 3f * u, p)
+            x += 9f * u
+        }
+        c.restore()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -657,6 +708,93 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
 
     fun bind(d: Drama, reqW: Int) {
         bind(d.cover, d.genre, reqW)
+    }
+}
+
+/** Fundo enfeitado e NÍTIDO do topo da tela do dorama: formas e símbolos em cores sólidas (sem imagem borrada). */
+class HeroDecor(ctx: Context, private val g: Genre) : View(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val ic = IconDrawable("heart", Color.WHITE)
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        // não influencia a altura do cartão: só acompanha o tamanho que ele ganhar
+        val w = getDefaultSize(0, widthMeasureSpec)
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
+        setMeasuredDimension(w, h)
+    }
+
+    private fun icon(c: Canvas, name: String, color: Int, cx: Float, cy: Float, size: Float, rot: Float) {
+        ic.name = name
+        ic.color = color
+        val h = (size / 2f).toInt()
+        ic.setBounds(-h, -h, h, h)
+        c.save()
+        c.translate(cx, cy)
+        c.rotate(rot)
+        ic.draw(c)
+        c.restore()
+    }
+
+    override fun onDraw(c: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (w <= 0f || h <= 0f) return
+        val u = resources.displayMetrics.density
+        val lite = mixColor(g.primary, Color.WHITE, 0.14f)
+        val lite2 = mixColor(g.primary, Color.WHITE, 0.24f)
+        val mark = mixColor(g.primary, Color.WHITE, 0.20f)
+        val soft = mixColor(g.primary, Color.WHITE, 0.55f)
+
+        // formas grandes e lisinhas
+        p.style = Paint.Style.FILL
+        p.color = lite
+        c.drawCircle(w * 0.02f, h * 0.02f, 120f * u, p)
+        c.drawCircle(w * 1.0f, h * 0.62f, 150f * u, p)
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = 2f * u
+        p.color = lite2
+        c.drawCircle(w * 0.98f, h * 0.06f, 70f * u, p)
+        c.drawCircle(w * 0.0f, h * 0.55f, 90f * u, p)
+        c.drawCircle(w * 0.5f, h * 1.02f, 110f * u, p)
+
+        // marcas d'água do símbolo do gênero
+        icon(c, g.icon, mark, w * 0.88f, h * 0.60f, 150f * u, 12f)
+        icon(c, g.icon, mark, w * 0.10f, h * 0.20f, 96f * u, -14f)
+
+        // símbolos pequenos: brilhos brancos e os símbolos do gênero
+        val set = (g.petals + listOf("heart")).distinct()
+        val pos = arrayOf(
+            floatArrayOf(0.12f, 0.06f, 20f, -10f), floatArrayOf(0.90f, 0.08f, 24f, 8f),
+            floatArrayOf(0.06f, 0.36f, 16f, 14f), floatArrayOf(0.95f, 0.38f, 15f, -12f),
+            floatArrayOf(0.07f, 0.70f, 18f, 10f), floatArrayOf(0.93f, 0.80f, 20f, -8f),
+            floatArrayOf(0.20f, 0.95f, 15f, 12f), floatArrayOf(0.80f, 0.97f, 17f, -14f),
+            floatArrayOf(0.50f, 0.03f, 13f, 0f)
+        )
+        for (i in pos.indices) {
+            val q = pos[i]
+            if (i % 2 == 0) icon(c, "sparkle", Color.WHITE, w * q[0], h * q[1], q[2] * u, q[3])
+            else icon(c, set[i % set.size], soft, w * q[0], h * q[1], q[2] * u, q[3])
+        }
+    }
+}
+
+/** Fitinha adesiva listrada (washi tape). */
+class TapeView(ctx: Context, private val color: Int) : View(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val r = RectF()
+
+    override fun onDraw(c: Canvas) {
+        val u = resources.displayMetrics.density
+        r.set(0f, 0f, width.toFloat(), height.toFloat())
+        p.style = Paint.Style.FILL
+        p.color = color
+        c.drawRoundRect(r, 4f * u, 4f * u, p)
+        p.color = Color.argb(150, 255, 255, 255)
+        var x = 6f * u
+        while (x < width - 6f * u) {
+            c.drawRect(x, 3f * u, x + 3f * u, height - 3f * u, p)
+            x += 9f * u
+        }
     }
 }
 

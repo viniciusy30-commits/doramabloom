@@ -543,13 +543,13 @@ class EditActivity : AppCompatActivity() {
             addedAt = if (old != null) old.addedAt else System.currentTimeMillis(),
             link = old?.link ?: "",
             lastUrl = old?.lastUrl ?: "",
-            watchSeason = old?.watchSeason ?: -1
+            watchSeason = old?.watchSeason ?: -1,
+            order = old?.order ?: 0L
         )
         normalize(d)
         val tot = totalEps(d)
         val wat = watchedEps(d)
         var st = statusKey
-        if (tot > 0 && d.seasonEps.all { it > 0 } && wat >= tot && st == "assistindo") st = "concluido"
         if (wat > 0 && st == "quero") st = "assistindo"
         applyStatus(d, st)
 

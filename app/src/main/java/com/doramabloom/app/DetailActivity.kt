@@ -157,7 +157,7 @@ class DetailActivity : AppCompatActivity() {
         root.addView(petals, 0, FrameLayout.LayoutParams(MATCH, MATCH))
         val fxTop = PetalsView(this, listOf("petal"), g.primary, 0)
         petals.fx = fxTop
-        val glass = Color.parseColor("#44FFFFFF")
+        val glass = mixColor(g.primary, Color.WHITE, 0.24f)
 
         // ---- barra superior
         val top = LinearLayout(this)
@@ -206,55 +206,12 @@ class DetailActivity : AppCompatActivity() {
         top.addView(favBtn, lin(dp(52), dp(52)))
         col.addView(top, lin(MATCH, WRAP))
 
-        // ---- hero: capa grande no centro, fundo tirado da própria capa, pilha de capas atrás
+        // ---- hero: capa grande no centro, fundo liso e enfeitado (nada borrado), duas capas com a foto atrás
         val hero = FrameLayout(this)
         hero.background = gradient(g.primary, g.deep, dp(34).toFloat(), GradientDrawable.Orientation.TL_BR)
         hero.elevation = 0f
         hero.clipToOutline = true
-
-        // fundo suave: a capa bem reduzida e esticada (vira um borrão) com véu na cor do gênero
-        val backBmp = if (d.cover.isNotEmpty()) Covers.load(d.cover, 60) else null
-        if (backBmp != null) {
-            val bi = ImageView(this)
-            bi.scaleType = ImageView.ScaleType.CENTER_CROP
-            bi.setImageBitmap(backBmp)
-            hero.addView(bi, FrameLayout.LayoutParams(MATCH, MATCH))
-            val veil = View(this)
-            veil.background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(
-                    Color.argb(170, Color.red(g.primary), Color.green(g.primary), Color.blue(g.primary)),
-                    Color.argb(240, Color.red(g.deep), Color.green(g.deep), Color.blue(g.deep))
-                )
-            )
-            hero.addView(veil, FrameLayout.LayoutParams(MATCH, MATCH))
-        }
-
-        val deco = IconView(this, "blossom", Color.parseColor("#22FFFFFF"), 150)
-        val dlp = FrameLayout.LayoutParams(WRAP, WRAP)
-        dlp.gravity = Gravity.END or Gravity.BOTTOM
-        dlp.setMargins(0, 0, dp(-34), dp(-34))
-        hero.addView(deco, dlp)
-        val deco3 = IconView(this, "blossom", Color.parseColor("#1AFFFFFF"), 90)
-        val d3lp = FrameLayout.LayoutParams(WRAP, WRAP)
-        d3lp.gravity = Gravity.START or Gravity.TOP
-        d3lp.setMargins(dp(-22), dp(-22), 0, 0)
-        hero.addView(deco3, d3lp)
-        val deco2 = IconView(this, "petal", Color.parseColor("#44FFFFFF"), 34)
-        val d2lp = FrameLayout.LayoutParams(WRAP, WRAP)
-        d2lp.gravity = Gravity.END or Gravity.TOP
-        d2lp.setMargins(0, dp(14), dp(60), 0)
-        hero.addView(deco2, d2lp)
-        val spark = IconView(this, "sparkle", Color.parseColor("#88FFFFFF"), 22)
-        val slp = FrameLayout.LayoutParams(WRAP, WRAP)
-        slp.gravity = Gravity.END or Gravity.TOP
-        slp.setMargins(0, dp(18), dp(18), 0)
-        hero.addView(spark, slp)
-        val spark2 = IconView(this, "sparkle", Color.parseColor("#66FFFFFF"), 15)
-        val s2lp = FrameLayout.LayoutParams(WRAP, WRAP)
-        s2lp.gravity = Gravity.START or Gravity.TOP
-        s2lp.setMargins(dp(22), dp(40), 0, 0)
-        hero.addView(spark2, s2lp)
+        hero.addView(HeroDecor(this, g), FrameLayout.LayoutParams(MATCH, MATCH))
 
         val heroCol = LinearLayout(this)
         heroCol.orientation = LinearLayout.VERTICAL
@@ -264,10 +221,11 @@ class DetailActivity : AppCompatActivity() {
         val ch = dp(270)
         val stage = FrameLayout(this)
         stage.clipChildren = false
+        // as duas capas dos lados continuam mostrando a foto (agora bem nítidas)
         for (side in intArrayOf(-1, 1)) {
             val ghost = CoverView(this, 24)
-            ghost.bind(d, 300)
-            ghost.alpha = 0.55f
+            ghost.bind(d, 400)
+            ghost.alpha = 0.88f
             ghost.rotation = side * 9f
             ghost.scaleX = 0.86f
             ghost.scaleY = 0.86f
@@ -275,8 +233,10 @@ class DetailActivity : AppCompatActivity() {
             stage.addView(ghost, FrameLayout.LayoutParams(cw, ch, Gravity.CENTER))
         }
         val ring = FrameLayout(this)
+        ring.clipChildren = false
         ring.setPadding(dp(4), dp(4), dp(4), dp(4))
         ring.background = roundRect(Color.WHITE, dp(30).toFloat())
+        ring.elevation = dp(6).toFloat()
         val cover = CoverView(this, 26)
         cover.bind(d, 900)
         ring.addView(cover, FrameLayout.LayoutParams(cw, ch))
@@ -286,8 +246,13 @@ class DetailActivity : AppCompatActivity() {
         val hsl = FrameLayout.LayoutParams(dp(58), dp(58), Gravity.BOTTOM or Gravity.END)
         hsl.setMargins(0, 0, dp(8), dp(8))
         ring.addView(heroSeal, hsl)
+        val tape = TapeView(this, mixColor(g.primary, Color.WHITE, 0.45f))
+        tape.rotation = -6f
+        val tlp = FrameLayout.LayoutParams(dp(64), dp(20), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+        tlp.topMargin = dp(-9)
+        ring.addView(tape, tlp)
         stage.addView(ring, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        heroCol.addView(stage, lin(MATCH, WRAP, t = 24, b = 6))
+        heroCol.addView(stage, lin(MATCH, WRAP, t = 28, b = 6))
 
         val title = label(d.title, 26f, Color.WHITE, true, true)
         title.gravity = Gravity.CENTER
@@ -326,7 +291,7 @@ class DetailActivity : AppCompatActivity() {
         strip.orientation = LinearLayout.HORIZONTAL
         strip.gravity = Gravity.CENTER_VERTICAL
         strip.setPadding(dp(10), dp(8), dp(16), dp(8))
-        strip.background = roundRect(Color.parseColor("#33FFFFFF"), dp(28).toFloat())
+        strip.background = roundRect(mixColor(g.primary, Color.WHITE, 0.16f), dp(28).toFloat(), mixColor(g.primary, Color.WHITE, 0.36f), dp(1))
         val badge = scoreBadge(46, 19f)
         badge.setTextColor(g.primary)
         val bbg = GradientDrawable()
@@ -377,7 +342,7 @@ class DetailActivity : AppCompatActivity() {
         wcard.background = gradient(g.primary, g.deep, dp(26).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
         wcard.elevation = 0f
         val pbub = FrameLayout(this)
-        pbub.background = roundRect(Color.parseColor("#33FFFFFF"), dp(18).toFloat())
+        pbub.background = roundRect(mixColor(g.primary, Color.WHITE, 0.24f), dp(18).toFloat())
         pbub.addView(IconView(this, "play", Color.WHITE, 24), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         wcard.addView(pbub, lin(dp(50), dp(50), r = 14))
         val wtx = LinearLayout(this)

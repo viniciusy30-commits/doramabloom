@@ -204,7 +204,9 @@ data class Drama(
     var addedAt: Long,
     var link: String = "",
     var lastUrl: String = "",
-    var watchSeason: Int = -1
+    var watchSeason: Int = -1,
+    /** Posição na sua ordem manual (0 = ainda sem posição, aparece no topo). */
+    var order: Long = 0L
 )
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
@@ -296,6 +298,10 @@ fun subtitle(d: Drama): String {
     return parts.joinToString(" · ")
 }
 
+/** Ordem manual: quem tem posição vem pela posição; os novos (sem posição) ficam no topo. */
+fun manualOrder(l: List<Drama>): List<Drama> =
+    l.sortedWith(compareBy<Drama> { it.order }.thenByDescending { it.addedAt })
+
 fun hoursWatched(d: Drama): Double =
     watchedEps(d) * (if (d.epMinutes > 0) d.epMinutes else 60) / 60.0
 
@@ -382,6 +388,7 @@ private fun Drama.toJson(): JSONObject {
     o.put("link", link)
     o.put("lastUrl", lastUrl)
     o.put("watchSeason", watchSeason)
+    o.put("order", order)
     return o
 }
 
@@ -420,7 +427,8 @@ private fun dramaFromJson(o: JSONObject): Drama {
         addedAt = o.optLong("addedAt", System.currentTimeMillis()),
         link = o.optString("link", ""),
         lastUrl = o.optString("lastUrl", ""),
-        watchSeason = o.optInt("watchSeason", -1)
+        watchSeason = o.optInt("watchSeason", -1),
+        order = o.optLong("order", 0L)
     )
     normalize(d)
     return d
@@ -671,7 +679,7 @@ object Store {
         if (target < 0) return false
         w[target] = w[target] + 1
         d.watched = w
-        return afterProgress(d)
+        return afterProgress(d, true)
     }
 
     /** Ajusta os episódios de uma temporada específica (delta positivo ou negativo). */
@@ -679,26 +687,42 @@ object Store {
         if (season < 0 || season >= d.seasonEps.size) return false
         val w = d.watched.toMutableList()
         val t = d.seasonEps[season]
-        var nv = w[season] + delta
+        val old = w[season]
+        var nv = old + delta
         if (nv < 0) nv = 0
         if (t > 0 && nv > t) nv = t
+        if (nv == old) return false
         w[season] = nv
         d.watched = w
-        if (delta < 0 && d.status == "concluido") d.status = "assistindo"
-        return afterProgress(d)
+        if (nv < old && d.status == "concluido") d.status = "assistindo"
+        return afterProgress(d, nv > old)
     }
 
-    private fun afterProgress(d: Drama): Boolean {
+    /** Só conclui/atualiza o status quando você AVANÇOU um episódio (grew); nunca ao voltar ou sem mudar nada. */
+    private fun afterProgress(d: Drama, grew: Boolean): Boolean {
         var finished = false
         val total = totalEps(d)
-        if (watchedEps(d) > 0 && total > 0 && d.seasonEps.all { it > 0 } && watchedEps(d) >= total) {
+        if (grew && watchedEps(d) > 0 && total > 0 && d.seasonEps.all { it > 0 } && watchedEps(d) >= total) {
             if (d.status != "concluido") finished = true
             applyStatus(d, "concluido")
-        } else if (watchedEps(d) > 0 && d.status != "assistindo" && d.status != "concluido") {
+        } else if (grew && watchedEps(d) > 0 && d.status != "assistindo" && d.status != "concluido") {
             applyStatus(d, "assistindo")
         }
         persist()
         return finished
+    }
+
+    /**
+     * Guarda a sua ordem manual. [ids] é a lista na nova ordem (pode ser só uma parte da estante,
+     * por causa dos filtros): os outros doramas não saem do lugar.
+     */
+    fun reorder(ids: List<Long>) {
+        val seq = manualOrder(list)
+        for (i in seq.indices) seq[i].order = (i + 1).toLong()
+        val items = ids.mapNotNull { get(it) }
+        val slots = items.map { it.order }.sorted()
+        for (i in items.indices) items[i].order = slots[i]
+        persist()
     }
 
     fun setStatus(d: Drama, key: String) {

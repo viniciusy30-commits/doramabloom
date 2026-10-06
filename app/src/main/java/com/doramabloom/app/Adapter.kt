@@ -30,8 +30,8 @@ fun Context.statBubble(icon: String, text: String, g: Genre): View {
     b.orientation = LinearLayout.VERTICAL
     b.gravity = Gravity.CENTER_HORIZONTAL
     b.setPadding(dp(3), dp(7), dp(3), dp(7))
-    val cc = Palette.card
-    b.background = roundRect(Color.argb(205, Color.red(cc), Color.green(cc), Color.blue(cc)), dp(18).toFloat(), mixColor(g.primary, Palette.card, 0.6f), dp(1))
+    b.background = roundRect(Palette.card, dp(18).toFloat(), mixColor(g.primary, Palette.card, 0.45f), dp(2))
+    b.elevation = dp(2).toFloat()
     b.addView(IconView(this, icon, g.primary, 16), LinearLayout.LayoutParams(WRAP, WRAP))
     val t = label(text, 10.5f, g.dark, true)
     t.maxLines = 1
@@ -99,6 +99,20 @@ class DramaAdapter(
         diff.dispatchUpdatesTo(this)
     }
 
+    /** Troca de lugar durante o arrastar (a lista e as assinaturas andam juntas). */
+    fun move(from: Int, to: Int) {
+        if (from < 0 || to < 0 || from >= items.size || to >= items.size || from == to) return
+        val m = items.toMutableList()
+        val x = m.removeAt(from)
+        m.add(to, x)
+        items = m
+        val s = sigs.toMutableList()
+        val sx = s.removeAt(from)
+        s.add(to, sx)
+        sigs = s
+        notifyItemMoved(from, to)
+    }
+
     /** Atualiza só o item (sem piscar). */
     fun refresh(d: Drama) {
         val i = items.indexOfFirst { it.id == d.id }
@@ -138,7 +152,8 @@ class DramaAdapter(
         val plat: TextView? = null,
         val note: TextView? = null,
         val frame: View? = null,
-        val stats: LinearLayout? = null
+        val stats: LinearLayout? = null,
+        val tagline: TextView? = null
     ) : RecyclerView.ViewHolder(v)
 
     override fun getItemCount(): Int = items.size
@@ -181,6 +196,14 @@ class DramaAdapter(
         if (badge != null) {
             styleBadge(badge, d.score, g.primary)
             if (mode == 4) badge.visibility = if (d.score > 0) View.VISIBLE else View.GONE
+        }
+        val tg = h.tagline
+        if (tg != null) {
+            val auto = g.tagline.startsWith("Seu gênero")
+            tg.visibility = if (auto || g.tagline.isBlank()) View.GONE else View.VISIBLE
+            tg.text = g.tagline
+            tg.setTextColor(g.dark)
+            tg.setCompoundDrawables(tg.context.iconDrawable("sparkle", g.primary, tg.context.dp(13)), null, null, null)
         }
         val statsBox = h.stats
         if (statsBox != null) {
@@ -510,7 +533,14 @@ class DramaAdapter(
         val sub = c.label("", 12.5f, Palette.muted)
         sub.maxLines = 1
         sub.ellipsize = TextUtils.TruncateAt.END
-        info.addView(sub, c.lin(MATCH, WRAP, t = 2, b = 10))
+        info.addView(sub, c.lin(MATCH, WRAP, t = 2, b = 4))
+        // frase fofa do gênero
+        val tag = c.label("", 12f, Palette.muted)
+        tag.maxLines = 1
+        tag.ellipsize = TextUtils.TruncateAt.END
+        tag.setTypeface(tag.typeface, android.graphics.Typeface.ITALIC)
+        tag.compoundDrawablePadding = c.dp(6)
+        info.addView(tag, c.lin(MATCH, WRAP, b = 10))
 
         val chips = LinearLayout(c)
         chips.orientation = LinearLayout.HORIZONTAL
@@ -542,7 +572,7 @@ class DramaAdapter(
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
             chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav,
-            stats = stats, seal = seal
+            stats = stats, tagline = tag, seal = seal
         )
     }
 
