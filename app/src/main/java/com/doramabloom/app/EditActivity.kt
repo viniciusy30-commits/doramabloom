@@ -394,28 +394,16 @@ class EditActivity : AppCompatActivity() {
         stylePanel()
         genreBox.addView(panel, lin(MATCH, WRAP, t = 12))
 
-        genreBox.addView(fieldLabel("Gêneros secundários"))
-        genreBox.addView(
-            multiFlow(gOpts, tags.filter { !OtherGenres.exists(it) }.toSet()) { sel ->
-                tags = HashSet(tags.filter { OtherGenres.exists(it) } + sel)
-            },
-            lin(MATCH, WRAP)
-        )
-
-        // "Outros gêneros": só etiquetas para filtrar; não mudam o tema nem os símbolos
+        // "Outros gêneros": qualquer gênero extra (os com tema e as etiquetas simples) numa seção só.
+        // Nenhum deles muda as cores do dorama; só o gênero principal faz isso.
         genreBox.addView(fieldLabel("Outros gêneros"))
         genreBox.addView(
-            label("Só para classificar e filtrar. Não mudam as cores nem os símbolos do tema.", 12f, Palette.muted),
+            label("Só para classificar e filtrar. Quem define as cores e os símbolos é o gênero principal.", 12f, Palette.muted),
             lin(MATCH, WRAP, b = 8)
         )
-        val oOpts = ArrayList<Opt>()
-        for (og in OtherGenres.all) oOpts.add(Opt(og.key, og.label, OtherGenres.color, og.icon))
-        genreBox.addView(
-            multiFlow(oOpts, tags.filter { OtherGenres.exists(it) }.toSet()) { sel ->
-                tags = HashSet(tags.filter { !OtherGenres.exists(it) } + sel)
-            },
-            lin(MATCH, WRAP)
-        )
+        val allOpts = ArrayList<Opt>(gOpts)
+        for (og in OtherGenres.all) allOpts.add(Opt(og.key, og.label, og.color, og.icon))
+        genreBox.addView(multiFlow(allOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
     }
 
     /** Botão de favorito na cor do gênero escolhido. */

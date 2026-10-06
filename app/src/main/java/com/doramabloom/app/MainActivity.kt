@@ -651,7 +651,7 @@ class MainActivity : AppCompatActivity() {
             sub = statusTagline(statusFilter)
         } else if (otherFilter != "all" && OtherGenres.exists(otherFilter)) {
             val og = OtherGenres.byKey(otherFilter)
-            icon = og.icon; title = og.label; col = OtherGenres.dark; soft = OtherGenres.soft
+            icon = og.icon; title = og.label; col = og.dark; soft = og.soft
             sub = "Doramas marcados como " + og.label
         } else {
             val cc = Atmosphere.country(countryFilter)
@@ -867,8 +867,8 @@ class MainActivity : AppCompatActivity() {
         }, lin(MATCH, WRAP, t = 4))
         // outros gêneros: só etiquetas para filtrar (não trocam o tema nem os símbolos)
         val otherOpts = ArrayList<Opt>()
-        otherOpts.add(Opt("all", "Todos", OtherGenres.color, "tag"))
-        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, OtherGenres.color, og.icon))
+        otherOpts.add(Opt("all", "Todos", Palette.pink, "tag"))
+        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, og.color, og.icon))
         panel.addView(label("Outros gêneros", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
         panel.addView(chipScroller(otherOpts, otherFilter) {
             otherFilter = it

@@ -169,35 +169,37 @@ object Genres {
  * então escolher um deles nunca muda a atmosfera das telas.
  * Ficam guardados no mesmo campo "tags" do dorama, com chave começando em "x_".
  */
-class OtherGenre(val key: String, val label: String, val icon: String)
-
-object OtherGenres {
-    val color: Int = Color.parseColor("#8F7FA8")
+class OtherGenre(val key: String, val label: String, val icon: String, val color: Int) {
     val soft: Int get() = mixColor(color, Color.WHITE, 0.84f)
     val dark: Int get() = mixColor(color, Color.BLACK, 0.42f)
+}
 
+object OtherGenres {
+    private fun c(s: String): Int = Color.parseColor(s)
+
+    /** Cada um tem cor e símbolo só dele (nenhum repete os símbolos dos gêneros com tema). */
     val all: List<OtherGenre> = listOf(
-        OtherGenre("x_policial", "Policial", "shield"),
-        OtherGenre("x_juridico", "Jurídico", "book"),
-        OtherGenre("x_politico", "Político", "flag"),
-        OtherGenre("x_sobrenatural", "Sobrenatural", "ghost"),
-        OtherGenre("x_zumbi", "Zumbi", "skull"),
-        OtherGenre("x_vampiro", "Vampiro", "bat"),
-        OtherGenre("x_viagem_tempo", "Viagem no tempo", "hourglass"),
-        OtherGenre("x_reencarnacao", "Reencarnação", "replay"),
-        OtherGenre("x_superpoderes", "Superpoderes", "bolt"),
-        OtherGenre("x_distopia", "Distopia", "planet"),
-        OtherGenre("x_militar", "Militar", "medal"),
-        OtherGenre("x_trabalho", "Trabalho", "tag"),
-        OtherGenre("x_chaebol", "Chaebol", "gem"),
-        OtherGenre("x_casamento", "Casamento por contrato", "ring"),
-        OtherGenre("x_amizade", "Amizade", "smile"),
-        OtherGenre("x_lgbt", "LGBTQ+", "heart"),
-        OtherGenre("x_slice", "Slice of life", "coffee"),
-        OtherGenre("x_culinario", "Culinário", "cake"),
-        OtherGenre("x_moda", "Moda", "sparkle"),
-        OtherGenre("x_idol", "Idols", "mic"),
-        OtherGenre("x_superacao", "Superação", "trophy")
+        OtherGenre("x_policial", "Policial", "shield", c("#5B7FD9")),
+        OtherGenre("x_juridico", "Jurídico", "scale", c("#8A6D5A")),
+        OtherGenre("x_politico", "Político", "flag", c("#E8505B")),
+        OtherGenre("x_sobrenatural", "Sobrenatural", "moon", c("#7B6CF0")),
+        OtherGenre("x_zumbi", "Zumbi", "tomb", c("#7A9A5A")),
+        OtherGenre("x_vampiro", "Vampiro", "bat", c("#9E1F4D")),
+        OtherGenre("x_viagem_tempo", "Viagem no tempo", "hourglass", c("#E0A93B")),
+        OtherGenre("x_reencarnacao", "Reencarnação", "replay", c("#2BA6A0")),
+        OtherGenre("x_superpoderes", "Superpoderes", "flame", c("#FF7A3D")),
+        OtherGenre("x_distopia", "Distopia", "globe", c("#4A8FA8")),
+        OtherGenre("x_militar", "Militar", "medal", c("#6B7A3A")),
+        OtherGenre("x_trabalho", "Trabalho", "chart", c("#3E6FD8")),
+        OtherGenre("x_chaebol", "Chaebol", "gem", c("#D45FA0")),
+        OtherGenre("x_casamento", "Casamento por contrato", "ring", c("#FF8FB7")),
+        OtherGenre("x_amizade", "Amizade", "person", c("#F29B5C")),
+        OtherGenre("x_lgbt", "LGBTQ+", "rainbow", c("#A068E0")),
+        OtherGenre("x_slice", "Slice of life", "leaf", c("#6FBF4A")),
+        OtherGenre("x_culinario", "Culinário", "cake", c("#D98B5F")),
+        OtherGenre("x_moda", "Moda", "butterfly", c("#E36BC4")),
+        OtherGenre("x_idol", "Idols", "mic", c("#9B5DE5")),
+        OtherGenre("x_superacao", "Superação", "sun", c("#F2A93B"))
     )
 
     fun exists(k: String): Boolean = all.any { it.key == k }
