@@ -164,8 +164,9 @@ class DramaAdapter(
             2 -> buildPoster(c, c.dp(112), c.dp(160), false)
             4 -> buildFeatured(c)
             else -> {
-                val cell = (c.resources.displayMetrics.widthPixels - c.dp(28)) / 3 - c.dp(8)
-                buildPoster(c, MATCH, cell * 3 / 2, true)
+                // grade de 2 colunas: capa alta (proporção de pôster) dentro de um cartão detalhado
+                val colW = (c.resources.displayMetrics.widthPixels - c.dp(24)) / 2 - c.dp(20)
+                buildGrid(c, colW * 138 / 100)
             }
         }
     }
@@ -299,7 +300,7 @@ class DramaAdapter(
         }
         val fr = h.frame
         if (fr != null) {
-            if (mode == 0) {
+            if (mode == 0 || mode == 3) {
                 fr.background = roundRect(Palette.card, fr.dp(24).toFloat(), mixColor(g.primary, Color.WHITE, 0.6f), fr.dp(1))
             } else {
                 fr.background = roundRect(g.soft, fr.dp(22).toFloat(), mixColor(g.primary, Color.WHITE, 0.55f), fr.dp(1))
@@ -577,6 +578,112 @@ class DramaAdapter(
             stats = stats, tagline = tag, seal = seal
         )
     }
+
+    /** Grade: cartão com capa de pôster, selo, coração, nota, gêneros, plataforma e progresso. */
+    private fun buildGrid(c: Context, coverH: Int): VH {
+        val root = LinearLayout(c)
+        root.orientation = LinearLayout.VERTICAL
+        root.setPadding(c.dp(6), c.dp(6), c.dp(6), c.dp(10))
+        root.background = roundRect(Palette.card, c.dp(24).toFloat(), Palette.line, c.dp(1))
+        val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
+        rlp.setMargins(c.dp(4), c.dp(5), c.dp(4), c.dp(7))
+        root.layoutParams = rlp
+        root.pressable(0.96f)
+
+        // capa com cantos arredondados, selo no canto, coração, nota e status em cima de um degradê
+        val frame = FrameLayout(c)
+        frame.background = roundRect(Palette.card, c.dp(19).toFloat())
+        frame.clipToOutline = true
+        val cover = CoverView(c, 19)
+        cover.elevation = 0f
+        frame.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
+
+        val scrim = View(c)
+        frame.addView(scrim, FrameLayout.LayoutParams(MATCH, c.dp(70), Gravity.BOTTOM))
+
+        val seal = SealView(c)
+        val slp = FrameLayout.LayoutParams(c.dp(32), c.dp(32), Gravity.TOP or Gravity.START)
+        slp.setMargins(c.dp(5), c.dp(5), 0, 0)
+        frame.addView(seal, slp)
+
+        val fav = c.favBadge(28)
+        val flp = FrameLayout.LayoutParams(c.dp(36), c.dp(36))
+        flp.gravity = Gravity.TOP or Gravity.END
+        flp.setMargins(0, c.dp(4), c.dp(4), 0)
+        frame.addView(fav, flp)
+
+        val badge = c.scoreBadge(30, 13f)
+        val blp = FrameLayout.LayoutParams(WRAP, WRAP)
+        blp.gravity = Gravity.BOTTOM or Gravity.START
+        blp.setMargins(c.dp(7), 0, 0, c.dp(7))
+        frame.addView(badge, blp)
+
+        val dot = FrameLayout(c)
+        dot.addView(IconView(c, "play", Color.WHITE, 13), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        val dlp = FrameLayout.LayoutParams(c.dp(26), c.dp(26), Gravity.BOTTOM or Gravity.END)
+        dlp.setMargins(0, 0, c.dp(7), c.dp(7))
+        frame.addView(dot, dlp)
+        root.addView(frame, c.lin(MATCH, coverH))
+
+        val title = c.label("", 14f, Palette.text, true, true)
+        title.maxLines = 2
+        title.minLines = 2
+        title.ellipsize = TextUtils.TruncateAt.END
+        root.addView(title, c.lin(MATCH, WRAP, t = 8, l = 4, r = 4))
+
+        val sub = c.label("", 10.5f, Palette.muted)
+        sub.maxLines = 1
+        sub.ellipsize = TextUtils.TruncateAt.END
+        root.addView(sub, c.lin(MATCH, WRAP, t = 1, l = 4, r = 4))
+
+        // gêneros (o principal + os extras escolhidos); a pílula de status fica escondida porque a bolinha da capa já mostra
+        val flow = FlowLayout(c)
+        flow.hGap = c.dp(4)
+        flow.vGap = c.dp(4)
+        val gc = smallPill(c, "heart")
+        val chip = smallPill(c, "play")
+        chip.visibility = View.GONE
+        flow.addView(gc)
+        flow.addView(chip)
+        root.addView(flow, c.lin(MATCH, WRAP, t = 7, l = 3, r = 3))
+
+        val rrow = LinearLayout(c)
+        rrow.orientation = LinearLayout.HORIZONTAL
+        rrow.gravity = Gravity.CENTER_VERTICAL
+        val rating = RatingView(c, 12, false)
+        val note = c.label("", 10.5f, Palette.muted, true)
+        rrow.addView(rating, c.lin(WRAP, WRAP))
+        rrow.addView(note, c.lin(WRAP, WRAP, l = 6))
+        root.addView(rrow, c.lin(MATCH, WRAP, t = 7, l = 4, r = 4))
+
+        val plat = c.label("", 10.5f, Palette.muted)
+        plat.maxLines = 1
+        plat.ellipsize = TextUtils.TruncateAt.END
+        plat.setCompoundDrawables(c.iconDrawable("tv", Palette.muted, c.dp(11)), null, null, null)
+        plat.compoundDrawablePadding = c.dp(5)
+        root.addView(plat, c.lin(MATCH, WRAP, t = 5, l = 4, r = 4))
+
+        val prow = LinearLayout(c)
+        prow.orientation = LinearLayout.HORIZONTAL
+        prow.gravity = Gravity.CENTER_VERTICAL
+        val prog = c.label("", 10.5f, Palette.text, true)
+        prog.maxLines = 1
+        prog.ellipsize = TextUtils.TruncateAt.END
+        val percent = c.label("", 10.5f, Palette.pinkDark, true)
+        prow.addView(prog, c.lin(0, WRAP, 1f, r = 6))
+        prow.addView(percent, c.lin(WRAP, WRAP))
+        root.addView(prow, c.lin(MATCH, WRAP, t = 8, l = 4, r = 4))
+        val bar = SoftBar(c)
+        root.addView(bar, c.lin(MATCH, c.dp(7), t = 4, l = 4, r = 4))
+
+        return VH(
+            root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
+            chip = chip, genreChip = gc, badge = badge, fav = fav, scrim = scrim,
+            seal = seal, dot = dot, percent = percent, flow = flow, plat = plat,
+            note = note, frame = root
+        )
+    }
+
 
     /** Grade: pôster com moldura na cor do gênero, selo, nota, status e progresso. */
     private fun buildPoster(c: Context, wParam: Int, hPx: Int, withBar: Boolean): VH {

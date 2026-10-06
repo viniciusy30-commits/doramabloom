@@ -1,3 +1,8 @@
+#id 2026-10-06-i
+#titulo Grade da Estante bem mais caprichada
+- Na visualização em grade, cada dorama virou um cartão: capa grande de pôster com cantos arredondados, selo do gênero, coração, nota e status em cima de um degradê.
+- Embaixo da capa: título, ano e país, os gêneros escolhidos, corações da nota, onde assistir e a barrinha de progresso com a porcentagem.
+
 #id 2026-10-06-h
 #titulo Escolha os gêneros que aparecem na Estante
 - Na edição do dorama, em "Aparecem na Estante", você escolhe até 2 gêneros extras para aparecerem no cartão. O gênero principal sempre aparece.
