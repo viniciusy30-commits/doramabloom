@@ -16,6 +16,9 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
+import android.text.TextPaint
+import android.text.TextUtils
+import android.util.TypedValue
 import android.util.LruCache
 import android.view.Gravity
 import android.view.View
@@ -112,6 +115,75 @@ fun Context.label(s: String, size: Float = 14f, color: Int = Palette.text, bold:
     } else if (bold) {
         t.typeface = Typeface.DEFAULT_BOLD
     }
+    return t
+}
+
+/**
+ * Texto de uma linha que diminui sozinho até caber, em vez de ser cortado com "...".
+ * Se mesmo no tamanho mínimo não couber e wrapAtMin estiver ligado, passa para duas linhas.
+ */
+class FitText(ctx: Context) : TextView(ctx) {
+    var minSp: Float = 9f
+    var wrapAtMin: Boolean = false
+    private var baseSize = 0f
+
+    override fun setTextSize(unit: Int, size: Float) {
+        super.setTextSize(unit, size)
+        baseSize = textSize
+        fit()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w != oldw) fit()
+    }
+
+    override fun onTextChanged(text: CharSequence?, start: Int, lengthBefore: Int, lengthAfter: Int) {
+        super.onTextChanged(text, start, lengthBefore, lengthAfter)
+        fit()
+    }
+
+    private fun fit() {
+        if (baseSize <= 0f || width <= 0) return
+        val avail = width - compoundPaddingLeft - compoundPaddingRight
+        val t = text?.toString() ?: return
+        if (avail <= 0 || t.isEmpty()) return
+        val dm = resources.displayMetrics
+        val minPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, minSp, dm)
+        val step = dm.density * 0.5f
+        val p = TextPaint(paint)
+        var size = baseSize
+        p.textSize = size
+        while (size > minPx && p.measureText(t) > avail) {
+            size -= step
+            p.textSize = size
+        }
+        if (size < minPx) size = minPx
+        val tooWide = p.measureText(t) > avail
+        val wantLines = if (wrapAtMin && tooWide) 2 else 1
+        if (maxLines != wantLines) maxLines = wantLines
+        if (Math.abs(size - textSize) > 0.4f) super.setTextSize(TypedValue.COMPLEX_UNIT_PX, size)
+    }
+}
+
+/** Como o label(), mas o texto diminui para caber numa linha. */
+fun Context.fitLabel(
+    s: String, size: Float = 14f, color: Int = Palette.text,
+    bold: Boolean = false, cute: Boolean = false, minSp: Float = 9f, wrapAtMin: Boolean = false
+): FitText {
+    val t = FitText(this)
+    t.minSp = minSp
+    t.wrapAtMin = wrapAtMin
+    t.text = s
+    t.textSize = size
+    t.setTextColor(color)
+    if (cute) {
+        t.typeface = Typeface.create("casual", if (bold) Typeface.BOLD else Typeface.NORMAL)
+    } else if (bold) {
+        t.typeface = Typeface.DEFAULT_BOLD
+    }
+    t.maxLines = 1
+    t.ellipsize = TextUtils.TruncateAt.END
     return t
 }
 

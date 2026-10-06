@@ -33,9 +33,7 @@ fun Context.statBubble(icon: String, text: String, g: Genre): View {
     b.background = roundRect(Palette.card, dp(18).toFloat(), mixColor(g.primary, Palette.card, 0.45f), dp(2))
     b.elevation = dp(2).toFloat()
     b.addView(IconView(this, icon, g.primary, 16), LinearLayout.LayoutParams(WRAP, WRAP))
-    val t = label(text, 10.5f, g.dark, true)
-    t.maxLines = 1
-    t.ellipsize = android.text.TextUtils.TruncateAt.END
+    val t = fitLabel(text, 10.5f, g.dark, true, false, 7f)
     t.gravity = Gravity.CENTER
     b.addView(t, lin(MATCH, WRAP, t = 2))
     return b
@@ -535,9 +533,7 @@ class DramaAdapter(
         sub.ellipsize = TextUtils.TruncateAt.END
         info.addView(sub, c.lin(MATCH, WRAP, t = 2, b = 4))
         // frase fofa do gênero
-        val tag = c.label("", 12f, Palette.muted)
-        tag.maxLines = 1
-        tag.ellipsize = TextUtils.TruncateAt.END
+        val tag = c.fitLabel("", 12f, Palette.muted, false, false, 8f)
         tag.setTypeface(tag.typeface, android.graphics.Typeface.ITALIC)
         tag.compoundDrawablePadding = c.dp(6)
         info.addView(tag, c.lin(MATCH, WRAP, b = 10))

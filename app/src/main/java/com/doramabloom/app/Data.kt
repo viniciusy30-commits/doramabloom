@@ -10,8 +10,18 @@ import android.media.ExifInterface
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedOutputStream
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.OutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 data class Genre(
     val key: String,
@@ -803,6 +813,240 @@ object Store {
             }
             persist()
             n
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    // ------------------------------------------------------------------ BACKUP COMPLETO (.zip)
+
+    fun backupFileName(): String =
+        "MyDoramas-backup-" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) + ".zip"
+
+    /** Foto da lista no momento do pedido (o arquivo é gravado em segundo plano). */
+    fun backupSnapshot(): List<Drama> = list.map { it.copy() }
+
+    private fun settingsJson(): JSONObject {
+        val s = JSONObject()
+        s.put("themeMode", themeMode)
+        s.put("textZoom", textZoom)
+        s.put("homeUrl", homeUrl)
+        s.put("userName", userName)
+        s.put("askedName", askedName)
+        return s
+    }
+
+    /**
+     * Grava o backup completo num .zip: backup.json (doramas, gêneros, ajustes)
+     * e a pasta covers/ com a imagem de cada capa. Devolve false se der erro.
+     */
+    fun writeBackup(dramas: List<Drama>, out: OutputStream): Boolean {
+        return try {
+            val zip = ZipOutputStream(BufferedOutputStream(out))
+            val arr = JSONArray()
+            val files = ArrayList<Pair<String, File>>()
+            for (d in dramas) {
+                val o = d.toJson()
+                val f = if (d.cover.isNotEmpty()) File(d.cover) else null
+                if (f != null && f.exists()) {
+                    val name = "covers/" + d.id + ".jpg"
+                    o.put("cover", name)
+                    files.add(Pair(name, f))
+                } else {
+                    o.put("cover", "")
+                }
+                arr.put(o)
+            }
+            val ga = JSONArray()
+            for (g in Genres.custom()) ga.put(genreToJson(g))
+            val ea = JSONArray()
+            for (g in Genres.edited().values) ea.put(genreToJson(g))
+            val root = JSONObject()
+            root.put("app", "MyDoramas")
+            root.put("backupVersion", 2)
+            root.put("createdAt", System.currentTimeMillis())
+            root.put("settings", settingsJson())
+            root.put("genres", ga)
+            root.put("genreEdits", ea)
+            root.put("dramas", arr)
+            zip.putNextEntry(ZipEntry("backup.json"))
+            zip.write(root.toString().toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+            for (p in files) {
+                zip.putNextEntry(ZipEntry(p.first))
+                FileInputStream(p.second).use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
+            zip.finish()
+            zip.flush()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun parseCustomGenres(ga: JSONArray?, taken: (String) -> Boolean): List<Genre> {
+        val r = ArrayList<Genre>()
+        if (ga == null) return r
+        for (i in 0 until ga.length()) {
+            val o = ga.getJSONObject(i)
+            val k = o.optString("key", "")
+            val l = o.optString("label", "")
+            if (k.isBlank() || l.isBlank() || taken(k) || r.any { it.key == k }) continue
+            r.add(
+                Genres.makeCustom(
+                    k, l, o.optString("icon", "heart"),
+                    o.optInt("color", Palette.pink), o.optString("tagline", "")
+                )
+            )
+        }
+        return r
+    }
+
+    private fun applySettings(s: JSONObject?, overwrite: Boolean) {
+        if (s == null) return
+        if (overwrite) {
+            if (s.has("themeMode")) themeMode = s.optInt("themeMode", 0)
+            if (s.has("textZoom")) textZoom = s.optInt("textZoom", 100)
+            if (s.has("homeUrl")) homeUrl = s.optString("homeUrl", DEFAULT_HOME)
+            if (s.has("userName")) userName = s.optString("userName", "")
+            if (s.has("askedName")) askedName = s.optBoolean("askedName", true)
+        } else {
+            val n = s.optString("userName", "")
+            if (userName.isBlank() && n.isNotBlank()) {
+                userName = n
+                askedName = true
+            }
+        }
+    }
+
+    /**
+     * Lê um backup (o .zip completo ou o texto antigo).
+     * replace = apaga o que existe e restaura tudo; senão só junta o que ainda não existe.
+     * Devolve quantos doramas entraram, ou -1 se o arquivo não for um backup válido.
+     */
+    fun readBackup(bytes: ByteArray, replace: Boolean): Int {
+        return try {
+            if (bytes.size < 2) return -1
+            val covers = HashMap<String, ByteArray>()
+            var jsonText: String? = null
+            val isZip = bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()
+            if (isZip) {
+                val z = ZipInputStream(ByteArrayInputStream(bytes))
+                var e = z.nextEntry
+                while (e != null) {
+                    if (!e.isDirectory) {
+                        val data = z.readBytes()
+                        if (e.name == "backup.json") {
+                            jsonText = String(data, Charsets.UTF_8)
+                        } else if (e.name.startsWith("covers/")) {
+                            covers[e.name] = data
+                        }
+                    }
+                    z.closeEntry()
+                    e = z.nextEntry
+                }
+                z.close()
+            } else {
+                jsonText = String(bytes, Charsets.UTF_8)
+            }
+            val t = (jsonText ?: return -1).trim()
+            val root: JSONObject? = if (t.startsWith("{")) JSONObject(t) else null
+            val arr: JSONArray = if (root != null) (root.optJSONArray("dramas") ?: JSONArray()) else JSONArray(t)
+
+            // 1) lê e confere tudo antes de mexer em qualquer coisa
+            val keep = ArrayList<Pair<Drama, String>>()
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val d = dramaFromJson(o)
+                if (d.title.isBlank()) continue
+                if (!replace) {
+                    val dup = list.any { it.title.equals(d.title, true) && it.year == d.year } ||
+                        keep.any { it.first.title.equals(d.title, true) && it.first.year == d.year }
+                    if (dup) continue
+                }
+                keep.add(Pair(d, o.optString("cover", "")))
+            }
+            if (replace && keep.isEmpty()) return -1
+
+            // 2) grava as capas e acerta os ids
+            val dir = File(appContext.filesDir, "covers")
+            dir.mkdirs()
+            val stamp = System.currentTimeMillis()
+            val used = HashSet<Long>()
+            if (!replace) for (d in list) used.add(d.id)
+            var next = stamp
+            for (i in keep.indices) {
+                val d = keep[i].first
+                if (!replace || used.contains(d.id)) {
+                    while (used.contains(next)) next++
+                    d.id = next
+                }
+                used.add(d.id)
+                d.cover = ""
+                val data = covers[keep[i].second]
+                if (data != null && data.isNotEmpty()) {
+                    val f = File(dir, "c" + stamp + "_" + i + ".jpg")
+                    FileOutputStream(f).use { it.write(data) }
+                    d.cover = f.absolutePath
+                }
+            }
+
+            // 3) aplica
+            if (replace) {
+                val novas = HashSet<String>()
+                for (p in keep) novas.add(p.first.cover)
+                for (d in list) {
+                    if (d.cover.isNotEmpty() && !novas.contains(d.cover)) {
+                        try {
+                            File(d.cover).delete()
+                        } catch (e: Exception) {
+                        }
+                    }
+                }
+                list.clear()
+                for (p in keep) list.add(p.first)
+                if (root != null) {
+                    if (root.has("genres")) {
+                        Genres.setCustom(parseCustomGenres(root.optJSONArray("genres")) { Genres.factoryOf(it) != null })
+                    }
+                    if (root.has("genreEdits")) {
+                        val m = HashMap<String, Genre>()
+                        val ea = root.optJSONArray("genreEdits")
+                        if (ea != null) {
+                            for (i in 0 until ea.length()) {
+                                val g = editFromJson(ea.getJSONObject(i)) ?: continue
+                                m[g.key] = g
+                            }
+                        }
+                        Genres.setEdits(m)
+                    }
+                    persistGenres()
+                    applySettings(root.optJSONObject("settings"), true)
+                }
+            } else {
+                for (p in keep) list.add(p.first)
+                if (root != null) {
+                    val novos = parseCustomGenres(root.optJSONArray("genres")) { Genres.exists(it) }
+                    if (novos.isNotEmpty()) {
+                        Genres.setCustom(Genres.custom() + novos)
+                    }
+                    val ea = root.optJSONArray("genreEdits")
+                    if (ea != null) {
+                        val m = HashMap(Genres.edited())
+                        for (i in 0 until ea.length()) {
+                            val g = editFromJson(ea.getJSONObject(i)) ?: continue
+                            if (!m.containsKey(g.key)) m[g.key] = g
+                        }
+                        Genres.setEdits(m)
+                    }
+                    persistGenres()
+                    applySettings(root.optJSONObject("settings"), false)
+                }
+            }
+            Covers.clear()
+            persist()
+            keep.size
         } catch (e: Exception) {
             -1
         }

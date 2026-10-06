@@ -1,6 +1,7 @@
 package com.doramabloom.app
 
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -874,10 +875,10 @@ class MainActivity : AppCompatActivity() {
         eb.addView(ei)
         val etx = LinearLayout(this)
         etx.orientation = LinearLayout.VERTICAL
-        val et = label("", 16f, Palette.pinkDark, true, true)
-        val es = label("", 12f, Palette.muted)
-        etx.addView(et)
-        etx.addView(es)
+        val et = fitLabel("", 16f, Palette.pinkDark, true, true, 9f, true)
+        val es = fitLabel("", 12f, Palette.muted, false, false, 8f)
+        etx.addView(et, lin(MATCH, WRAP))
+        etx.addView(es, lin(MATCH, WRAP))
         eb.addView(etx, lin(0, WRAP, 1f, l = 12))
         eb.visibility = if (anyFilter()) View.VISIBLE else View.GONE
         effBox = eb
@@ -1333,15 +1334,16 @@ class MainActivity : AppCompatActivity() {
         val bc = card(14, 22)
         bc.addView(
             label(
-                "Guarde uma cópia da sua lista (sem as capas) para levar a outro celular, ou restaure uma cópia.",
+                "Cria um arquivo .zip com tudo: doramas, capas, gêneros e ajustes. " +
+                    "Para restaurar neste ou em outro celular, é só escolher o arquivo.",
                 12f, Palette.muted
             )
         )
         val brow = LinearLayout(this)
         brow.orientation = LinearLayout.HORIZONTAL
-        val exp = pill("Exportar", Palette.pink, Color.WHITE, 13f, "upload")
+        val exp = pill("Baixar backup", Palette.pink, Color.WHITE, 13f, "upload")
         exp.setOnClickListener { exportBackup() }
-        val imp = pill("Importar", Color.parseColor("#C38BD8"), Color.WHITE, 13f, "download")
+        val imp = pill("Restaurar", Color.parseColor("#C38BD8"), Color.WHITE, 13f, "download")
         imp.setOnClickListener { importBackup() }
         brow.addView(exp, lin(WRAP, WRAP, r = 8))
         brow.addView(imp, lin(WRAP, WRAP))
@@ -1352,34 +1354,112 @@ class MainActivity : AppCompatActivity() {
         return sv
     }
 
+    private val reqExport = 7301
+    private val reqImport = 7302
+
+    /** Abre o seletor do celular para você escolher onde salvar o arquivo de backup (.zip). */
     private fun exportBackup() {
-        val i = Intent(Intent.ACTION_SEND)
-        i.type = "text/plain"
-        i.putExtra(Intent.EXTRA_TEXT, Store.exportJson())
-        startActivity(Intent.createChooser(i, "Salvar backup"))
+        val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
+        i.addCategory(Intent.CATEGORY_OPENABLE)
+        i.type = "application/zip"
+        i.putExtra(Intent.EXTRA_TITLE, Store.backupFileName())
+        try {
+            startActivityForResult(i, reqExport)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Não consegui abrir o seletor de arquivos.", Toast.LENGTH_LONG).show()
+        }
     }
 
+    /** Abre o seletor do celular para você escolher o arquivo de backup. */
     private fun importBackup() {
-        val et = EditText(this)
-        et.hint = "Cole aqui o backup"
-        et.minLines = 4
-        et.gravity = Gravity.TOP or Gravity.START
-        val box = FrameLayout(this)
-        box.setPadding(dp(22), dp(8), dp(22), 0)
-        box.addView(et, FrameLayout.LayoutParams(MATCH, WRAP))
-        AlertDialog.Builder(this)
-            .setTitle("Importar backup")
-            .setView(box)
-            .setPositiveButton("Importar") { _, _ ->
-                val n = Store.importJson(et.text.toString())
-                if (n < 0) {
-                    Toast.makeText(this, "Esse texto não parece um backup.", Toast.LENGTH_LONG).show()
+        val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        i.addCategory(Intent.CATEGORY_OPENABLE)
+        i.type = "*/*"
+        i.putExtra(
+            Intent.EXTRA_MIME_TYPES,
+            arrayOf(
+                "application/zip", "application/x-zip-compressed", "application/octet-stream",
+                "application/json", "text/plain"
+            )
+        )
+        try {
+            startActivityForResult(i, reqImport)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Não consegui abrir o seletor de arquivos.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        if (requestCode == reqExport) {
+            doExport(uri)
+        } else if (requestCode == reqImport) {
+            askRestoreMode(uri)
+        }
+    }
+
+    private fun doExport(uri: Uri) {
+        Toast.makeText(this, "Gerando o backup…", Toast.LENGTH_SHORT).show()
+        val snapshot = Store.backupSnapshot()
+        Thread {
+            var ok = false
+            try {
+                val os = contentResolver.openOutputStream(uri, "wt")
+                if (os != null) {
+                    os.use { ok = Store.writeBackup(snapshot, it) }
+                }
+            } catch (e: Exception) {
+                ok = false
+            }
+            runOnUiThread {
+                if (ok) {
+                    Toast.makeText(this, "Backup salvo! Guarde esse arquivo com carinho.", Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(this, n.toString() + " doramas adicionados.", Toast.LENGTH_LONG).show()
-                    showTab(4)
+                    Toast.makeText(this, "Não consegui salvar o backup.", Toast.LENGTH_LONG).show()
                 }
             }
+        }.start()
+    }
+
+    private fun askRestoreMode(uri: Uri) {
+        AlertDialog.Builder(this)
+            .setTitle("Restaurar backup")
+            .setMessage(
+                "Substituir tudo apaga a lista atual e coloca a do arquivo, com capas e ajustes. " +
+                    "Mesclar só adiciona o que ainda não existe."
+            )
+            .setPositiveButton("Substituir tudo") { _, _ -> doImport(uri, true) }
+            .setNeutralButton("Mesclar") { _, _ -> doImport(uri, false) }
             .setNegativeButton("Cancelar", null)
             .show()
+    }
+
+    private fun doImport(uri: Uri, replace: Boolean) {
+        Toast.makeText(this, "Lendo o arquivo…", Toast.LENGTH_SHORT).show()
+        Thread {
+            var bytes: ByteArray? = null
+            try {
+                val ins = contentResolver.openInputStream(uri)
+                if (ins != null) {
+                    ins.use { bytes = it.readBytes() }
+                }
+            } catch (e: Exception) {
+                bytes = null
+            }
+            val data = bytes
+            runOnUiThread {
+                val n = if (data == null) -1 else Store.readBackup(data, replace)
+                if (n < 0) {
+                    Toast.makeText(this, "Esse arquivo não parece um backup do app.", Toast.LENGTH_LONG).show()
+                } else {
+                    val msg = if (replace) "Backup restaurado: $n doramas." else "$n doramas adicionados."
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                    ThemeMode.applyNight()
+                    if (ThemeMode.isDark() != Palette.dark) recreate() else showTab(4, false)
+                }
+            }
+        }.start()
     }
 }

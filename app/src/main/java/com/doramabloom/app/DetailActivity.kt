@@ -243,7 +243,7 @@ class DetailActivity : AppCompatActivity() {
             mid.orientation = LinearLayout.VERTICAL
             mid.gravity = Gravity.CENTER_HORIZONTAL
             if (listName.isNotBlank()) {
-                val nl = label(listName, 14f, g.dark, true, true)
+                val nl = fitLabel(listName, 14f, g.dark, true, true, 8f, true)
                 nl.gravity = Gravity.CENTER
                 nl.maxLines = 1
                 nl.ellipsize = TextUtils.TruncateAt.END
