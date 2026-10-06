@@ -169,7 +169,14 @@ object Genres {
  * então escolher um deles nunca muda a atmosfera das telas.
  * Ficam guardados no mesmo campo "tags" do dorama, com chave começando em "x_".
  */
-class OtherGenre(val key: String, val label: String, val icon: String, val color: Int) {
+class OtherGenre(
+    val key: String,
+    val label: String,
+    val icon: String,
+    val color: Int,
+    /** true = criado por você; false = veio com o app (pode ser editado ou excluído também). */
+    val custom: Boolean = false
+) {
     val soft: Int get() = mixColor(color, Color.WHITE, 0.84f)
     val dark: Int get() = mixColor(color, Color.BLACK, 0.42f)
 }
@@ -178,7 +185,7 @@ object OtherGenres {
     private fun c(s: String): Int = Color.parseColor(s)
 
     /** Cada um tem cor e símbolo só dele (nenhum repete os símbolos dos gêneros com tema). */
-    val all: List<OtherGenre> = listOf(
+    private val factory: List<OtherGenre> = listOf(
         OtherGenre("x_policial", "Policial", "shield", c("#5B7FD9")),
         OtherGenre("x_juridico", "Jurídico", "scale", c("#8A6D5A")),
         OtherGenre("x_politico", "Político", "flag", c("#E8505B")),
@@ -202,9 +209,48 @@ object OtherGenres {
         OtherGenre("x_superacao", "Superação", "sun", c("#F2A93B"))
     )
 
+    private var edits: Map<String, OtherGenre> = emptyMap()
+    private var hidden: Set<String> = emptySet()
+    private var extra: List<OtherGenre> = emptyList()
+
+    /** Os de fábrica que você não excluiu (com as suas edições) e depois os que você criou. */
+    val all: List<OtherGenre>
+        get() = factory.filter { !hidden.contains(it.key) }.map { edits[it.key] ?: it } + extra
+
+    fun setEdits(m: Map<String, OtherGenre>) {
+        edits = m
+    }
+
+    fun edited(): Map<String, OtherGenre> = edits
+
+    fun isEdited(k: String): Boolean = edits.containsKey(k)
+
+    fun setHidden(s: Set<String>) {
+        hidden = s
+    }
+
+    /** Chaves dos de fábrica que você excluiu. */
+    fun hiddenKeys(): Set<String> = hidden
+
+    fun factoryOf(k: String): OtherGenre? = factory.firstOrNull { it.key == k }
+
+    fun custom(): List<OtherGenre> = extra
+
+    fun setCustom(l: List<OtherGenre>) {
+        extra = l
+    }
+
     fun exists(k: String): Boolean = all.any { it.key == k }
 
-    fun byKey(k: String): OtherGenre = all.first { it.key == k }
+    fun byKey(k: String): OtherGenre =
+        all.firstOrNull { it.key == k } ?: OtherGenre(k, "Outro", "tag", c("#B98AA0"))
+
+    fun makeCustom(key: String, label: String, icon: String, color: Int): OtherGenre =
+        OtherGenre(key, label, icon, color, true)
+
+    /** Versão editada de um de fábrica (mesma chave, então os doramas continuam marcados). */
+    fun editBuiltin(base: OtherGenre, label: String, icon: String, color: Int): OtherGenre =
+        OtherGenre(base.key, label, icon, color, false)
 }
 
 /** Três tons do gênero para as pétalas: uma mistura rica em vez de uma cor só. */
@@ -507,6 +553,7 @@ object Store {
         prefs = appContext.getSharedPreferences(PREF, Context.MODE_PRIVATE)
         loadGenres()
         loadGenreEdits()
+        loadOthers()
         load()
         loaded = true
     }
@@ -663,6 +710,163 @@ object Store {
         }
         persistGenres()
         if (changed) persist()
+    }
+
+    // ------------------------------------------------------------------ OUTROS GÊNEROS
+
+    private const val OCKEY = "otherCustom"
+    private const val OEKEY = "otherEdits"
+    private const val OHKEY = "otherHidden"
+
+    private fun otherToJson(g: OtherGenre): JSONObject {
+        val o = JSONObject()
+        o.put("key", g.key)
+        o.put("label", g.label)
+        o.put("icon", g.icon)
+        o.put("color", g.color)
+        return o
+    }
+
+    /** Lê um "outro gênero"; custom = false só aceita chaves de fábrica (é uma edição). */
+    private fun otherFromJson(o: JSONObject, custom: Boolean): OtherGenre? {
+        val k = o.optString("key", "")
+        val l = o.optString("label", "").trim()
+        if (k.isBlank() || l.isEmpty()) return null
+        val icon = o.optString("icon", "tag")
+        val color = o.optInt("color", Palette.pink)
+        if (!custom) {
+            val base = OtherGenres.factoryOf(k) ?: return null
+            return OtherGenres.editBuiltin(base, l, icon, color)
+        }
+        return OtherGenres.makeCustom(k, l, icon, color)
+    }
+
+    private fun parseOtherCustom(a: JSONArray?, taken: (String) -> Boolean): List<OtherGenre> {
+        val r = ArrayList<OtherGenre>()
+        if (a == null) return r
+        for (i in 0 until a.length()) {
+            val g = otherFromJson(a.getJSONObject(i), true) ?: continue
+            if (taken(g.key) || r.any { it.key == g.key }) continue
+            r.add(g)
+        }
+        return r
+    }
+
+    private fun parseOtherEdits(a: JSONArray?): Map<String, OtherGenre> {
+        val m = HashMap<String, OtherGenre>()
+        if (a == null) return m
+        for (i in 0 until a.length()) {
+            val g = otherFromJson(a.getJSONObject(i), false) ?: continue
+            m[g.key] = g
+        }
+        return m
+    }
+
+    private fun parseOtherHidden(a: JSONArray?): Set<String> {
+        val r = HashSet<String>()
+        if (a == null) return r
+        for (i in 0 until a.length()) {
+            val k = a.optString(i, "")
+            if (OtherGenres.factoryOf(k) != null) r.add(k)
+        }
+        return r
+    }
+
+    private fun loadOthers() {
+        try {
+            OtherGenres.setCustom(parseOtherCustom(JSONArray(prefs.getString(OCKEY, "[]") ?: "[]")) { false })
+            OtherGenres.setEdits(parseOtherEdits(JSONArray(prefs.getString(OEKEY, "[]") ?: "[]")))
+            OtherGenres.setHidden(parseOtherHidden(JSONArray(prefs.getString(OHKEY, "[]") ?: "[]")))
+        } catch (e: Exception) {
+            // dados corrompidos: volta ao padrão
+            OtherGenres.setCustom(emptyList())
+            OtherGenres.setEdits(emptyMap())
+            OtherGenres.setHidden(emptySet())
+        }
+    }
+
+    private fun otherState(): JSONObject {
+        val ca = JSONArray()
+        for (g in OtherGenres.custom()) ca.put(otherToJson(g))
+        val ea = JSONArray()
+        for (g in OtherGenres.edited().values) ea.put(otherToJson(g))
+        val ha = JSONArray()
+        for (k in OtherGenres.hiddenKeys()) ha.put(k)
+        val o = JSONObject()
+        o.put("custom", ca)
+        o.put("edits", ea)
+        o.put("hidden", ha)
+        return o
+    }
+
+    private fun persistOthers() {
+        version++
+        val st = otherState()
+        prefs.edit()
+            .putString(OCKEY, st.getJSONArray("custom").toString())
+            .putString(OEKEY, st.getJSONArray("edits").toString())
+            .putString(OHKEY, st.getJSONArray("hidden").toString())
+            .apply()
+    }
+
+    /** Salva a edição de um "outro gênero" (criado por você ou de fábrica). */
+    fun updateOtherGenre(g: OtherGenre) {
+        if (g.custom) {
+            OtherGenres.setCustom(OtherGenres.custom().map { if (it.key == g.key) g else it })
+        } else {
+            val m = HashMap(OtherGenres.edited())
+            m[g.key] = g
+            OtherGenres.setEdits(m)
+        }
+        persistOthers()
+    }
+
+    fun addOtherGenre(g: OtherGenre) {
+        val l = ArrayList(OtherGenres.custom())
+        l.removeAll { it.key == g.key }
+        l.add(g)
+        OtherGenres.setCustom(l)
+        persistOthers()
+    }
+
+    /** Volta um "outro gênero" de fábrica ao nome, símbolo e cor originais. */
+    fun resetOtherGenre(key: String) {
+        val m = HashMap(OtherGenres.edited())
+        m.remove(key)
+        OtherGenres.setEdits(m)
+        persistOthers()
+    }
+
+    /**
+     * Exclui um "outro gênero". Se foi você que criou, ele some de vez e sai dos doramas.
+     * Se veio com o app, só fica escondido (dá para trazer de volta em Restaurar padrões).
+     */
+    fun removeOtherGenre(key: String) {
+        val g = OtherGenres.all.firstOrNull { it.key == key } ?: return
+        if (g.custom) {
+            OtherGenres.setCustom(OtherGenres.custom().filter { it.key != key })
+            var changed = false
+            for (d in list) {
+                if (d.tags.contains(key)) {
+                    d.tags = d.tags.filter { it != key }
+                    changed = true
+                }
+            }
+            persistOthers()
+            if (changed) persist()
+        } else {
+            val m = HashMap(OtherGenres.edited())
+            m.remove(key)
+            OtherGenres.setEdits(m)
+            OtherGenres.setHidden(OtherGenres.hiddenKeys() + key)
+            persistOthers()
+        }
+    }
+
+    /** Traz de volta os "outros gêneros" de fábrica que você tinha excluído. */
+    fun restoreOtherDefaults() {
+        OtherGenres.setHidden(emptySet())
+        persistOthers()
     }
 
     fun setWatchSeason(d: Drama, s: Int) {
@@ -912,6 +1116,7 @@ object Store {
             root.put("settings", settingsJson())
             root.put("genres", ga)
             root.put("genreEdits", ea)
+            root.put("otherGenres", otherState())
             root.put("dramas", arr)
             zip.putNextEntry(ZipEntry("backup.json"))
             zip.write(root.toString().toByteArray(Charsets.UTF_8))
@@ -1066,6 +1271,13 @@ object Store {
                         Genres.setEdits(m)
                     }
                     persistGenres()
+                    val og = root.optJSONObject("otherGenres")
+                    if (og != null) {
+                        OtherGenres.setCustom(parseOtherCustom(og.optJSONArray("custom")) { false })
+                        OtherGenres.setEdits(parseOtherEdits(og.optJSONArray("edits")))
+                        OtherGenres.setHidden(parseOtherHidden(og.optJSONArray("hidden")))
+                        persistOthers()
+                    }
                     applySettings(root.optJSONObject("settings"), true)
                 }
             } else {
@@ -1085,6 +1297,17 @@ object Store {
                         Genres.setEdits(m)
                     }
                     persistGenres()
+                    val og = root.optJSONObject("otherGenres")
+                    if (og != null) {
+                        val novosO = parseOtherCustom(og.optJSONArray("custom")) { k -> OtherGenres.exists(k) || OtherGenres.hiddenKeys().contains(k) }
+                        if (novosO.isNotEmpty()) OtherGenres.setCustom(OtherGenres.custom() + novosO)
+                        val me = HashMap(OtherGenres.edited())
+                        for ((k, v) in parseOtherEdits(og.optJSONArray("edits"))) {
+                            if (!me.containsKey(k)) me[k] = v
+                        }
+                        OtherGenres.setEdits(me)
+                        persistOthers()
+                    }
                     applySettings(root.optJSONObject("settings"), false)
                 }
             }

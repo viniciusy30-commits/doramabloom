@@ -853,14 +853,7 @@ class MainActivity : AppCompatActivity() {
         val genreOpts = ArrayList<Opt>()
         genreOpts.add(Opt("all", "Todos os gêneros", Palette.pink, "tag"))
         for (g in Genres.all) genreOpts.add(Opt(g.key, g.label, g.primary, g.icon))
-        val glabRow = LinearLayout(this)
-        glabRow.orientation = LinearLayout.HORIZONTAL
-        glabRow.gravity = Gravity.CENTER_VERTICAL
-        glabRow.addView(label("Gêneros", 12.5f, Palette.muted, true), lin(0, WRAP, 1f, l = 4))
-        val newG = pill("Novo gênero", Palette.pinkSoft, Palette.pinkDark, 11f, "add")
-        newG.setOnClickListener { showGenreCreator { showTab(1, false) } }
-        glabRow.addView(newG, lin(WRAP, WRAP))
-        panel.addView(glabRow, lin(MATCH, WRAP, t = 8))
+        panel.addView(label("Gêneros", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
         panel.addView(chipScroller(genreOpts, genreFilter) {
             genreFilter = it
             filtersChanged()
@@ -1195,6 +1188,17 @@ class MainActivity : AppCompatActivity() {
         head.addView(label("Configurações", 26f, Palette.text, true, true), lin(WRAP, WRAP, l = 10))
         col.addView(head, lin(MATCH, WRAP, l = 4, b = 2))
 
+        // perfil
+        col.addView(section("Perfil", "person"))
+        val pc = card(14, 22)
+        val nm = Store.userName
+        pc.addView(label(if (nm.isBlank()) "Ainda sem nome" else "Olá, $nm!", 16f, Palette.text, true, true))
+        pc.addView(label("É assim que o app te chama na tela inicial.", 12f, Palette.muted), lin(WRAP, WRAP, t = 2))
+        val nb = pill("Mudar nome", Palette.pink, Color.WHITE, 13f, "edit")
+        nb.setOnClickListener { askName() }
+        pc.addView(nb, lin(WRAP, WRAP, t = 10))
+        col.addView(pc, lin(MATCH, WRAP))
+
         // aparência: claro, escuro ou o que o celular estiver usando
         col.addView(section("Aparência", "sparkle"))
         val ac = card(14, 22)
@@ -1221,17 +1225,6 @@ class MainActivity : AppCompatActivity() {
         upBtn.setOnClickListener { Updater.check(this, false) }
         uc.addView(upBtn, lin(MATCH, WRAP, t = 12))
         col.addView(uc, lin(MATCH, WRAP))
-
-        // perfil
-        col.addView(section("Perfil", "person"))
-        val pc = card(14, 22)
-        val nm = Store.userName
-        pc.addView(label(if (nm.isBlank()) "Ainda sem nome" else "Olá, $nm!", 16f, Palette.text, true, true))
-        pc.addView(label("É assim que o app te chama na tela inicial.", 12f, Palette.muted), lin(WRAP, WRAP, t = 2))
-        val nb = pill("Mudar nome", Palette.pink, Color.WHITE, 13f, "edit")
-        nb.setOnClickListener { askName() }
-        pc.addView(nb, lin(WRAP, WRAP, t = 10))
-        col.addView(pc, lin(MATCH, WRAP))
 
         // navegador
         col.addView(section("Navegador", "globe"))
@@ -1298,9 +1291,9 @@ class MainActivity : AppCompatActivity() {
         col.addView(nc, lin(MATCH, WRAP))
 
         // gêneros
-        col.addView(section("Gêneros", "tag"))
+        col.addView(section("Gêneros principais", "tag"))
         val gcard = card(14, 22)
-        gcard.addView(label("Cada gênero tem cor, ícone e selo próprios. Toque no lápis para editar qualquer um, ou crie os seus!", 12f, Palette.muted))
+        gcard.addView(label("Eles definem o tema do dorama: cor, ícone e selo próprios. Toque no lápis para editar qualquer um, ou crie os seus!", 12f, Palette.muted))
         val mine = Store.all()
         for (g in Genres.all) {
             val row = LinearLayout(this)
@@ -1352,6 +1345,71 @@ class MainActivity : AppCompatActivity() {
         }
         gcard.addView(newGenre, lin(MATCH, WRAP, t = 18))
         col.addView(gcard, lin(MATCH, WRAP))
+
+        // outros gêneros (subgêneros): só classificam e filtram, não mudam o tema
+        col.addView(section("Outros gêneros", "tag"))
+        val ocard = card(14, 22)
+        ocard.addView(label("Os subgêneros: só servem para classificar e filtrar, não mudam as cores do dorama. Edite, exclua ou crie os seus!", 12f, Palette.muted))
+        for (og in OtherGenres.all) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            val bubble = FrameLayout(this)
+            bubble.background = roundRect((og.color and 0x00FFFFFF) or 0x33000000, dp(14).toFloat())
+            bubble.addView(IconView(this, og.icon, og.color, 22), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+            row.addView(bubble, lin(dp(42), dp(42), r = 12))
+            val ot = LinearLayout(this)
+            ot.orientation = LinearLayout.VERTICAL
+            ot.addView(label(og.label, 14f, Palette.text, true))
+            val on = mine.count { it.tags.contains(og.key) }
+            ot.addView(label(if (on == 1) "1 dorama" else "$on doramas", 11f, og.color, true), lin(WRAP, WRAP, t = 2))
+            row.addView(ot, lin(0, WRAP, 1f))
+            row.addView(roundBtn("edit", og.color, false, 14) {
+                showOtherGenreEditor(og) {
+                    seenVersion = Store.version
+                    showTab(4, false)
+                }
+            }, lin(dp(34), dp(34), l = 8))
+            row.addView(roundBtn("delete", og.color, false, 14) {
+                AlertDialog.Builder(this)
+                    .setTitle("Excluir \"" + og.label + "\"?")
+                    .setMessage(
+                        if (og.custom) "Ele sai de todos os doramas que estavam marcados com ele."
+                        else "Ele some das listas e dos filtros. Para trazer de volta, use \"Restaurar padrões\" aqui embaixo."
+                    )
+                    .setPositiveButton("Excluir") { _, _ ->
+                        if (otherFilter == og.key) otherFilter = "all"
+                        Store.removeOtherGenre(og.key)
+                        seenVersion = Store.version
+                        showTab(4, false)
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            }, lin(dp(34), dp(34), l = 8))
+            ocard.addView(row, lin(MATCH, WRAP, t = 10))
+        }
+        if (OtherGenres.all.isEmpty()) {
+            ocard.addView(label("Nenhum por aqui. Crie o seu ou restaure os padrões.", 12.5f, Palette.muted), lin(WRAP, WRAP, t = 12))
+        }
+        val newOther = bigPill("Criar outro gênero", Palette.pink, Color.WHITE, 14f, "add")
+        newOther.setOnClickListener {
+            showOtherGenreEditor(null) {
+                seenVersion = Store.version
+                showTab(4, false)
+            }
+        }
+        ocard.addView(newOther, lin(MATCH, WRAP, t = 18))
+        if (OtherGenres.hiddenKeys().isNotEmpty()) {
+            val restore = bigPill("Restaurar padrões", Palette.pinkSoft, Palette.pinkDark, 13f, "replay")
+            restore.setOnClickListener {
+                Store.restoreOtherDefaults()
+                seenVersion = Store.version
+                softToast("Padrões de volta", Palette.pink, "check")
+                showTab(4, false)
+            }
+            ocard.addView(restore, lin(MATCH, WRAP, t = 8))
+        }
+        col.addView(ocard, lin(MATCH, WRAP))
 
         // backup
         col.addView(section("Backup", "download"))

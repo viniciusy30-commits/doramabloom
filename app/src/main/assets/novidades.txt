@@ -1,3 +1,13 @@
+#id 2026-10-06-e
+#titulo Outros gêneros editáveis e mais cores
+- Em Config., agora tem a seção "Outros gêneros": dá para editar nome, cor e símbolo, excluir e criar os seus. Os que vêm com o app podem ser excluídos e voltam em "Restaurar padrões".
+- Mais cores para escolher (50+ prontas) e duas barrinhas para misturar a cor do seu jeito, tanto nos gêneros principais quanto nos outros gêneros.
+- Mais símbolos para escolher na hora de criar ou editar um gênero.
+- O botão "Novo gênero" saiu dos filtros da Estante; para criar, é só ir em Config.
+- Os gêneros principais ganharam o nome "Gêneros principais" nas configurações.
+- O Perfil agora fica no topo das configurações.
+- O backup .zip também guarda os seus outros gêneros (criados, editados e excluídos).
+
 #id 2026-10-06-d
 #titulo Troca de doramas mais fofa e Outros gêneros
 - Ao arrastar de um dorama para outro, o vão no meio agora fica cheio de símbolos caindo, misturando as categorias dos dois doramas.

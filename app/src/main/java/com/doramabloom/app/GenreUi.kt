@@ -14,6 +14,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.doAfterTextChanged
 
@@ -26,18 +27,169 @@ val genreIconChoices: List<String> = listOf(
     "flame", "butterfly", "wand", "gem", "castle", "planet", "ufo", "sun",
     "cloud", "balloon", "ring", "cake", "gift", "mic", "headphones", "medal",
     "ball", "shield", "dagger", "key", "lock", "bat", "tomb", "lantern",
-    "fan", "heartbreak", "hourglass", "pill", "syringe"
+    "fan", "heartbreak", "hourglass", "pill", "syringe",
+    // ainda mais símbolos
+    "scale", "flag", "replay", "globe", "chart", "person", "rainbow", "clock", "tag"
 )
 
-/** Cores que você pode escolher ao criar um gênero (inclui preto e cinza escuro). */
+/** Cores prontas para escolher (rosas, laranjas, verdes, azuis, roxos e neutros, inclusive preto). */
 val genreColorChoices: List<Int> = listOf(
-    "#FF6B9D", "#FF7A6B", "#FFB84D", "#E0A93B", "#7FD1AE", "#5DB56E", "#3FB6C9",
-    "#6FA8FF", "#6C63FF", "#9B7EDE", "#C38BD8", "#E36BC4", "#B03A5B", "#8A6D5A",
-    // mais cores
-    "#E8505B", "#F29B5C", "#C9B037", "#A3D45A", "#2BA6A0", "#5FD0E8",
-    "#3E6FD8", "#8E5BD9", "#D45FA0", "#8E1F3A", "#B58B6A", "#9AA0A8",
-    "#4B4B55", "#2A2A31", "#111114"
+    // rosas e vermelhos
+    "#FF6B9D", "#FF8FB7", "#FF5A8A", "#E8505B", "#FF7A6B", "#D6536D", "#B03A5B", "#9E1F4D", "#8E1F3A", "#C2185B",
+    // laranjas e amarelos
+    "#FF7A3D", "#F29B5C", "#FFB84D", "#F2A93B", "#E0A93B", "#C9B037", "#F5D547", "#D98B5F", "#B58B6A", "#8A6D5A",
+    // verdes
+    "#A3D45A", "#7FD1AE", "#6FBF4A", "#5DB56E", "#7A9A5A", "#6B7A3A", "#3E8E5A", "#226B35", "#2BA6A0", "#5FB3A8",
+    // azuis
+    "#5FD0E8", "#3FB6C9", "#4A8FA8", "#6FA8FF", "#5B7FD9", "#3E6FD8", "#4F6D9A", "#3B5BDB", "#1F4F9C", "#24395A",
+    // roxos
+    "#6C63FF", "#7B6CF0", "#9B7EDE", "#8E5BD9", "#9B5DE5", "#A068E0", "#C38BD8", "#E36BC4", "#D45FA0", "#B14AED",
+    // neutros
+    "#C9BFC4", "#9AA0A8", "#6E6E78", "#4B4B55", "#2A2A31", "#111114"
 ).map { Color.parseColor(it) }
+
+/** Cor a partir de matiz (0 a 360) e tom (0 = bem escura, 50 = viva, 100 = bem clara). */
+fun tonedColor(hue: Float, tone: Int): Int {
+    val t = tone.coerceIn(0, 100) / 100f
+    val v: Float
+    val sat: Float
+    if (t <= 0.5f) {
+        v = 0.28f + t / 0.5f * 0.72f
+        sat = 0.75f
+    } else {
+        v = 1f
+        sat = 0.75f - (t - 0.5f) / 0.5f * 0.5f
+    }
+    return Color.HSVToColor(floatArrayOf(hue, sat, v))
+}
+
+/**
+ * Escolha de cor: bolinhas prontas + duas barrinhas para misturar a sua própria cor
+ * (matiz e tom). Chama [onChange] a cada mudança.
+ */
+class ColorPicker(ctx: Context, initial: Int, private val onChange: (Int) -> Unit) : LinearLayout(ctx) {
+    var color: Int = initial
+        private set
+
+    // se a cor atual não está na lista (de fábrica ou misturada), ela entra como primeira bolinha
+    private val choices: List<Int> =
+        if (genreColorChoices.contains(initial)) genreColorChoices else listOf(initial) + genreColorChoices
+    private val cells = ArrayList<FrameLayout>()
+    private val hueBar = SeekBar(ctx)
+    private val toneBar = SeekBar(ctx)
+    private var silent = false
+
+    init {
+        orientation = VERTICAL
+
+        val flow = FlowLayout(ctx)
+        flow.hGap = dp(8)
+        flow.vGap = dp(8)
+        for (i in choices.indices) {
+            val cell = FrameLayout(ctx)
+            cell.addView(View(ctx), FrameLayout.LayoutParams(dp(32), dp(32)))
+            cell.setOnClickListener {
+                pick(choices[i])
+                syncBars()
+            }
+            cell.pressable(0.88f)
+            cells.add(cell)
+            flow.addView(cell)
+        }
+        addView(flow, ctx.lin(MATCH, WRAP))
+
+        addView(ctx.label("Ou misture a sua cor", 12f, Palette.muted, true), ctx.lin(WRAP, WRAP, t = 14, b = 2))
+        styleBar(hueBar, 359)
+        styleBar(toneBar, 100)
+        val rainbow = intArrayOf(0, 60, 120, 180, 240, 300, 359).map { Color.HSVToColor(floatArrayOf(it.toFloat(), 0.75f, 1f)) }
+        hueBar.progressDrawable = track(rainbow.toIntArray())
+        addView(hueBar, ctx.lin(MATCH, WRAP, t = 4))
+        addView(toneBar, ctx.lin(MATCH, WRAP, t = 6))
+
+        hueBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, value: Int, fromUser: Boolean) {
+                if (fromUser) fromBars()
+            }
+
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+        toneBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, value: Int, fromUser: Boolean) {
+                if (fromUser) fromBars()
+            }
+
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+        syncBars()
+        restyle()
+    }
+
+    private fun styleBar(sb: SeekBar, max: Int) {
+        sb.max = max
+        sb.setPadding(dp(12), 0, dp(12), 0)
+        val th = GradientDrawable()
+        th.shape = GradientDrawable.OVAL
+        th.setColor(Color.WHITE)
+        th.setStroke(dp(3), Palette.text)
+        th.setSize(dp(24), dp(24))
+        sb.thumb = th
+    }
+
+    private fun track(colors: IntArray): GradientDrawable {
+        val d = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, colors)
+        d.cornerRadius = dp(6).toFloat()
+        d.setSize(-1, dp(12))
+        return d
+    }
+
+    private fun hueNow(): Float = hueBar.progress.toFloat()
+
+    private fun retrackTone() {
+        val h = hueNow()
+        toneBar.progressDrawable = track(intArrayOf(tonedColor(h, 0), tonedColor(h, 50), tonedColor(h, 100)))
+    }
+
+    /** Posiciona as barrinhas de acordo com a cor atual. */
+    private fun syncBars() {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        val raw: Float = if (hsv[2] < 0.995f) {
+            (hsv[2] - 0.28f) / 0.72f * 50f
+        } else {
+            50f + (0.75f - hsv[1]) / 0.5f * 50f
+        }
+        val tone = raw.toInt().coerceIn(0, 100)
+        silent = true
+        hueBar.progress = hsv[0].toInt().coerceIn(0, 359)
+        toneBar.progress = tone
+        silent = false
+        retrackTone()
+    }
+
+    private fun fromBars() {
+        if (silent) return
+        retrackTone()
+        pick(tonedColor(hueNow(), toneBar.progress))
+    }
+
+    private fun pick(c: Int) {
+        color = c
+        restyle()
+        onChange(c)
+    }
+
+    private fun restyle() {
+        for (i in cells.indices) {
+            val d = GradientDrawable()
+            d.shape = GradientDrawable.OVAL
+            d.setColor(choices[i])
+            if (choices[i] == color) d.setStroke(dp(3), Palette.text) else d.setStroke(dp(2), Palette.card)
+            cells[i].background = d
+        }
+    }
+}
 
 /**
  * Selo do gênero: um adesivo de bordas onduladas com o ícone do gênero no meio.
@@ -139,8 +291,6 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
     }
     var color = existing?.base ?: genreColorChoices[0]
     var icon = existing?.icon ?: genreIconChoices[0]
-    // se a cor atual não está na lista (gêneros de fábrica), ela entra como primeira opção
-    val colors: List<Int> = if (genreColorChoices.contains(color)) genreColorChoices else listOf(color) + genreColorChoices
     val autoTag = if (existing != null) "Seu gênero " + existing.label else ""
     val startTag = if (existing == null || existing.tagline == autoTag) "" else existing.tagline
 
@@ -178,10 +328,6 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
 
     // cores
     col.addView(label("Cor", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
-    val swFlow = FlowLayout(this)
-    swFlow.hGap = dp(8)
-    swFlow.vGap = dp(8)
-    val swatches = ArrayList<FrameLayout>()
     val iconCells = ArrayList<FrameLayout>()
     val iconViews = ArrayList<IconView>()
 
@@ -200,13 +346,6 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         prevLabel.setTextColor(g.dark)
         prevTag.text = g.tagline
         prevBox.background = roundRect(g.soft, dp(20).toFloat(), mixColor(g.primary, Color.WHITE, 0.5f), dp(1))
-        for (i in swatches.indices) {
-            val d = GradientDrawable()
-            d.shape = GradientDrawable.OVAL
-            d.setColor(colors[i])
-            if (colors[i] == color) d.setStroke(dp(3), Palette.text) else d.setStroke(dp(2), Palette.card)
-            swatches[i].background = d
-        }
         for (i in iconCells.indices) {
             val sel = genreIconChoices[i] == icon
             iconCells[i].background = roundRect(if (sel) color else Palette.pinkSoft, dp(16).toFloat())
@@ -214,19 +353,12 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         }
     }
 
-    for (i in colors.indices) {
-        val cell = FrameLayout(this)
-        cell.addView(View(this), FrameLayout.LayoutParams(dp(32), dp(32)))
-        cell.setOnClickListener {
-            color = colors[i]
-            restyle()
-            seal.pop(1.3f)
-        }
-        cell.pressable(0.88f)
-        swatches.add(cell)
-        swFlow.addView(cell)
+    val picker = ColorPicker(this, color) {
+        color = it
+        restyle()
+        seal.pop(1.3f)
     }
-    col.addView(swFlow, lin(MATCH, WRAP))
+    col.addView(picker, lin(MATCH, WRAP))
 
     // ícones
     col.addView(label("Ícone", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
@@ -294,6 +426,132 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
                 Genres.editBuiltin(existing, nm, icon, color, tag)
             }
             Store.updateGenre(g)
+            dlg.dismiss()
+            onDone(g)
+        }
+    }
+}
+
+/**
+ * Janela para criar (existing = null) ou editar um "outro gênero" (subgênero), seja um que você criou
+ * ou um que veio com o app. Nome, cor e símbolo, com prévia ao vivo. Eles só classificam e filtram.
+ */
+fun Activity.showOtherGenreEditor(existing: OtherGenre?, onDone: (OtherGenre) -> Unit) {
+    if (existing == null && OtherGenres.custom().size >= 40) {
+        softToast("Você já criou muitos outros gêneros!", Palette.pink, "tag")
+        return
+    }
+    var color = existing?.color ?: genreColorChoices[0]
+    var icon = existing?.icon ?: "tag"
+    val icons: List<String> = if (genreIconChoices.contains(icon)) genreIconChoices else listOf(icon) + genreIconChoices
+
+    val sv = ScrollView(this)
+    sv.isVerticalScrollBarEnabled = false
+    val col = LinearLayout(this)
+    col.orientation = LinearLayout.VERTICAL
+    col.setPadding(dp(20), dp(8), dp(20), dp(6))
+    sv.addView(col)
+
+    // prévia: do jeitinho que aparece nas listas
+    val prevBox = LinearLayout(this)
+    prevBox.orientation = LinearLayout.HORIZONTAL
+    prevBox.gravity = Gravity.CENTER
+    prevBox.setPadding(dp(12), dp(16), dp(12), dp(16))
+    col.addView(prevBox, lin(MATCH, WRAP))
+
+    val nameIn = input("Nome (ex.: Sobrenatural)", existing?.label ?: "", android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+    nameIn.filters = arrayOf(InputFilter.LengthFilter(24))
+    col.addView(label("Nome", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 6))
+    col.addView(nameIn, lin(MATCH, WRAP))
+
+    val iconCells = ArrayList<FrameLayout>()
+    val iconViews = ArrayList<IconView>()
+
+    fun restyle() {
+        val nm = nameIn.text.toString().trim()
+        val g = OtherGenre(existing?.key ?: "preview", if (nm.isEmpty()) "Seu gênero" else nm, icon, color)
+        prevBox.removeAllViews()
+        prevBox.addView(pill(g.label, g.soft, g.dark, 14f, g.icon))
+        prevBox.background = roundRect(Palette.card, dp(20).toFloat(), Palette.line, dp(1))
+        for (i in iconCells.indices) {
+            val sel = icons[i] == icon
+            iconCells[i].background = roundRect(if (sel) color else Palette.pinkSoft, dp(16).toFloat())
+            iconViews[i].tint = if (sel) Color.WHITE else color
+        }
+    }
+
+    col.addView(label("Cor", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
+    val picker = ColorPicker(this, color) {
+        color = it
+        restyle()
+        prevBox.pop(1.1f)
+    }
+    col.addView(picker, lin(MATCH, WRAP))
+
+    col.addView(label("Símbolo", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
+    val icFlow = FlowLayout(this)
+    icFlow.hGap = dp(8)
+    icFlow.vGap = dp(8)
+    for (i in icons.indices) {
+        val cell = FrameLayout(this)
+        cell.setPadding(dp(10), dp(10), dp(10), dp(10))
+        val iv = IconView(this, icons[i], Palette.pink, 22)
+        cell.addView(iv, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        cell.setOnClickListener {
+            icon = icons[i]
+            restyle()
+            prevBox.pop(1.1f)
+        }
+        cell.pressable(0.88f)
+        iconCells.add(cell)
+        iconViews.add(iv)
+        icFlow.addView(cell)
+    }
+    col.addView(icFlow, lin(MATCH, WRAP))
+
+    nameIn.doAfterTextChanged { restyle() }
+    restyle()
+
+    val canReset = existing != null && !existing.custom && OtherGenres.isEdited(existing.key)
+    val builder = AlertDialog.Builder(this)
+        .setTitle(if (existing == null) "Novo outro gênero" else "Editar outro gênero")
+        .setView(sv)
+        .setPositiveButton(if (existing == null) "Criar" else "Salvar", null)
+        .setNegativeButton("Cancelar", null)
+    if (canReset) builder.setNeutralButton("Restaurar original", null)
+    val dlg = builder.create()
+    dlg.show()
+    if (canReset && existing != null) {
+        dlg.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).setOnClickListener {
+            Store.resetOtherGenre(existing.key)
+            dlg.dismiss()
+            onDone(OtherGenres.byKey(existing.key))
+        }
+    }
+    dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+        val nm = nameIn.text.toString().trim()
+        if (nm.isEmpty()) {
+            nameIn.error = "Dê um nome ao gênero"
+            return@setOnClickListener
+        }
+        val dupOther = OtherGenres.all.any { it.label.equals(nm, true) && it.key != existing?.key }
+        val dupMain = Genres.all.any { it.label.equals(nm, true) }
+        if (dupOther || dupMain) {
+            nameIn.error = "Esse gênero já existe"
+            return@setOnClickListener
+        }
+        if (existing == null) {
+            val g = OtherGenres.makeCustom("x_c" + System.currentTimeMillis(), nm, icon, color)
+            Store.addOtherGenre(g)
+            dlg.dismiss()
+            onDone(g)
+        } else {
+            val g = if (existing.custom) {
+                OtherGenres.makeCustom(existing.key, nm, icon, color)
+            } else {
+                OtherGenres.editBuiltin(existing, nm, icon, color)
+            }
+            Store.updateOtherGenre(g)
             dlg.dismiss()
             onDone(g)
         }
