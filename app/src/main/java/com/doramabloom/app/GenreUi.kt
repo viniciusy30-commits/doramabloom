@@ -21,13 +21,22 @@ import androidx.core.widget.doAfterTextChanged
 val genreIconChoices: List<String> = listOf(
     "heart", "smile", "bolt", "ghost", "sparkle", "moon", "star", "drop",
     "pagoda", "search", "school", "eye", "skull", "cross", "music", "trophy",
-    "crown", "rocket", "coffee", "leaf", "blossom", "home", "book", "tv"
+    "crown", "rocket", "coffee", "leaf", "blossom", "home", "book", "tv",
+    // mais símbolos
+    "flame", "butterfly", "wand", "gem", "castle", "planet", "ufo", "sun",
+    "cloud", "balloon", "ring", "cake", "gift", "mic", "headphones", "medal",
+    "ball", "shield", "dagger", "key", "lock", "bat", "tomb", "lantern",
+    "fan", "heartbreak", "hourglass", "pill", "syringe"
 )
 
-/** Cores que você pode escolher ao criar um gênero. */
+/** Cores que você pode escolher ao criar um gênero (inclui preto e cinza escuro). */
 val genreColorChoices: List<Int> = listOf(
     "#FF6B9D", "#FF7A6B", "#FFB84D", "#E0A93B", "#7FD1AE", "#5DB56E", "#3FB6C9",
-    "#6FA8FF", "#6C63FF", "#9B7EDE", "#C38BD8", "#E36BC4", "#B03A5B", "#8A6D5A"
+    "#6FA8FF", "#6C63FF", "#9B7EDE", "#C38BD8", "#E36BC4", "#B03A5B", "#8A6D5A",
+    // mais cores
+    "#E8505B", "#F29B5C", "#C9B037", "#A3D45A", "#2BA6A0", "#5FD0E8",
+    "#3E6FD8", "#8E5BD9", "#D45FA0", "#8E1F3A", "#B58B6A", "#9AA0A8",
+    "#4B4B55", "#2A2A31", "#111114"
 ).map { Color.parseColor(it) }
 
 /**
@@ -48,7 +57,7 @@ class SealView(ctx: Context, private val withLabel: Boolean = false) : View(ctx)
     fun set(g: Genre) {
         icon = g.icon
         color = g.primary
-        dark = g.dark
+        dark = g.deep
         text = g.label
         ic.name = icon
         invalidate()
@@ -128,7 +137,7 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         softToast("Você já criou muitos gêneros!", Palette.pink, "tag")
         return
     }
-    var color = existing?.primary ?: genreColorChoices[0]
+    var color = existing?.base ?: genreColorChoices[0]
     var icon = existing?.icon ?: genreIconChoices[0]
     // se a cor atual não está na lista (gêneros de fábrica), ela entra como primeira opção
     val colors: List<Int> = if (genreColorChoices.contains(color)) genreColorChoices else listOf(color) + genreColorChoices
@@ -195,7 +204,7 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
             val d = GradientDrawable()
             d.shape = GradientDrawable.OVAL
             d.setColor(colors[i])
-            if (colors[i] == color) d.setStroke(dp(3), Palette.text) else d.setStroke(dp(2), Color.WHITE)
+            if (colors[i] == color) d.setStroke(dp(3), Palette.text) else d.setStroke(dp(2), Palette.card)
             swatches[i].background = d
         }
         for (i in iconCells.indices) {

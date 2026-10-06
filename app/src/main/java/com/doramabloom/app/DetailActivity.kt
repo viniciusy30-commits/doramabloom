@@ -6,7 +6,9 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.text.TextUtils
+import android.view.GestureDetector
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -28,6 +30,9 @@ import java.util.Locale
 class DetailActivity : AppCompatActivity() {
 
     private var id = -1L
+    private var ids = LongArray(0)
+    private var rootView: View? = null
+    private lateinit var swipe: GestureDetector
     private var seen = -1
     private var scroll: ScrollView? = null
     private lateinit var petals: PetalsView
@@ -36,12 +41,64 @@ class DetailActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this)
+        ThemeMode.refresh(this)
         id = intent.getLongExtra("id", -1L)
+        ids = intent.getLongArrayExtra("ids") ?: LongArray(0)
         if (Store.get(id) == null) {
             finish()
             return
         }
+        swipe = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (e1 == null) return false
+                val dx = e2.x - e1.x
+                val dy = e2.y - e1.y
+                if (Math.abs(dx) > dp(90) && Math.abs(dx) > Math.abs(dy) * 1.6f && Math.abs(velocityX) > 700f) {
+                    swipeTo(if (dx < 0) 1 else -1)
+                    return true
+                }
+                return false
+            }
+        })
         build(true)
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ids.size > 1) swipe.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** Próximo (step = 1) ou anterior (step = -1) dorama da mesma lista. */
+    private fun neighbor(step: Int): Long? {
+        val i = ids.indexOf(id)
+        if (i < 0) return null
+        var n = i + step
+        while (n >= 0 && n < ids.size) {
+            if (Store.get(ids[n]) != null) return ids[n]
+            n += step
+        }
+        return null
+    }
+
+    private fun swipeTo(step: Int) {
+        val nid = neighbor(step)
+        val r = rootView
+        if (nid == null) {
+            // fim da lista: só um empurrãozinho
+            if (r != null) {
+                r.animate().translationX(-step * dp(28).toFloat()).setDuration(90).withEndAction {
+                    r.animate().translationX(0f).setDuration(140).start()
+                }.start()
+            }
+            return
+        }
+        id = nid
+        scroll = null
+        build(false)
+        val nr = rootView ?: return
+        nr.translationX = step * nr.resources.displayMetrics.widthPixels * 0.3f
+        nr.alpha = 0.2f
+        nr.animate().translationX(0f).alpha(1f).setDuration(240).start()
     }
 
     override fun onResume() {
@@ -83,7 +140,7 @@ class DetailActivity : AppCompatActivity() {
         window.statusBarColor = g.soft
 
         val root = FrameLayout(this)
-        root.background = gradient(g.soft, Color.WHITE)
+        root.background = gradient(g.soft, Palette.card)
 
         val sv = ScrollView(this)
         sv.isVerticalScrollBarEnabled = false
@@ -107,7 +164,14 @@ class DetailActivity : AppCompatActivity() {
         top.orientation = LinearLayout.HORIZONTAL
         top.gravity = Gravity.CENTER_VERTICAL
         top.addView(roundBtn("back", g.dark, false, 18) { finish() }, lin(dp(40), dp(40)))
-        top.addView(View(this), lin(0, dp(1), 1f))
+        val pos = ids.indexOf(id)
+        if (ids.size > 1 && pos >= 0) {
+            val pl = label("‹   " + (pos + 1) + " de " + ids.size + "   ›", 12.5f, g.dark, true)
+            pl.gravity = Gravity.CENTER
+            top.addView(pl, lin(0, WRAP, 1f))
+        } else {
+            top.addView(View(this), lin(0, dp(1), 1f))
+        }
         top.addView(roundBtn("edit", g.dark, false, 18) {
             val i = Intent(this, EditActivity::class.java)
             i.putExtra("id", d.id)
@@ -121,7 +185,7 @@ class DetailActivity : AppCompatActivity() {
         fun styleFav() {
             val bg = GradientDrawable()
             bg.shape = GradientDrawable.OVAL
-            bg.setColor(if (d.favorite) g.primary else Color.WHITE)
+            bg.setColor(if (d.favorite) g.primary else Palette.card)
             bg.setStroke(dp(2), g.primary)
             favBtn.background = bg
             favIcon.tint = if (d.favorite) Color.WHITE else g.primary
@@ -144,7 +208,7 @@ class DetailActivity : AppCompatActivity() {
 
         // ---- hero: capa grande no centro, fundo tirado da própria capa, pilha de capas atrás
         val hero = FrameLayout(this)
-        hero.background = gradient(g.primary, g.dark, dp(34).toFloat(), GradientDrawable.Orientation.TL_BR)
+        hero.background = gradient(g.primary, g.deep, dp(34).toFloat(), GradientDrawable.Orientation.TL_BR)
         hero.elevation = 0f
         hero.clipToOutline = true
 
@@ -160,7 +224,7 @@ class DetailActivity : AppCompatActivity() {
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(
                     Color.argb(170, Color.red(g.primary), Color.green(g.primary), Color.blue(g.primary)),
-                    Color.argb(240, Color.red(g.dark), Color.green(g.dark), Color.blue(g.dark))
+                    Color.argb(240, Color.red(g.deep), Color.green(g.deep), Color.blue(g.deep))
                 )
             )
             hero.addView(veil, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -310,7 +374,7 @@ class DetailActivity : AppCompatActivity() {
         wcard.orientation = LinearLayout.HORIZONTAL
         wcard.gravity = Gravity.CENTER_VERTICAL
         wcard.setPadding(dp(14), dp(14), dp(18), dp(14))
-        wcard.background = gradient(g.primary, g.dark, dp(26).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
+        wcard.background = gradient(g.primary, g.deep, dp(26).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
         wcard.elevation = 0f
         val pbub = FrameLayout(this)
         pbub.background = roundRect(Color.parseColor("#33FFFFFF"), dp(18).toFloat())
@@ -434,7 +498,7 @@ class DetailActivity : AppCompatActivity() {
             bot.gravity = Gravity.CENTER_VERTICAL
             val b = SoftBar(this)
             b.barColor = g.primary
-            b.trackColor = Color.WHITE
+            b.trackColor = Palette.card
             seasonBars.add(b)
             bot.addView(b, lin(0, dp(9), 1f, r = 12))
             bot.addView(roundBtn("minus", g.primary, false, 14) {
@@ -604,7 +668,10 @@ class DetailActivity : AppCompatActivity() {
 
         refreshAll()
         updatePetals(d)
+        rootView = root
         setContentView(root)
+        ThemeMode.refresh(this)
+        window.statusBarColor = g.soft
         scroll = sv
         if (keep > 0) sv.post { sv.scrollTo(0, keep) }
 

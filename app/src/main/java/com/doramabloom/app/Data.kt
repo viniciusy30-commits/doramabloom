@@ -17,13 +17,33 @@ data class Genre(
     val key: String,
     val label: String,
     val icon: String,
-    val primary: Int,
-    val soft: Int,
-    val dark: Int,
+    /** Cor escolhida para o gênero (a de verdade; no modo escuro, veja [primary]). */
+    val base: Int,
+    val softL: Int,
+    val darkL: Int,
     val petals: List<String>,
     val tagline: String,
     val custom: Boolean = false
-)
+) {
+    /** Cor principal; no modo escuro as muito escuras (preto, cinza) são clareadas para aparecer. */
+    val primary: Int
+        get() {
+            if (!Palette.dark) return base
+            val lum = (0.299f * Color.red(base) + 0.587f * Color.green(base) + 0.114f * Color.blue(base)) / 255f
+            return if (lum < 0.30f) mixColor(base, Color.WHITE, 0.45f) else base
+        }
+
+    /** Tom de fundo suave: claro no modo claro, escuro com um toque da cor no modo escuro. */
+    val soft: Int
+        get() = if (Palette.dark) mixColor(Color.parseColor("#251B24"), primary, 0.22f) else softL
+
+    /** Cor de texto/ícone sobre o tom suave: escura no modo claro, clara no modo escuro. */
+    val dark: Int
+        get() = if (Palette.dark) mixColor(primary, Color.WHITE, 0.55f) else darkL
+
+    /** Tom escuro de verdade (para fundos com texto branco por cima), igual nos dois modos. */
+    val deep: Int get() = darkL
+}
 
 /** Mistura duas cores (f = 0 fica em a, f = 1 fica em b). */
 fun mixColor(a: Int, b: Int, f: Float): Int {
@@ -96,13 +116,13 @@ object Genres {
         val orig = factoryOf(base.key) ?: base
         val tag = if (tagline.isBlank()) orig.tagline else tagline
         val pet = if (icon == orig.icon) orig.petals else (listOf(icon) + orig.petals.drop(1)).distinct()
-        return if (primary == orig.primary) {
+        return if (primary == orig.base) {
             orig.copy(label = label, icon = icon, tagline = tag, petals = pet)
         } else {
             orig.copy(
-                label = label, icon = icon, primary = primary,
-                soft = mixColor(primary, Color.WHITE, 0.84f),
-                dark = mixColor(primary, Color.BLACK, 0.42f),
+                label = label, icon = icon, base = primary,
+                softL = mixColor(primary, Color.WHITE, 0.84f),
+                darkL = mixColor(primary, Color.BLACK, 0.42f),
                 tagline = tag, petals = pet
             )
         }
@@ -431,6 +451,13 @@ object Store {
 
     const val DEFAULT_HOME = "https://www.google.com"
 
+    /** Aparência do app: 0 = seguir o sistema, 1 = claro, 2 = escuro. */
+    var themeMode: Int
+        get() = prefs.getInt("themeMode", 0)
+        set(v) {
+            prefs.edit().putInt("themeMode", v).apply()
+        }
+
     var textZoom: Int
         get() = prefs.getInt("textZoom", 100)
         set(v) {
@@ -465,7 +492,7 @@ object Store {
         o.put("key", g.key)
         o.put("label", g.label)
         o.put("icon", g.icon)
-        o.put("color", g.primary)
+        o.put("color", g.base)
         o.put("tagline", g.tagline)
         return o
     }
@@ -517,7 +544,7 @@ object Store {
         if (l.isEmpty()) return null
         return Genres.editBuiltin(
             base, l, o.optString("icon", base.icon),
-            o.optInt("color", base.primary), o.optString("tagline", "")
+            o.optInt("color", base.base), o.optString("tagline", "")
         )
     }
 

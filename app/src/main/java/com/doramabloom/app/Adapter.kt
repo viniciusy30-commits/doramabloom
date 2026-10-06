@@ -24,6 +24,23 @@ fun Context.favBadge(heartDp: Int = 28): FrameLayout {
     return f
 }
 
+/** Bolinha de informação: ícone em cima e texto curto embaixo, num cartão translúcido. */
+fun Context.statBubble(icon: String, text: String, g: Genre): View {
+    val b = LinearLayout(this)
+    b.orientation = LinearLayout.VERTICAL
+    b.gravity = Gravity.CENTER_HORIZONTAL
+    b.setPadding(dp(3), dp(7), dp(3), dp(7))
+    val cc = Palette.card
+    b.background = roundRect(Color.argb(205, Color.red(cc), Color.green(cc), Color.blue(cc)), dp(18).toFloat(), mixColor(g.primary, Palette.card, 0.6f), dp(1))
+    b.addView(IconView(this, icon, g.primary, 16), LinearLayout.LayoutParams(WRAP, WRAP))
+    val t = label(text, 10.5f, g.dark, true)
+    t.maxLines = 1
+    t.ellipsize = android.text.TextUtils.TruncateAt.END
+    t.gravity = Gravity.CENTER
+    b.addView(t, lin(MATCH, WRAP, t = 2))
+    return b
+}
+
 /** Pinta o coração de favorito (solto ou com contorno) com a cor do tema. */
 private fun tintFav(v: View?, color: Int) {
     if (v is IconView) v.tint = color
@@ -120,7 +137,8 @@ class DramaAdapter(
         val flow: FlowLayout? = null,
         val plat: TextView? = null,
         val note: TextView? = null,
-        val frame: View? = null
+        val frame: View? = null,
+        val stats: LinearLayout? = null
     ) : RecyclerView.ViewHolder(v)
 
     override fun getItemCount(): Int = items.size
@@ -160,7 +178,22 @@ class DramaAdapter(
             setPillIcon(chip, st.icon, Color.WHITE)
         }
         val badge = h.badge
-        if (badge != null) styleBadge(badge, d.score, g.primary)
+        if (badge != null) {
+            styleBadge(badge, d.score, g.primary)
+            if (mode == 4) badge.visibility = if (d.score > 0) View.VISIBLE else View.GONE
+        }
+        val statsBox = h.stats
+        if (statsBox != null) {
+            statsBox.removeAllViews()
+            val c = statsBox.context
+            val total = totalEps(d)
+            val items = ArrayList<Pair<String, String>>()
+            if (d.year.isNotBlank()) items.add("calendar" to d.year)
+            if (total > 0) items.add("tv" to (total.toString() + " eps"))
+            if (d.platform.isNotBlank()) items.add("play" to d.platform)
+            else if (d.country.isNotBlank()) items.add("flag" to d.country.substringBefore(" "))
+            for (it2 in items.take(3)) statsBox.addView(c.statBubble(it2.first, it2.second, g), c.lin(c.dp(54), WRAP, t = 6))
+        }
         h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
         tintFav(h.fav, g.primary)
         val dot = h.dot
@@ -240,14 +273,14 @@ class DramaAdapter(
         val fr = h.frame
         if (fr != null) {
             if (mode == 0) {
-                fr.background = roundRect(Color.WHITE, fr.dp(24).toFloat(), mixColor(g.primary, Color.WHITE, 0.6f), fr.dp(1))
+                fr.background = roundRect(Palette.card, fr.dp(24).toFloat(), mixColor(g.primary, Color.WHITE, 0.6f), fr.dp(1))
             } else {
                 fr.background = roundRect(g.soft, fr.dp(22).toFloat(), mixColor(g.primary, Color.WHITE, 0.55f), fr.dp(1))
             }
         }
         val scrim = h.scrim
         if (scrim != null) {
-            val dk = g.dark
+            val dk = g.deep
             val deep = Color.argb(215, Color.red(dk), Color.green(dk), Color.blue(dk))
             scrim.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.TRANSPARENT, deep))
         }
@@ -279,7 +312,7 @@ class DramaAdapter(
         val root = LinearLayout(c)
         root.orientation = LinearLayout.HORIZONTAL
         root.setPadding(c.dp(10), c.dp(10), c.dp(12), c.dp(10))
-        root.background = roundRect(Color.WHITE, c.dp(24).toFloat(), Palette.line, c.dp(1))
+        root.background = roundRect(Palette.card, c.dp(24).toFloat(), Palette.line, c.dp(1))
         root.elevation = 0f
         val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
         rlp.setMargins(c.dp(4), c.dp(6), c.dp(4), c.dp(6))
@@ -364,7 +397,7 @@ class DramaAdapter(
         val root = LinearLayout(c)
         root.orientation = LinearLayout.HORIZONTAL
         root.setPadding(c.dp(12), c.dp(12), c.dp(12), c.dp(12))
-        root.background = roundRect(Color.WHITE, c.dp(28).toFloat(), Palette.line, c.dp(1))
+        root.background = roundRect(Palette.card, c.dp(28).toFloat(), Palette.line, c.dp(1))
         root.elevation = 0f
         val rlp = RecyclerView.LayoutParams(MATCH, WRAP)
         rlp.setMargins(c.dp(6), c.dp(6), c.dp(6), c.dp(10))
@@ -419,7 +452,7 @@ class DramaAdapter(
     private fun buildFeatured(c: Context): VH {
         val root = LinearLayout(c)
         root.orientation = LinearLayout.VERTICAL
-        root.background = roundRect(Color.WHITE, c.dp(34).toFloat(), Palette.line, c.dp(1))
+        root.background = roundRect(Palette.card, c.dp(34).toFloat(), Palette.line, c.dp(1))
         root.elevation = 0f
         root.clipToOutline = true
         val rlp = RecyclerView.LayoutParams(MATCH, MATCH)
@@ -450,6 +483,18 @@ class DramaAdapter(
         val slp = FrameLayout.LayoutParams(c.dp(72), c.dp(72), Gravity.BOTTOM or Gravity.END)
         slp.setMargins(0, 0, c.dp(10), c.dp(10))
         hero.addView(seal, slp)
+        // bolinhas de informação (ano, episódios, plataforma) no espaço ao lado da capa
+        val stats = LinearLayout(c)
+        stats.orientation = LinearLayout.VERTICAL
+        stats.gravity = Gravity.CENTER_HORIZONTAL
+        val stlp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START)
+        stlp.setMargins(c.dp(7), 0, 0, c.dp(12))
+        hero.addView(stats, stlp)
+        hero.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val ok = cover.posterLeft() >= c.dp(66)
+            val want = if (ok) View.VISIBLE else View.INVISIBLE
+            if (stats.visibility != want) stats.visibility = want
+        }
         root.addView(hero, c.lin(MATCH, 0, 1f))
 
         // ---- informações e botão
@@ -497,7 +542,7 @@ class DramaAdapter(
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
             chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav,
-            seal = seal
+            stats = stats, seal = seal
         )
     }
 

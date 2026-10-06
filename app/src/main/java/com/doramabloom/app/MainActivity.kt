@@ -70,7 +70,7 @@ class MainActivity : AppCompatActivity() {
         tv.setTextIsSelectable(true)
         tv.textSize = 12f
         tv.setTextColor(Color.parseColor("#B00020"))
-        tv.setBackgroundColor(Color.WHITE)
+        tv.setBackgroundColor(Palette.card)
         tv.setPadding(dp(14), dp(14), dp(14), dp(14))
         tv.text = titulo + "\n\n" + android.util.Log.getStackTraceString(e).take(1800)
         val sv = ScrollView(this)
@@ -90,6 +90,7 @@ class MainActivity : AppCompatActivity() {
             oldHandler?.uncaughtException(t, e)
         }
         Store.init(this)
+        ThemeMode.refresh(this)
 
         val root = FrameLayout(this)
         root.background = gradient(Palette.bgTop, Palette.bgBottom)
@@ -156,7 +157,7 @@ class MainActivity : AppCompatActivity() {
     private fun buildNav(): View {
         val bar = FrameLayout(this)
         bar.setPadding(dp(8), dp(8), dp(8), dp(8))
-        bar.background = roundRect(Color.WHITE, dp(30).toFloat(), Palette.line, dp(1))
+        bar.background = roundRect(Palette.card, dp(30).toFloat(), Palette.line, dp(1))
         bar.elevation = 0f
         navBar = bar
 
@@ -289,7 +290,7 @@ class MainActivity : AppCompatActivity() {
         animateColor(from, to, 380L) { c ->
             addCircle?.background = ovalGradient(lighten(c, 0.22f), c)
             navIndicator.background = roundRect(c, dp(22).toFloat())
-            searchBox?.background = roundRect(Color.WHITE, dp(24).toFloat(), if (tab == 1) c else Palette.line, dp(if (c == Palette.pink) 1 else 2))
+            searchBox?.background = roundRect(Palette.card, dp(24).toFloat(), if (tab == 1) c else Palette.line, dp(if (c == Palette.pink) 1 else 2))
             listInfo?.setTextColor(c)
         }
     }
@@ -331,9 +332,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun open(d: Drama) {
+    /** Abre o dorama; [list] é a lista em que ele está (dá para deslizar entre eles). */
+    private fun open(d: Drama, list: List<Drama>? = null) {
         val i = Intent(this, DetailActivity::class.java)
         i.putExtra("id", d.id)
+        val l = list ?: Store.all().sortedByDescending { it.addedAt }
+        i.putExtra("ids", LongArray(l.size) { l[it].id })
         startActivity(i)
         overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
     }
@@ -406,7 +410,7 @@ class MainActivity : AppCompatActivity() {
             e.orientation = LinearLayout.VERTICAL
             e.gravity = Gravity.CENTER
             e.setPadding(dp(26), dp(26), dp(26), dp(26))
-            e.background = roundRect(Color.WHITE, dp(34).toFloat(), Palette.line, dp(1))
+            e.background = roundRect(Palette.card, dp(34).toFloat(), Palette.line, dp(1))
             e.elevation = 0f
             val big = FrameLayout(this)
             big.background = ovalGradient(Palette.pinkSoft, Color.parseColor("#FFC2D8"))
@@ -434,7 +438,7 @@ class MainActivity : AppCompatActivity() {
             rv.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
             rv.clipToPadding = false
             rv.itemAnimator = null
-            val ad = DramaAdapter(4, { open(it) }, { d, btn ->
+            val ad = DramaAdapter(4, { open(it, homeWatching) }, { d, btn ->
                 val g = Genres.byKey(d.genre)
                 petals.burstFrom(
                     btn, listOf(g.icon, "heart", "blossom", "sparkle"),
@@ -683,14 +687,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyView(rv: RecyclerView) {
         rv.layoutManager = if (gridMode) GridLayoutManager(this, 2) else LinearLayoutManager(this)
-        listAdapter = DramaAdapter(if (gridMode) 3 else 0, { open(it) })
+        listAdapter = DramaAdapter(if (gridMode) 3 else 0, { open(it, filtered()) })
         rv.adapter = listAdapter
         refreshList()
     }
 
     private fun squareBtn(icon: String, selected: Boolean): FrameLayout {
         val f = FrameLayout(this)
-        f.background = roundRect(if (selected) Palette.pink else Color.WHITE, dp(16).toFloat(), Palette.line, dp(1))
+        f.background = roundRect(if (selected) Palette.pink else Palette.card, dp(16).toFloat(), Palette.line, dp(1))
         f.addView(
             IconView(this, icon, if (selected) Color.WHITE else Palette.pink, 20),
             FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER)
@@ -701,7 +705,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun styleSquare(f: FrameLayout?, selected: Boolean) {
         if (f == null) return
-        f.background = roundRect(if (selected) Palette.pink else Color.WHITE, dp(16).toFloat(), Palette.line, dp(1))
+        f.background = roundRect(if (selected) Palette.pink else Palette.card, dp(16).toFloat(), Palette.line, dp(1))
         (f.getChildAt(0) as IconView).tint = if (selected) Color.WHITE else Palette.pink
         if (selected) f.pop(1.2f)
     }
@@ -732,7 +736,7 @@ class MainActivity : AppCompatActivity() {
         sbox.orientation = LinearLayout.HORIZONTAL
         sbox.gravity = Gravity.CENTER_VERTICAL
         sbox.setPadding(dp(14), 0, dp(10), 0)
-        sbox.background = roundRect(Color.WHITE, dp(24).toFloat(), Palette.line, dp(1))
+        sbox.background = roundRect(Palette.card, dp(24).toFloat(), Palette.line, dp(1))
         searchBox = sbox
         sbox.addView(IconView(this, "search", Palette.muted, 20))
         val search = EditText(this)
@@ -839,14 +843,14 @@ class MainActivity : AppCompatActivity() {
         }
         clearPill = clr
         info.addView(clr, lin(WRAP, WRAP, r = 6))
-        val fb = pill("Filtros", Color.WHITE, Palette.pink, 12f, "filter")
+        val fb = pill("Filtros", Palette.card, Palette.pink, 12f, "filter")
         filterPill = fb
         fb.setOnClickListener {
             filtersOpen = !filtersOpen
             if (filtersOpen) panel.expand() else panel.collapse()
         }
         info.addView(fb, lin(WRAP, WRAP, r = 6))
-        val sb = pill(sortLabel(), Color.WHITE, Palette.pink, 12f, "sort")
+        val sb = pill(sortLabel(), Palette.card, Palette.pink, 12f, "sort")
         sb.setOnClickListener {
             sortMode = (sortMode + 1) % 4
             sb.text = sortLabel()
@@ -1105,6 +1109,22 @@ class MainActivity : AppCompatActivity() {
         head.addView(IconView(this, "tune", Palette.pink, 24))
         head.addView(label("Configurações", 26f, Palette.text, true, true), lin(WRAP, WRAP, l = 10))
         col.addView(head, lin(MATCH, WRAP, l = 4, b = 2))
+
+        // aparência: claro, escuro ou o que o celular estiver usando
+        col.addView(section("Aparência", "sparkle"))
+        val ac = card(14, 22)
+        ac.addView(label("Escolha o visual do app. Em \"Automático\" ele acompanha o celular.", 12f, Palette.muted))
+        val themeOpts = listOf(
+            Opt("0", "Automático", Palette.pink, "tune"),
+            Opt("1", "Claro", Color.parseColor("#E0A93B"), "sun"),
+            Opt("2", "Escuro", Color.parseColor("#6C63FF"), "moon")
+        )
+        ac.addView(chipFlow(themeOpts, Store.themeMode.toString()) {
+            ThemeMode.set(it.toInt())
+            // se o visual mudou, o AppCompat refaz as telas sozinho; senão só confirmamos
+            if (ThemeMode.isDark() != Palette.dark) recreate()
+        }, lin(MATCH, WRAP, t = 10))
+        col.addView(ac, lin(MATCH, WRAP))
 
         // perfil
         col.addView(section("Perfil", "person"))

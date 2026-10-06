@@ -63,6 +63,7 @@ class WatchActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this)
+        ThemeMode.refresh(this)
         val id = intent.getLongExtra("id", -1L)
         if (Store.get(id) == null) {
             finish()
@@ -117,7 +118,7 @@ class WatchActivity : AppCompatActivity() {
         urlBox.orientation = LinearLayout.HORIZONTAL
         urlBox.gravity = Gravity.CENTER_VERTICAL
         urlBox.setPadding(dp(14), 0, dp(10), 0)
-        urlBox.background = roundRect(Color.WHITE, dp(24).toFloat(), Palette.line, dp(1))
+        urlBox.background = roundRect(Palette.card, dp(24).toFloat(), Palette.line, dp(1))
         urlBox.addView(IconView(this, "globe", Palette.muted, 16))
         urlBox.addView(urlIn, lin(0, WRAP, 1f, l = 6))
         top.addView(urlBox, lin(0, dp(40), 1f, l = 8, r = 8))
@@ -145,7 +146,7 @@ class WatchActivity : AppCompatActivity() {
 
         // página
         holder = FrameLayout(this)
-        holder.background = roundRect(Color.WHITE, dp(22).toFloat(), Palette.line, dp(1))
+        holder.background = roundRect(Palette.card, dp(22).toFloat(), Palette.line, dp(1))
         holder.clipToOutline = true
         col.addView(holder, lin(MATCH, 0, 1f, l = 10, r = 10))
 
@@ -177,7 +178,7 @@ class WatchActivity : AppCompatActivity() {
         counter.orientation = LinearLayout.HORIZONTAL
         counter.gravity = Gravity.CENTER_VERTICAL
         counter.setPadding(dp(5), dp(5), dp(5), dp(5))
-        counter.background = roundRect(Color.WHITE, dp(28).toFloat(), Palette.line, dp(1))
+        counter.background = roundRect(Palette.card, dp(28).toFloat(), Palette.line, dp(1))
         counter.addView(roundBtn("minus", Palette.pink, false, 14) { epMinus() }, lin(dp(34), dp(34)))
         epText = label("Ep. 0", 13.5f, Palette.text, true, true)
         epText.gravity = Gravity.CENTER
@@ -230,7 +231,7 @@ class WatchActivity : AppCompatActivity() {
         s.textZoom = Store.textZoom
         s.mediaPlaybackRequiresUserGesture = false
         s.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        w.setBackgroundColor(Color.WHITE)
+        w.setBackgroundColor(Palette.card)
         CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
         w.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -348,7 +349,7 @@ class WatchActivity : AppCompatActivity() {
             chip.gravity = Gravity.CENTER_VERTICAL
             chip.setPadding(dp(14), 0, dp(8), 0)
             chip.background = if (sel) roundRect(g.primary, dp(22).toFloat())
-            else roundRect(Color.WHITE, dp(22).toFloat(), Palette.line, dp(1))
+            else roundRect(Palette.card, dp(22).toFloat(), Palette.line, dp(1))
             val tv = label(d.title, 13f, fg, true)
             tv.maxLines = 1
             tv.ellipsize = TextUtils.TruncateAt.END
@@ -423,8 +424,8 @@ class WatchActivity : AppCompatActivity() {
             val sel = i == t.season
             val done = seasonDone(d, i)
             val fg = if (sel) Color.WHITE else g.primary
-            val chip = pill("T" + (i + 1), if (sel) g.primary else Color.WHITE, fg, 13f, if (done) "check" else null)
-            if (!sel) chip.background = roundRect(Color.WHITE, dp(20).toFloat(), g.primary, dp(1))
+            val chip = pill("T" + (i + 1), if (sel) g.primary else Palette.card, fg, 13f, if (done) "check" else null)
+            if (!sel) chip.background = roundRect(Palette.card, dp(20).toFloat(), g.primary, dp(1))
             chip.setOnClickListener { chooseSeason(i) }
             seasonRow.addView(chip, lin(WRAP, WRAP, r = 6))
         }

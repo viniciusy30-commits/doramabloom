@@ -36,14 +36,34 @@ const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
 object Palette {
-    val bgTop = Color.parseColor("#FFF8FB")
-    val bgBottom = Color.parseColor("#FFE8F1")
-    val pink = Color.parseColor("#FF6B9D")
-    val pinkDark = Color.parseColor("#E0487F")
-    val pinkSoft = Color.parseColor("#FFE4EE")
-    val text = Color.parseColor("#6B2E48")
-    val muted = Color.parseColor("#B98AA0")
-    val line = Color.parseColor("#F8D9E6")
+    /** Modo escuro ligado? (definido ao abrir cada tela, veja ThemeMode). */
+    var dark = false
+
+    private fun p(light: String, night: String): Int = Color.parseColor(if (dark) night else light)
+
+    val bgTop: Int get() = p("#FFF8FB", "#1A1219")
+    val bgBottom: Int get() = p("#FFE8F1", "#120D14")
+    val pink: Int get() = Color.parseColor("#FF6B9D")
+    val pinkDark: Int get() = p("#E0487F", "#FF8FB8")
+    val pinkSoft: Int get() = p("#FFE4EE", "#3B2433")
+    val text: Int get() = p("#6B2E48", "#F5DDE8")
+    val muted: Int get() = p("#B98AA0", "#B093A4")
+    val line: Int get() = p("#F8D9E6", "#3A2B35")
+
+    /** Fundo dos cartões, caixas e botões claros (branco no modo claro). */
+    val card: Int get() = p("#FFFFFF", "#251B24")
+
+    /** Trilho das barras de progresso. */
+    val track: Int get() = p("#F6DCE6", "#3A2B35")
+}
+
+/** Deixa os ícones da barra de status e de navegação claros ou escuros conforme o modo. */
+fun android.app.Activity.applyBarStyle() {
+    val c = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+    c.isAppearanceLightStatusBars = !Palette.dark
+    c.isAppearanceLightNavigationBars = !Palette.dark
+    window.statusBarColor = Palette.bgTop
+    window.navigationBarColor = Palette.bgBottom
 }
 
 fun Context.dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
@@ -110,7 +130,7 @@ fun Context.pill(s: String, bg: Int, fg: Int, size: Float = 12f, icon: String? =
     return t
 }
 
-fun Context.card(pad: Int = 14, radius: Int = 22, bg: Int = Color.WHITE): LinearLayout {
+fun Context.card(pad: Int = 14, radius: Int = 22, bg: Int = Palette.card): LinearLayout {
     val c = LinearLayout(this)
     c.orientation = LinearLayout.VERTICAL
     c.setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
@@ -139,7 +159,7 @@ fun Context.input(hint: String, text: String = "", type: Int = InputType.TYPE_CL
     e.textSize = 15f
     e.setTextColor(Palette.text)
     e.setHintTextColor(Palette.muted)
-    e.background = roundRect(Color.WHITE, dp(18).toFloat(), Palette.line, dp(1))
+    e.background = roundRect(Palette.card, dp(18).toFloat(), Palette.line, dp(1))
     e.setPadding(dp(16), dp(12), dp(16), dp(12))
     if (multi) {
         e.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
@@ -173,7 +193,7 @@ fun Context.scoreBadge(sizeDp: Int, textSp: Float): TextView {
 class Opt(val key: String, val label: String, val color: Int, val icon: String? = null)
 
 private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int) {
-    tv.background = roundRect(if (sel) col else Color.WHITE, dpPx * 20f, col, dpPx)
+    tv.background = roundRect(if (sel) col else Palette.card, dpPx * 20f, col, dpPx)
     val fg = if (sel) Color.WHITE else col
     tv.setTextColor(fg)
     val dr = tv.compoundDrawables[0]
@@ -208,7 +228,7 @@ fun Context.chipScroller(options: List<Opt>, initial: String, onSelect: (String)
 
     for (i in options.indices) {
         val o = options[i]
-        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
+        val tv = pill(o.label, Palette.card, o.color, 13f, o.icon)
         tv.setOnClickListener {
             if (current != o.key) {
                 current = o.key
@@ -245,7 +265,7 @@ fun Context.multiChips(options: List<Opt>, initial: Set<String>, onChange: (Set<
 
     for (i in options.indices) {
         val o = options[i]
-        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
+        val tv = pill(o.label, Palette.card, o.color, 13f, o.icon)
         tv.setOnClickListener {
             if (chosen.contains(o.key)) chosen.remove(o.key) else chosen.add(o.key)
             restyle()
@@ -282,7 +302,7 @@ fun Context.chipFlow(options: List<Opt>, initial: String, onSelect: (String) -> 
 
     for (i in options.indices) {
         val o = options[i]
-        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
+        val tv = pill(o.label, Palette.card, o.color, 13f, o.icon)
         tv.setOnClickListener {
             if (current != o.key) {
                 current = o.key
@@ -317,7 +337,7 @@ fun Context.multiFlow(options: List<Opt>, initial: Set<String>, onChange: (Set<S
 
     for (i in options.indices) {
         val o = options[i]
-        val tv = pill(o.label, Color.WHITE, o.color, 13f, o.icon)
+        val tv = pill(o.label, Palette.card, o.color, 13f, o.icon)
         tv.setOnClickListener {
             if (chosen.contains(o.key)) chosen.remove(o.key) else chosen.add(o.key)
             restyle()
@@ -377,7 +397,7 @@ class SoftBar(ctx: Context) : View(ctx) {
             field = v
             invalidate()
         }
-    var trackColor: Int = Color.parseColor("#F6DCE6")
+    var trackColor: Int = Palette.track
         set(v) {
             field = v
             invalidate()
@@ -478,8 +498,32 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
     private var bh = 0
     private val border = ctx.dp(3)
 
+    // decoração do fundo (só no modo fit): bolhas, símbolos do gênero e "cartas" atrás da capa
+    private var deco: Genre? = null
+    private val decoPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val decoIcon = IconDrawable("heart", Color.WHITE)
+    private val decoRect = RectF()
+
+    private fun a(color: Int, alpha: Int): Int = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+
+    private fun drawIcon(c: Canvas, name: String, color: Int, cx: Float, cy: Float, size: Float, rot: Float) {
+        decoIcon.name = name
+        decoIcon.color = color
+        val h = (size / 2f).toInt()
+        decoIcon.setBounds(-h, -h, h, h)
+        c.save()
+        c.translate(cx, cy)
+        c.rotate(rot)
+        decoIcon.draw(c)
+        c.restore()
+    }
+
+    /** Onde começa (da esquerda) a capa; serve para saber se sobra espaço nas laterais. */
+    fun posterLeft(): Int = if (fit && img.visibility == View.VISIBLE && img.width > 0) img.left else Int.MAX_VALUE
+
     init {
         if (fit) {
+            setWillNotDraw(false)
             img.scaleType = ImageView.ScaleType.FIT_XY
             img.setPadding(border, border, border, border)
             val pr = ctx.dp(20).toFloat()
@@ -504,6 +548,62 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
             }
         }
         clipToOutline = true
+    }
+
+    override fun onDraw(c: Canvas) {
+        super.onDraw(c)
+        val g = deco ?: return
+        if (!fit || width == 0 || height == 0) return
+        val u = resources.displayMetrics.density
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val p = decoPaint
+        p.style = Paint.Style.FILL
+
+        // bolhas suaves de luz
+        p.color = a(g.primary, 46)
+        c.drawCircle(w * 0.95f, h * 0.05f, 96f * u, p)
+        p.color = a(g.primary, 34)
+        c.drawCircle(w * 0.02f, h * 0.98f, 120f * u, p)
+        p.color = a(Color.WHITE, 90)
+        c.drawCircle(w * 0.10f, h * 0.16f, 46f * u, p)
+        c.drawCircle(w * 0.92f, h * 0.70f, 30f * u, p)
+
+        // marcas d'água grandes do símbolo do gênero
+        drawIcon(c, g.icon, a(g.primary, 44), w * 0.84f, h * 0.24f, 130f * u, 14f)
+        drawIcon(c, g.icon, a(g.primary, 34), w * 0.12f, h * 0.76f, 92f * u, -16f)
+
+        // símbolos pequenos espalhados
+        val set = (g.petals + listOf("sparkle", "heart")).distinct()
+        val pos = arrayOf(
+            floatArrayOf(0.09f, 0.08f, 20f, -12f), floatArrayOf(0.93f, 0.50f, 18f, 10f),
+            floatArrayOf(0.05f, 0.46f, 15f, 18f), floatArrayOf(0.95f, 0.90f, 22f, -8f),
+            floatArrayOf(0.52f, 0.04f, 14f, 0f), floatArrayOf(0.30f, 0.97f, 18f, 12f),
+            floatArrayOf(0.74f, 0.97f, 14f, -10f), floatArrayOf(0.20f, 0.30f, 12f, 8f)
+        )
+        for (i in pos.indices) {
+            val q = pos[i]
+            val col = if (i % 2 == 0) a(g.primary, 120) else a(Color.WHITE, 190)
+            drawIcon(c, set[i % set.size], col, w * q[0], h * q[1], q[2] * u, q[3])
+        }
+
+        // duas "cartas" inclinadas atrás da capa (efeito de pilha de fotos)
+        if (img.visibility == View.VISIBLE && img.width > 0) {
+            val cx = (img.left + img.right) / 2f
+            val cy = (img.top + img.bottom) / 2f
+            val grow = 3f * u
+            decoRect.set(img.left - grow, img.top - grow, img.right + grow, img.bottom + grow)
+            c.save()
+            c.rotate(-5.5f, cx, cy)
+            p.color = a(g.primary, 120)
+            c.drawRoundRect(decoRect, 22f * u, 22f * u, p)
+            c.restore()
+            c.save()
+            c.rotate(4.5f, cx, cy)
+            p.color = a(Color.WHITE, 150)
+            c.drawRoundRect(decoRect, 22f * u, 22f * u, p)
+            c.restore()
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -536,8 +636,10 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
             if (fit) {
                 bw = bmp.width
                 bh = bmp.height
-                background = gradient(g.soft, mixColor(g.primary, Color.WHITE, 0.55f))
+                deco = g
+                background = gradient(g.soft, mixColor(g.primary, Palette.card, 0.55f))
                 requestLayout()
+                invalidate()
             } else {
                 setBackgroundColor(g.soft)
             }
@@ -545,6 +647,7 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
             img.visibility = View.GONE
             bw = 0
             bh = 0
+            if (fit) deco = g
             ph.visibility = View.VISIBLE
             ph.d.name = g.icon
             ph.invalidate()
@@ -576,7 +679,7 @@ fun Context.roundBtn(icon: String, color: Int, filled: Boolean, sizeDp: Int = 16
     val f = FrameLayout(this)
     val d = GradientDrawable()
     d.shape = GradientDrawable.OVAL
-    d.setColor(if (filled) color else Color.WHITE)
+    d.setColor(if (filled) color else Palette.card)
     d.setStroke(dp(2), color)
     f.background = d
     f.addView(

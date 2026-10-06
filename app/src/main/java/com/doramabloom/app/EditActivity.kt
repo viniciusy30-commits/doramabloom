@@ -63,6 +63,7 @@ class EditActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this)
+        ThemeMode.refresh(this)
         id = intent.getLongExtra("id", -1L)
         existing = Store.get(id)
         val ex = existing
@@ -128,8 +129,8 @@ class EditActivity : AppCompatActivity() {
         coverBtns.orientation = LinearLayout.VERTICAL
         val pick = pill("Escolher capa", Palette.pink, Color.WHITE, 13f, "image")
         pick.setOnClickListener { pickCover() }
-        val clear = pill("Remover capa", Color.WHITE, Palette.pink, 12f, "close")
-        clear.background = roundRect(Color.WHITE, dp(20).toFloat(), Palette.pink, dp(1))
+        val clear = pill("Remover capa", Palette.card, Palette.pink, 12f, "close")
+        clear.background = roundRect(Palette.card, dp(20).toFloat(), Palette.pink, dp(1))
         clear.setOnClickListener {
             if (coverPath.isNotEmpty() && coverPath != originalCover) File(coverPath).delete()
             coverPath = ""
@@ -217,7 +218,7 @@ class EditActivity : AppCompatActivity() {
         }
         c4.addView(rating, lin(WRAP, WRAP, t = 10))
         c4.addView(scoreTv, lin(WRAP, WRAP, t = 6))
-        val favTv = pill("Marcar como favorito", Color.WHITE, Palette.pink, 15f, "heart")
+        val favTv = pill("Marcar como favorito", Palette.card, Palette.pink, 15f, "heart")
         favTv.setPadding(dp(18), dp(10), dp(20), dp(10))
         favPill = favTv
         favTv.setOnClickListener {
@@ -262,8 +263,8 @@ class EditActivity : AppCompatActivity() {
         c5.addView(fieldLabel("Datas (segure para limpar)"))
         val dRow = LinearLayout(this)
         dRow.orientation = LinearLayout.HORIZONTAL
-        startBtn = pill("", Color.WHITE, Palette.pink, 12f, "play")
-        endBtn = pill("", Color.WHITE, Palette.pink, 12f, "check")
+        startBtn = pill("", Palette.card, Palette.pink, 12f, "play")
+        endBtn = pill("", Palette.card, Palette.pink, 12f, "check")
         startBtn.setOnClickListener {
             pickDate(startDate) {
                 startDate = it
@@ -378,8 +379,8 @@ class EditActivity : AppCompatActivity() {
             updateEffects()
         }
         // "Novo gênero" faz parte da própria lista de chips (nada fica cortado)
-        val newG = pill("Novo gênero", Color.WHITE, Palette.pinkDark, 13f, "add")
-        newG.background = roundRect(Color.WHITE, dp(20).toFloat(), Palette.pinkDark, dp(1))
+        val newG = pill("Novo gênero", Palette.card, Palette.pinkDark, 13f, "add")
+        newG.background = roundRect(Palette.card, dp(20).toFloat(), Palette.pinkDark, dp(1))
         newG.setOnClickListener {
             showGenreCreator { g ->
                 genreKey = g.key
@@ -403,7 +404,7 @@ class EditActivity : AppCompatActivity() {
         val c = Genres.byKey(genreKey).primary
         val fg = if (favorite) Color.WHITE else c
         tv.text = if (favorite) "Nos favoritos" else "Marcar como favorito"
-        tv.background = roundRect(if (favorite) c else Color.WHITE, dp(24).toFloat(), c, dp(2))
+        tv.background = roundRect(if (favorite) c else Palette.card, dp(24).toFloat(), c, dp(2))
         tv.setTextColor(fg)
         tv.setCompoundDrawables(iconDrawable("heart", fg, dp(24)), null, null, null)
         tv.compoundDrawablePadding = dp(8)
