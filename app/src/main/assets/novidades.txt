@@ -1,0 +1,14 @@
+#id 2026-10-06-c
+#titulo Tela de atualizações mais limpa
+- Em Config., a parte Atualizações agora mostra só a versão instalada e o botão para verificar.
+- Para rever a lista de novidades, toque na versão instalada.
+
+#id 2026-10-06-b
+#titulo Resumo do que mudou a cada atualização
+- Agora, toda vez que o app atualiza, aparece este aviso com as novidades da versão nova.
+
+#id 2026-10-06-a
+#titulo Backup completo e textos que cabem
+- O backup agora é um arquivo .zip com tudo: doramas, capas, gêneros, ordem, links e ajustes.
+- Em Config., "Baixar backup" salva o arquivo onde você escolher e "Restaurar" lê o arquivo, substituindo tudo ou mesclando.
+- Nomes de categorias e frases de gênero diminuem sozinhos para caber, em vez de sumirem.

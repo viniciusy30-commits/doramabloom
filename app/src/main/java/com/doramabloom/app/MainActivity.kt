@@ -116,7 +116,11 @@ class MainActivity : AppCompatActivity() {
         root.addView(fxTop, FrameLayout.LayoutParams(MATCH, MATCH))
 
         setContentView(root)
-        Updater.autoCheck(this)
+        // depois de atualizar, mostra o resumo do que mudou; só então confere se há versão nova
+        root.post {
+            val shown = Novidades.showIfNew(this) { Updater.autoCheck(this) }
+            if (!shown) Updater.autoCheck(this)
+        }
 
         if (!Store.askedName) {
             root.post { askName() }
@@ -1191,8 +1195,9 @@ class MainActivity : AppCompatActivity() {
         // atualizações pelo próprio app
         col.addView(section("Atualizações", "download"))
         val uc = card(14, 22)
-        uc.addView(label("Versão instalada: v" + Updater.currentCode(this), 13f, Palette.text, true))
-        uc.addView(label("Quando você subir uma versão nova no GitHub, ela aparece aqui. O app baixa e o Android pede para confirmar a instalação; seus dados ficam guardados.", 12f, Palette.muted), lin(MATCH, WRAP, t = 4))
+        val verTv = label("Versão instalada: v" + Updater.currentCode(this), 14f, Palette.text, true)
+        verTv.setOnClickListener { Novidades.showAll(this) }
+        uc.addView(verTv)
         val upBtn = bigPill("Verificar atualização", Palette.pink, Color.WHITE, 14f, "download")
         upBtn.setOnClickListener { Updater.check(this, false) }
         uc.addView(upBtn, lin(MATCH, WRAP, t = 12))
