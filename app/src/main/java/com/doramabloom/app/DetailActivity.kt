@@ -7,6 +7,9 @@ import android.os.Bundle
 import android.text.InputType
 import android.text.TextUtils
 import android.view.GestureDetector
+import android.view.VelocityTracker
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -32,7 +35,7 @@ class DetailActivity : AppCompatActivity() {
     private var id = -1L
     private var ids = LongArray(0)
     private var rootView: View? = null
-    private lateinit var swipe: GestureDetector
+    private var listName = ""
     private var seen = -1
     private var scroll: ScrollView? = null
     private lateinit var petals: PetalsView
@@ -44,28 +47,119 @@ class DetailActivity : AppCompatActivity() {
         ThemeMode.refresh(this)
         id = intent.getLongExtra("id", -1L)
         ids = intent.getLongArrayExtra("ids") ?: LongArray(0)
+        listName = intent.getStringExtra("listName") ?: ""
         if (Store.get(id) == null) {
             finish()
             return
         }
-        swipe = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-                if (e1 == null) return false
-                val dx = e2.x - e1.x
-                val dy = e2.y - e1.y
-                if (Math.abs(dx) > dp(90) && Math.abs(dx) > Math.abs(dy) * 1.6f && Math.abs(velocityX) > 700f) {
-                    swipeTo(if (dx < 0) 1 else -1)
-                    return true
-                }
-                return false
-            }
-        })
         build(true)
     }
 
+    // ---------- deslizar entre os doramas da lista: a tela acompanha o dedo e troca com animação
+
+    private var downX = 0f
+    private var downY = 0f
+    private var dragging = false
+    private var animating = false
+    private var tracker: VelocityTracker? = null
+
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ids.size > 1) swipe.onTouchEvent(ev)
+        if (ids.size < 2) return super.dispatchTouchEvent(ev)
+        if (animating) return true
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = ev.x
+                downY = ev.y
+                dragging = false
+                tracker?.recycle()
+                tracker = VelocityTracker.obtain()
+                tracker?.addMovement(ev)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                tracker?.addMovement(ev)
+                val dx = ev.x - downX
+                val dy = ev.y - downY
+                if (!dragging && Math.abs(dx) > dp(18) && Math.abs(dx) > Math.abs(dy) * 1.6f) {
+                    dragging = true
+                    // cancela o toque dos filhos (rolagem, botões) para a tela acompanhar o dedo
+                    val c = MotionEvent.obtain(ev)
+                    c.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(c)
+                    c.recycle()
+                }
+                if (dragging) {
+                    dragTo(dx)
+                    return true
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (dragging) {
+                    dragging = false
+                    tracker?.addMovement(ev)
+                    tracker?.computeCurrentVelocity(1000)
+                    val vx = tracker?.xVelocity ?: 0f
+                    tracker?.recycle()
+                    tracker = null
+                    finishDrag(ev.x - downX, vx)
+                    return true
+                }
+                tracker?.recycle()
+                tracker = null
+            }
+        }
         return super.dispatchTouchEvent(ev)
+    }
+
+    private fun dragTo(dx: Float) {
+        val r = rootView ?: return
+        val w = maxOf(1f, r.width.toFloat())
+        val has = neighbor(if (dx < 0) 1 else -1) != null
+        val d = if (has) dx else dx * 0.25f // no fim da lista a tela "segura"
+        val p = Math.min(1f, Math.abs(d) / w)
+        r.translationX = d
+        r.alpha = 1f - 0.55f * p
+        r.scaleX = 1f - 0.06f * p
+        r.scaleY = 1f - 0.06f * p
+        r.rotation = d / w * 4f
+    }
+
+    private fun finishDrag(dx: Float, vx: Float) {
+        val r = rootView ?: return
+        val w = maxOf(1f, r.width.toFloat())
+        val step = if (dx < 0) 1 else -1
+        val nid = neighbor(step)
+        val fast = Math.abs(vx) > 900f && (vx < 0) == (dx < 0)
+        val commit = nid != null && (Math.abs(dx) > w * 0.25f || fast)
+        if (!commit) {
+            animating = true
+            r.animate().translationX(0f).alpha(1f).scaleX(1f).scaleY(1f).rotation(0f)
+                .setDuration(380).setInterpolator(OvershootInterpolator(1.7f))
+                .withEndAction { animating = false }.start()
+            return
+        }
+        animating = true
+        // sai pelo lado do dedo...
+        r.animate().translationX(-step * w * 1.05f).alpha(0f).scaleX(0.9f).scaleY(0.9f).rotation(-step * 6f)
+            .setDuration(190).setInterpolator(AccelerateInterpolator(1.3f))
+            .withEndAction {
+                id = nid!!
+                scroll = null
+                build(true)
+                // ...e o próximo entra pelo lado oposto, com uma molinha no final
+                val nr = rootView
+                if (nr == null) {
+                    animating = false
+                } else {
+                    nr.translationX = step * w * 0.7f
+                    nr.alpha = 0f
+                    nr.scaleX = 0.92f
+                    nr.scaleY = 0.92f
+                    nr.rotation = step * 4f
+                    nr.animate().translationX(0f).alpha(1f).scaleX(1f).scaleY(1f).rotation(0f)
+                        .setDuration(460).setInterpolator(OvershootInterpolator(0.9f))
+                        .withEndAction { animating = false }.start()
+                }
+            }.start()
     }
 
     /** Próximo (step = 1) ou anterior (step = -1) dorama da mesma lista. */
@@ -78,27 +172,6 @@ class DetailActivity : AppCompatActivity() {
             n += step
         }
         return null
-    }
-
-    private fun swipeTo(step: Int) {
-        val nid = neighbor(step)
-        val r = rootView
-        if (nid == null) {
-            // fim da lista: só um empurrãozinho
-            if (r != null) {
-                r.animate().translationX(-step * dp(28).toFloat()).setDuration(90).withEndAction {
-                    r.animate().translationX(0f).setDuration(140).start()
-                }.start()
-            }
-            return
-        }
-        id = nid
-        scroll = null
-        build(false)
-        val nr = rootView ?: return
-        nr.translationX = step * nr.resources.displayMetrics.widthPixels * 0.3f
-        nr.alpha = 0.2f
-        nr.animate().translationX(0f).alpha(1f).setDuration(240).start()
     }
 
     override fun onResume() {
@@ -165,10 +238,23 @@ class DetailActivity : AppCompatActivity() {
         top.gravity = Gravity.CENTER_VERTICAL
         top.addView(roundBtn("back", g.dark, false, 18) { finish() }, lin(dp(40), dp(40)))
         val pos = ids.indexOf(id)
-        if (ids.size > 1 && pos >= 0) {
-            val pl = label("‹   " + (pos + 1) + " de " + ids.size + "   ›", 12.5f, g.dark, true)
-            pl.gravity = Gravity.CENTER
-            top.addView(pl, lin(0, WRAP, 1f))
+        if (listName.isNotBlank() || (ids.size > 1 && pos >= 0)) {
+            val mid = LinearLayout(this)
+            mid.orientation = LinearLayout.VERTICAL
+            mid.gravity = Gravity.CENTER_HORIZONTAL
+            if (listName.isNotBlank()) {
+                val nl = label(listName, 14f, g.dark, true, true)
+                nl.gravity = Gravity.CENTER
+                nl.maxLines = 1
+                nl.ellipsize = TextUtils.TruncateAt.END
+                mid.addView(nl, lin(MATCH, WRAP))
+            }
+            if (ids.size > 1 && pos >= 0) {
+                val pl = label("‹   " + (pos + 1) + " de " + ids.size + "   ›", 11.5f, g.primary, true)
+                pl.gravity = Gravity.CENTER
+                mid.addView(pl, lin(MATCH, WRAP, t = 1))
+            }
+            top.addView(mid, lin(0, WRAP, 1f, l = 6, r = 6))
         } else {
             top.addView(View(this), lin(0, dp(1), 1f))
         }
@@ -240,17 +326,6 @@ class DetailActivity : AppCompatActivity() {
         val cover = CoverView(this, 26)
         cover.bind(d, 900)
         ring.addView(cover, FrameLayout.LayoutParams(cw, ch))
-        val heroSeal = SealView(this)
-        heroSeal.set(g)
-        heroSeal.rotation = -8f
-        val hsl = FrameLayout.LayoutParams(dp(58), dp(58), Gravity.BOTTOM or Gravity.END)
-        hsl.setMargins(0, 0, dp(8), dp(8))
-        ring.addView(heroSeal, hsl)
-        val tape = TapeView(this, mixColor(g.primary, Color.WHITE, 0.45f))
-        tape.rotation = -6f
-        val tlp = FrameLayout.LayoutParams(dp(64), dp(20), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
-        tlp.topMargin = dp(-9)
-        ring.addView(tape, tlp)
         stage.addView(ring, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         heroCol.addView(stage, lin(MATCH, WRAP, t = 28, b = 6))
 

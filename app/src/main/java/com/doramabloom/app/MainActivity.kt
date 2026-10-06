@@ -115,6 +115,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(fxTop, FrameLayout.LayoutParams(MATCH, MATCH))
 
         setContentView(root)
+        Updater.autoCheck(this)
 
         if (!Store.askedName) {
             root.post { askName() }
@@ -334,9 +335,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Abre o dorama; [list] é a lista em que ele está (dá para deslizar entre eles). */
-    private fun open(d: Drama, list: List<Drama>? = null) {
+    private fun open(d: Drama, list: List<Drama>? = null, name: String = "Todos") {
         val i = Intent(this, DetailActivity::class.java)
         i.putExtra("id", d.id)
+        i.putExtra("listName", name)
         val l = list ?: Store.all().sortedByDescending { it.addedAt }
         i.putExtra("ids", LongArray(l.size) { l[it].id })
         startActivity(i)
@@ -440,7 +442,7 @@ class MainActivity : AppCompatActivity() {
             rv.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
             rv.clipToPadding = false
             rv.itemAnimator = null
-            val ad = DramaAdapter(4, { open(it, homeWatching) }, { d, btn ->
+            val ad = DramaAdapter(4, { open(it, homeWatching, "Assistindo") }, { d, btn ->
                 val g = Genres.byKey(d.genre)
                 petals.burstFrom(
                     btn, listOf(g.icon, "heart", "blossom", "sparkle"),
@@ -589,6 +591,17 @@ class MainActivity : AppCompatActivity() {
         else -> "Minha ordem"
     }
 
+    /** Nome da lista aberta na Estante, conforme os filtros (ex.: "Assistindo", "Esporte", "Favoritos · Coreia do Sul"). */
+    private fun shelfListName(): String {
+        val parts = ArrayList<String>()
+        if (statusFilter == "fav") parts.add("Favoritos")
+        else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
+        if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
+        if (countryFilter != "all") parts.add(countryFilter)
+        if (query.isNotBlank()) parts.add("Busca")
+        return if (parts.isEmpty()) "Todos" else parts.joinToString(" · ")
+    }
+
     private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || countryFilter != "all"
 
     private fun filterCount(): Int =
@@ -693,7 +706,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyView(rv: RecyclerView) {
         rv.layoutManager = if (gridMode) GridLayoutManager(this, 2) else LinearLayoutManager(this)
-        listAdapter = DramaAdapter(if (gridMode) 3 else 0, { open(it, filtered()) })
+        listAdapter = DramaAdapter(if (gridMode) 3 else 0, { open(it, filtered(), shelfListName()) })
         rv.adapter = listAdapter
         refreshList()
 
@@ -1173,6 +1186,16 @@ class MainActivity : AppCompatActivity() {
             if (ThemeMode.isDark() != Palette.dark) recreate()
         }, lin(MATCH, WRAP, t = 10))
         col.addView(ac, lin(MATCH, WRAP))
+
+        // atualizações pelo próprio app
+        col.addView(section("Atualizações", "download"))
+        val uc = card(14, 22)
+        uc.addView(label("Versão instalada: v" + Updater.currentCode(this), 13f, Palette.text, true))
+        uc.addView(label("Quando você subir uma versão nova no GitHub, ela aparece aqui. O app baixa e o Android pede para confirmar a instalação; seus dados ficam guardados.", 12f, Palette.muted), lin(MATCH, WRAP, t = 4))
+        val upBtn = bigPill("Verificar atualização", Palette.pink, Color.WHITE, 14f, "download")
+        upBtn.setOnClickListener { Updater.check(this, false) }
+        uc.addView(upBtn, lin(MATCH, WRAP, t = 12))
+        col.addView(uc, lin(MATCH, WRAP))
 
         // perfil
         col.addView(section("Perfil", "person"))

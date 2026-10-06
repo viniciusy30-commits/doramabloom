@@ -830,6 +830,16 @@ fun Context.roundBtn(icon: String, color: Int, filled: Boolean, sizeDp: Int = 16
 }
 
 
+/** Troca a cor de um botão criado com roundBtn (para seguir o tema do gênero). */
+fun FrameLayout.recolorRoundBtn(color: Int, filled: Boolean) {
+    val d = GradientDrawable()
+    d.shape = GradientDrawable.OVAL
+    d.setColor(if (filled) color else Palette.card)
+    d.setStroke(dp(2), color)
+    background = d
+    (getChildAt(0) as? IconView)?.tint = if (filled) Color.WHITE else color
+}
+
 // ================================================================ ANIMAÇÕES
 
 const val TAG_SEL = 0x7f0a0001

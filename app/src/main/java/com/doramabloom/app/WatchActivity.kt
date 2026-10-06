@@ -55,6 +55,8 @@ class WatchActivity : AppCompatActivity() {
     private lateinit var seasonScroll: HorizontalScrollView
     private lateinit var seasonRow: LinearLayout
     private lateinit var fsLayer: FrameLayout
+    private val accentBtns = ArrayList<Pair<FrameLayout, Boolean>>()
+    private var accent: Int = Palette.pink
     private lateinit var backBtn: View
     private lateinit var fwdBtn: View
     private var customView: View? = null
@@ -78,6 +80,19 @@ class WatchActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.screen_back_in, R.anim.screen_back_out)
     }
 
+    /** Botão redondo que acompanha a cor do tema do dorama da aba aberta. */
+    private fun accBtn(icon: String, filled: Boolean, size: Int, onClick: () -> Unit): FrameLayout {
+        val b = roundBtn(icon, accent, filled, size, onClick)
+        accentBtns.add(b to filled)
+        return b
+    }
+
+    private fun applyAccent(c: Int) {
+        accent = c
+        for (p in accentBtns) p.first.recolorRoundBtn(c, p.second)
+        progress.progressTintList = ColorStateList.valueOf(c)
+    }
+
     private fun curTab(): Tab? = tabs.getOrNull(cur)
     private fun curDrama(): Drama? = curTab()?.let { Store.get(it.id) }
     private fun isCur(w: WebView): Boolean = curTab()?.web === w
@@ -96,7 +111,7 @@ class WatchActivity : AppCompatActivity() {
         top.orientation = LinearLayout.HORIZONTAL
         top.gravity = Gravity.CENTER_VERTICAL
         top.setPadding(dp(12), dp(8), dp(12), dp(4))
-        top.addView(roundBtn("close", Palette.pink, false, 16) { finish() }, lin(dp(40), dp(40)))
+        top.addView(accBtn("close", false, 16) { finish() }, lin(dp(40), dp(40)))
 
         urlIn = EditText(this)
         urlIn.setSingleLine(true)
@@ -123,7 +138,7 @@ class WatchActivity : AppCompatActivity() {
         urlBox.addView(urlIn, lin(0, WRAP, 1f, l = 6))
         top.addView(urlBox, lin(0, dp(40), 1f, l = 8, r = 8))
 
-        val more = roundBtn("more", Palette.pink, false, 18) {}
+        val more = accBtn("more", false, 18) {}
         more.setOnClickListener { showMenu(more) }
         top.addView(more, lin(dp(40), dp(40)))
         col.addView(top, lin(MATCH, WRAP))
@@ -166,9 +181,9 @@ class WatchActivity : AppCompatActivity() {
         bottom.orientation = LinearLayout.HORIZONTAL
         bottom.gravity = Gravity.CENTER_VERTICAL
         bottom.setPadding(dp(14), dp(8), dp(14), dp(10))
-        backBtn = roundBtn("back", Palette.pink, false, 16) { curTab()?.web?.let { if (it.canGoBack()) it.goBack() } }
-        fwdBtn = roundBtn("forward", Palette.pink, false, 16) { curTab()?.web?.let { if (it.canGoForward()) it.goForward() } }
-        val reload = roundBtn("replay", Palette.pink, false, 16) { curTab()?.web?.reload() }
+        backBtn = accBtn("back", false, 16) { curTab()?.web?.let { if (it.canGoBack()) it.goBack() } }
+        fwdBtn = accBtn("forward", false, 16) { curTab()?.web?.let { if (it.canGoForward()) it.goForward() } }
+        val reload = accBtn("replay", false, 16) { curTab()?.web?.reload() }
         bottom.addView(backBtn, lin(dp(40), dp(40)))
         bottom.addView(fwdBtn, lin(dp(40), dp(40), l = 8))
         bottom.addView(reload, lin(dp(40), dp(40), l = 8))
@@ -179,13 +194,13 @@ class WatchActivity : AppCompatActivity() {
         counter.gravity = Gravity.CENTER_VERTICAL
         counter.setPadding(dp(5), dp(5), dp(5), dp(5))
         counter.background = roundRect(Palette.card, dp(28).toFloat(), Palette.line, dp(1))
-        counter.addView(roundBtn("minus", Palette.pink, false, 14) { epMinus() }, lin(dp(34), dp(34)))
+        counter.addView(accBtn("minus", false, 14) { epMinus() }, lin(dp(34), dp(34)))
         epText = label("Ep. 0", 13.5f, Palette.text, true, true)
         epText.gravity = Gravity.CENTER
         epText.maxLines = 1
         epText.minWidth = dp(84)
         counter.addView(epText, lin(WRAP, WRAP, l = 4, r = 4))
-        counter.addView(roundBtn("add", Palette.pink, true, 14) { epPlus() }, lin(dp(34), dp(34)))
+        counter.addView(accBtn("add", true, 14) { epPlus() }, lin(dp(34), dp(34)))
         bottom.addView(counter, lin(WRAP, WRAP))
         col.addView(bottom, lin(MATCH, WRAP))
 
@@ -327,9 +342,7 @@ class WatchActivity : AppCompatActivity() {
         t.web.onResume()
         val d = Store.get(t.id)
         urlIn.setText(t.web.url ?: (d?.let { if (it.lastUrl.isNotBlank()) it.lastUrl else it.link } ?: ""))
-        if (d != null) {
-            progress.progressTintList = ColorStateList.valueOf(Genres.byKey(d.genre).primary)
-        }
+        applyAccent(if (d != null) Genres.byKey(d.genre).primary else Palette.pink)
         progress.visibility = View.INVISIBLE
         renderTabs()
         renderSeasons()
@@ -363,7 +376,7 @@ class WatchActivity : AppCompatActivity() {
             chip.pressable(0.95f)
             tabRow.addView(chip, lin(WRAP, dp(38), r = 8))
         }
-        tabRow.addView(roundBtn("add", Palette.pink, true, 16) { pickDrama() }, lin(dp(38), dp(38)))
+        tabRow.addView(roundBtn("add", accent, true, 16) { pickDrama() }, lin(dp(38), dp(38)))
     }
 
     private fun closeTab(i: Int) {
@@ -389,7 +402,7 @@ class WatchActivity : AppCompatActivity() {
     private fun pickDrama() {
         val list = Store.all().filter { d -> tabs.none { t -> t.id == d.id } }
         if (list.isEmpty()) {
-            softToast("Nenhum outro dorama na estante", Palette.pink, "globe")
+            softToast("Nenhum outro dorama na estante", accent, "globe")
             return
         }
         val names = list.map { it.title }.toTypedArray()
@@ -458,7 +471,7 @@ class WatchActivity : AppCompatActivity() {
         val total = d.seasonEps[s]
         if (total > 0 && d.watched[s] >= total) {
             val more = if (s + 1 < seasonCount(d)) " Escolha a próxima lá embaixo." else ""
-            softToast("Temporada " + (s + 1) + " já está completa." + more, Palette.pink, "check")
+            softToast("Temporada " + (s + 1) + " já está completa." + more, accent, "check")
             return
         }
         val fin = Store.adjust(d, s, 1)
@@ -478,7 +491,7 @@ class WatchActivity : AppCompatActivity() {
         val s = t.season
         if (s !in d.seasonEps.indices) return
         if (d.watched[s] <= 0) {
-            softToast("Essa temporada ainda está zerada", Palette.pink, "tv")
+            softToast("Essa temporada ainda está zerada", accent, "tv")
             return
         }
         Store.adjust(d, s, -1)
@@ -503,20 +516,20 @@ class WatchActivity : AppCompatActivity() {
                     d.link = u
                     d.lastUrl = u
                     Store.save(d)
-                    softToast("Link do dorama atualizado!", Palette.pink, "link")
+                    softToast("Link do dorama atualizado!", accent, "link")
                 }
                 2 -> t.web.loadUrl(if (d.link.isNotBlank()) d.link else Store.homeUrl)
                 3 -> if (u.isNotBlank()) {
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
                     } catch (e: Exception) {
-                        softToast("Não consegui abrir", Palette.pink, "close")
+                        softToast("Não consegui abrir", accent, "close")
                     }
                 }
                 4 -> if (u.isNotBlank()) {
                     val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     cm.setPrimaryClip(ClipData.newPlainText("link", u))
-                    softToast("Endereço copiado!", Palette.pink, "check")
+                    softToast("Endereço copiado!", accent, "check")
                 }
             }
             true

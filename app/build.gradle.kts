@@ -11,8 +11,20 @@ android {
         applicationId = "com.doramabloom.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        // o número da versão sobe sozinho a cada build do GitHub (é ele que o app compara para atualizar)
+        val run = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toIntOrNull() ?: 1
+        versionCode = run
+        versionName = "1.$run"
+    }
+
+    // chave fixa: todo APK sai assinado igual, então dá para instalar por cima sem perder os dados
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("mydoramas.keystore")
+            storePassword = "mydoramas"
+            keyAlias = "mydoramas"
+            keyPassword = "mydoramas"
+        }
     }
 
     buildTypes {
