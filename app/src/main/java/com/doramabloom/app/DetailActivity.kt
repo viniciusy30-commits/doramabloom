@@ -8,7 +8,9 @@ import android.text.InputType
 import android.text.TextUtils
 import android.view.GestureDetector
 import android.view.VelocityTracker
+import android.view.ViewOutlineProvider
 import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.Gravity
 import android.view.MotionEvent
@@ -39,6 +41,9 @@ class DetailActivity : AppCompatActivity() {
     private var seen = -1
     private var scroll: ScrollView? = null
     private lateinit var petals: PetalsView
+    private lateinit var host: FrameLayout
+    private lateinit var gapBg: View
+    private lateinit var gapPetals: PetalsView
     private val updaters = ArrayList<() -> Unit>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +57,14 @@ class DetailActivity : AppCompatActivity() {
             finish()
             return
         }
+        // moldura fixa: atrás da página fica o "vão" com símbolos caindo, que aparece quando a página desliza
+        host = FrameLayout(this)
+        gapBg = View(this)
+        gapBg.visibility = View.GONE
+        host.addView(gapBg, FrameLayout.LayoutParams(MATCH, MATCH))
+        gapPetals = PetalsView(this, listOf("petal"), Palette.pink, 34)
+        gapPetals.visibility = View.GONE
+        host.addView(gapPetals, FrameLayout.LayoutParams(MATCH, MATCH))
         build(true)
     }
 
@@ -110,17 +123,74 @@ class DetailActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
+    private var gapStep = 0
+    private var gapShown = false
+
+    /** Mostra o vão atrás da página: fundo do tema + símbolos das categorias dos dois doramas, misturados. */
+    private fun showGap(step: Int) {
+        if (gapShown && gapStep == step) return
+        val cur = Store.get(id) ?: return
+        val nxt = neighbor(step)?.let { Store.get(it) }
+        gapStep = step
+        val a = Atmosphere.ofCategories(if (nxt != null) listOf(cur, nxt) else listOf(cur))
+        gapPetals.setTheme(a.icons, a.tints)
+        val g1 = Genres.byKey(cur.genre)
+        val g2 = if (nxt != null) Genres.byKey(nxt.genre) else g1
+        gapBg.background = gradient(mixColor(g1.soft, g2.soft, 0.5f), Palette.card)
+        if (!gapShown) {
+            gapShown = true
+            gapBg.animate().cancel()
+            gapPetals.animate().cancel()
+            gapBg.alpha = 0f
+            gapPetals.alpha = 0f
+            gapBg.visibility = View.VISIBLE
+            gapPetals.visibility = View.VISIBLE
+            gapBg.animate().alpha(1f).setDuration(160).start()
+            gapPetals.animate().alpha(1f).setDuration(220).start()
+        }
+    }
+
+    private fun hideGap() {
+        if (!gapShown) return
+        gapShown = false
+        gapBg.animate().alpha(0f).setDuration(380).start()
+        gapPetals.animate().alpha(0f).setDuration(380).withEndAction {
+            if (!gapShown) {
+                gapBg.visibility = View.GONE
+                gapPetals.visibility = View.GONE
+            }
+        }.start()
+    }
+
+    /** Durante a troca a página vira um cartãozinho de cantos redondos. */
+    private fun cardify(r: View, on: Boolean) {
+        if (on) {
+            r.outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: android.graphics.Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, dp(30).toFloat())
+                }
+            }
+            r.clipToOutline = true
+        } else {
+            r.clipToOutline = false
+            r.outlineProvider = ViewOutlineProvider.BACKGROUND
+        }
+    }
+
     private fun dragTo(dx: Float) {
         val r = rootView ?: return
         val w = maxOf(1f, r.width.toFloat())
-        val has = neighbor(if (dx < 0) 1 else -1) != null
+        val step = if (dx < 0) 1 else -1
+        val has = neighbor(step) != null
         val d = if (has) dx else dx * 0.25f // no fim da lista a tela "segura"
         val p = Math.min(1f, Math.abs(d) / w)
+        cardify(r, true)
+        showGap(step)
         r.translationX = d
-        r.alpha = 1f - 0.55f * p
-        r.scaleX = 1f - 0.06f * p
-        r.scaleY = 1f - 0.06f * p
-        r.rotation = d / w * 4f
+        r.alpha = 1f - 0.45f * p
+        r.scaleX = 1f - 0.07f * p
+        r.scaleY = 1f - 0.07f * p
+        r.rotation = d / w * 5f
     }
 
     private fun finishDrag(dx: Float, vx: Float) {
@@ -133,31 +203,43 @@ class DetailActivity : AppCompatActivity() {
         if (!commit) {
             animating = true
             r.animate().translationX(0f).alpha(1f).scaleX(1f).scaleY(1f).rotation(0f)
-                .setDuration(380).setInterpolator(OvershootInterpolator(1.7f))
-                .withEndAction { animating = false }.start()
+                .setDuration(420).setInterpolator(OvershootInterpolator(1.5f))
+                .withEndAction {
+                    cardify(r, false)
+                    animating = false
+                }.start()
+            hideGap()
             return
         }
         animating = true
-        // sai pelo lado do dedo...
-        r.animate().translationX(-step * w * 1.05f).alpha(0f).scaleX(0.9f).scaleY(0.9f).rotation(-step * 6f)
-            .setDuration(190).setInterpolator(AccelerateInterpolator(1.3f))
+        // a página sai pelo lado do dedo, mostrando o vão com os símbolos caindo...
+        r.animate().translationX(-step * w * 1.1f).alpha(0f).scaleX(0.88f).scaleY(0.88f).rotation(-step * 7f)
+            .setDuration(230).setInterpolator(AccelerateInterpolator(1.2f))
             .withEndAction {
                 id = nid!!
                 scroll = null
+                // o vão fica à mostra um instante, só com os símbolos caindo
+                showGap(step)
                 build(true)
-                // ...e o próximo entra pelo lado oposto, com uma molinha no final
                 val nr = rootView
                 if (nr == null) {
                     animating = false
+                    hideGap()
                 } else {
-                    nr.translationX = step * w * 0.7f
+                    cardify(nr, true)
+                    nr.translationX = step * w * 0.9f
                     nr.alpha = 0f
-                    nr.scaleX = 0.92f
-                    nr.scaleY = 0.92f
-                    nr.rotation = step * 4f
+                    nr.scaleX = 0.9f
+                    nr.scaleY = 0.9f
+                    nr.rotation = step * 5f
+                    // ...e a próxima entra pelo lado oposto, com uma molinha no final
                     nr.animate().translationX(0f).alpha(1f).scaleX(1f).scaleY(1f).rotation(0f)
-                        .setDuration(460).setInterpolator(OvershootInterpolator(0.9f))
-                        .withEndAction { animating = false }.start()
+                        .setStartDelay(170).setDuration(560).setInterpolator(OvershootInterpolator(1.1f))
+                        .withEndAction {
+                            cardify(nr, false)
+                            animating = false
+                            hideGap()
+                        }.start()
                 }
             }.start()
     }
@@ -473,25 +555,6 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        // ---- status
-        val stCard = card(14, 22)
-        stCard.addView(sectionTitle("Status", "bookmark", g.primary))
-        val stOpts = ArrayList<Opt>()
-        for (s in Statuses.all) stOpts.add(Opt(s.key, s.label, s.color, s.icon))
-        val statusChips = chipScroller(stOpts, d.status) { key ->
-            val before = d.status
-            Store.setStatus(d, key)
-            sync()
-            refreshAll()
-            if (before != key) {
-                val st = Statuses.byKey(key)
-                val icons = if (key == "concluido") listOf("check", "heart", "star", "sparkle") else listOf(st.icon, "sparkle", "petal")
-                petals.burst(petals.width / 2f, petals.height * 0.30f, icons, listOf(st.color, g.primary, Color.WHITE), 22)
-            }
-        }
-        stCard.addView(statusChips, lin(MATCH, WRAP, t = 8))
-        col.addView(stCard, lin(MATCH, WRAP, t = 14))
-
         // ---- progresso por temporada
         val pc = card(16, 22)
         pc.addView(sectionTitle("Meu progresso", "play", g.primary))
@@ -545,16 +608,14 @@ class DetailActivity : AppCompatActivity() {
                 Store.adjust(d, i, -1)
                 sync()
                 refreshAll()
-                statusChips.selectChip(d.status)
             }, lin(dp(32), dp(32)))
             val addB = roundBtn("add", g.primary, true, 14) {}
             addB.setOnClickListener {
                 val fin = Store.adjust(d, i, 1)
                 sync()
                 refreshAll()
-                statusChips.selectChip(d.status)
                 petals.burstFrom(addB, listOf(g.icon, "heart", "sparkle"), listOf(g.primary, Palette.pink), 8)
-                if (fin) celebrate(d, g, addB, statusChips)
+                if (fin) celebrate(d, g, addB)
             }
             bot.addView(addB, lin(dp(32), dp(32), l = 8))
             box.addView(bot, lin(MATCH, WRAP, t = 8))
@@ -708,8 +769,11 @@ class DetailActivity : AppCompatActivity() {
 
         refreshAll()
         updatePetals(d)
+        val oldRoot = rootView
+        if (oldRoot != null) host.removeView(oldRoot)
         rootView = root
-        setContentView(root)
+        host.addView(root, FrameLayout.LayoutParams(MATCH, MATCH))
+        if (host.parent == null) setContentView(host)
         ThemeMode.refresh(this)
         window.statusBarColor = g.soft
         scroll = sv
@@ -770,11 +834,10 @@ class DetailActivity : AppCompatActivity() {
         petals.setTheme(a.icons, a.tints)
     }
 
-    private fun celebrate(d: Drama, g: Genre, from: View, chips: View) {
+    private fun celebrate(d: Drama, g: Genre, from: View) {
         val green = Color.parseColor("#5CC6A0")
         petals.burstFrom(from, listOf("check", "heart", "star", "sparkle", "blossom"), listOf(g.primary, Palette.pink, green, Color.parseColor("#FFB84D")), 34)
         softToast("Parabéns, você terminou!", green, "check")
-        chips.selectChip(d.status)
         updatePetals(d)
     }
 

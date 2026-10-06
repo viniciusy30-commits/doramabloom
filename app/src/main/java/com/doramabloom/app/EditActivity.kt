@@ -394,8 +394,28 @@ class EditActivity : AppCompatActivity() {
         stylePanel()
         genreBox.addView(panel, lin(MATCH, WRAP, t = 12))
 
+        genreBox.addView(fieldLabel("Gêneros secundários"))
+        genreBox.addView(
+            multiFlow(gOpts, tags.filter { !OtherGenres.exists(it) }.toSet()) { sel ->
+                tags = HashSet(tags.filter { OtherGenres.exists(it) } + sel)
+            },
+            lin(MATCH, WRAP)
+        )
+
+        // "Outros gêneros": só etiquetas para filtrar; não mudam o tema nem os símbolos
         genreBox.addView(fieldLabel("Outros gêneros"))
-        genreBox.addView(multiFlow(gOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
+        genreBox.addView(
+            label("Só para classificar e filtrar. Não mudam as cores nem os símbolos do tema.", 12f, Palette.muted),
+            lin(MATCH, WRAP, b = 8)
+        )
+        val oOpts = ArrayList<Opt>()
+        for (og in OtherGenres.all) oOpts.add(Opt(og.key, og.label, OtherGenres.color, og.icon))
+        genreBox.addView(
+            multiFlow(oOpts, tags.filter { OtherGenres.exists(it) }.toSet()) { sel ->
+                tags = HashSet(tags.filter { !OtherGenres.exists(it) } + sel)
+            },
+            lin(MATCH, WRAP)
+        )
     }
 
     /** Botão de favorito na cor do gênero escolhido. */

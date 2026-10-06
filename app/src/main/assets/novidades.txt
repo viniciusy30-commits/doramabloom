@@ -1,3 +1,11 @@
+#id 2026-10-06-d
+#titulo Troca de doramas mais fofa e Outros gêneros
+- Ao arrastar de um dorama para outro, o vão no meio agora fica cheio de símbolos caindo, misturando as categorias dos dois doramas.
+- A página sai e entra como um cartãozinho de cantos redondos, com uma molinha no final.
+- A tela do dorama não tem mais o Status: para mudar, use o lápis (editar).
+- Novo: "Outros gêneros" nos filtros (Policial, Jurídico, Zumbi, Chaebol e mais). Eles só filtram e não mudam as cores nem os símbolos do tema.
+- Na edição, escolha os Outros gêneros na seção com esse nome.
+
 #id 2026-10-06-c
 #titulo Tela de atualizações mais limpa
 - Em Config., a parte Atualizações agora mostra só a versão instalada e o botão para verificar.

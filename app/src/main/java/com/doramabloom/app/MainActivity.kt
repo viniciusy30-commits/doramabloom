@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private var statusFilter = "all"
     private var genreFilter = "all"
+    private var otherFilter = "all" // "Outros gêneros": só filtra, não muda tema nem símbolos
     private var countryFilter = "all"
     private var query = ""
     private var sortMode = 0
@@ -571,6 +572,7 @@ class MainActivity : AppCompatActivity() {
             l = l.filter { it.status == statusFilter }
         }
         if (genreFilter != "all") l = l.filter { it.genre == genreFilter || it.tags.contains(genreFilter) }
+        if (otherFilter != "all") l = l.filter { it.tags.contains(otherFilter) }
         if (countryFilter != "all") l = l.filter { it.country == countryFilter }
         if (query.isNotBlank()) {
             l = l.filter {
@@ -602,15 +604,17 @@ class MainActivity : AppCompatActivity() {
         if (statusFilter == "fav") parts.add("Favoritos")
         else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
         if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
+        if (otherFilter != "all" && OtherGenres.exists(otherFilter)) parts.add(OtherGenres.byKey(otherFilter).label)
         if (countryFilter != "all") parts.add(countryFilter)
         if (query.isNotBlank()) parts.add("Busca")
         return if (parts.isEmpty()) "Todos" else parts.joinToString(" · ")
     }
 
-    private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || countryFilter != "all"
+    private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || otherFilter != "all" || countryFilter != "all"
 
     private fun filterCount(): Int =
-        (if (statusFilter != "all") 1 else 0) + (if (genreFilter != "all") 1 else 0) + (if (countryFilter != "all") 1 else 0)
+        (if (statusFilter != "all") 1 else 0) + (if (genreFilter != "all") 1 else 0) +
+            (if (otherFilter != "all") 1 else 0) + (if (countryFilter != "all") 1 else 0)
 
     private fun statusTagline(k: String): String = when (k) {
         "fav" -> "Os queridinhos do seu coração"
@@ -645,12 +649,17 @@ class MainActivity : AppCompatActivity() {
                 icon = st.icon; title = st.label; col = st.color; soft = lighten(st.color, 0.82f)
             }
             sub = statusTagline(statusFilter)
+        } else if (otherFilter != "all" && OtherGenres.exists(otherFilter)) {
+            val og = OtherGenres.byKey(otherFilter)
+            icon = og.icon; title = og.label; col = OtherGenres.dark; soft = OtherGenres.soft
+            sub = "Doramas marcados como " + og.label
         } else {
             val cc = Atmosphere.country(countryFilter)
             icon = "flag"; title = countryFilter; col = cc.second; soft = lighten(cc.second, 0.85f)
             sub = "Doramas direto de " + countryFilter
         }
         if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
+        if (otherFilter != "all" && OtherGenres.exists(otherFilter)) parts.add(OtherGenres.byKey(otherFilter).label)
         if (statusFilter != "all") parts.add(if (statusFilter == "fav") "Favoritos" else Statuses.byKey(statusFilter).label)
         if (countryFilter != "all") parts.add(countryFilter)
         effIcon?.setIcon(icon)
@@ -856,6 +865,15 @@ class MainActivity : AppCompatActivity() {
             genreFilter = it
             filtersChanged()
         }, lin(MATCH, WRAP, t = 4))
+        // outros gêneros: só etiquetas para filtrar (não trocam o tema nem os símbolos)
+        val otherOpts = ArrayList<Opt>()
+        otherOpts.add(Opt("all", "Todos", OtherGenres.color, "tag"))
+        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, OtherGenres.color, og.icon))
+        panel.addView(label("Outros gêneros", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
+        panel.addView(chipScroller(otherOpts, otherFilter) {
+            otherFilter = it
+            filtersChanged()
+        }, lin(MATCH, WRAP, t = 4))
         val countryOpts = ArrayList<Opt>()
         countryOpts.add(Opt("all", "Todos os países", Palette.pink, "flag"))
         for (c in countries) countryOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
@@ -903,6 +921,7 @@ class MainActivity : AppCompatActivity() {
         clr.setOnClickListener {
             statusFilter = "all"
             genreFilter = "all"
+            otherFilter = "all"
             countryFilter = "all"
             showTab(1, false)
         }

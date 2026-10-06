@@ -273,10 +273,17 @@ class DramaAdapter(
             while (fl.childCount > 2) fl.removeViewAt(2)
             var n = 0
             for (tk in d.tags) {
-                if (tk == d.genre || !Genres.exists(tk)) continue
+                if (tk == d.genre) continue
+                val isOther = OtherGenres.exists(tk)
+                if (!isOther && !Genres.exists(tk)) continue
                 if (n >= 2) break
-                val tg = Genres.byKey(tk)
-                val tp = fl.context.pill(tg.label, tg.soft, tg.dark, 10.5f, tg.icon)
+                val tp = if (isOther) {
+                    val og = OtherGenres.byKey(tk)
+                    fl.context.pill(og.label, OtherGenres.soft, OtherGenres.dark, 10.5f, og.icon)
+                } else {
+                    val tg = Genres.byKey(tk)
+                    fl.context.pill(tg.label, tg.soft, tg.dark, 10.5f, tg.icon)
+                }
                 tp.setPadding(fl.dp(9), fl.dp(4), fl.dp(9), fl.dp(4))
                 fl.addView(tp)
                 n++

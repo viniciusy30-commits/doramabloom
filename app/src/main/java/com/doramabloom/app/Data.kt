@@ -163,6 +163,48 @@ object Genres {
         )
 }
 
+/**
+ * "Outros gêneros": etiquetas só para classificar e filtrar.
+ * Não têm tema próprio (cor, símbolos e pétalas continuam sendo os do gênero principal),
+ * então escolher um deles nunca muda a atmosfera das telas.
+ * Ficam guardados no mesmo campo "tags" do dorama, com chave começando em "x_".
+ */
+class OtherGenre(val key: String, val label: String, val icon: String)
+
+object OtherGenres {
+    val color: Int = Color.parseColor("#8F7FA8")
+    val soft: Int get() = mixColor(color, Color.WHITE, 0.84f)
+    val dark: Int get() = mixColor(color, Color.BLACK, 0.42f)
+
+    val all: List<OtherGenre> = listOf(
+        OtherGenre("x_policial", "Policial", "shield"),
+        OtherGenre("x_juridico", "Jurídico", "book"),
+        OtherGenre("x_politico", "Político", "flag"),
+        OtherGenre("x_sobrenatural", "Sobrenatural", "ghost"),
+        OtherGenre("x_zumbi", "Zumbi", "skull"),
+        OtherGenre("x_vampiro", "Vampiro", "bat"),
+        OtherGenre("x_viagem_tempo", "Viagem no tempo", "hourglass"),
+        OtherGenre("x_reencarnacao", "Reencarnação", "replay"),
+        OtherGenre("x_superpoderes", "Superpoderes", "bolt"),
+        OtherGenre("x_distopia", "Distopia", "planet"),
+        OtherGenre("x_militar", "Militar", "medal"),
+        OtherGenre("x_trabalho", "Trabalho", "tag"),
+        OtherGenre("x_chaebol", "Chaebol", "gem"),
+        OtherGenre("x_casamento", "Casamento por contrato", "ring"),
+        OtherGenre("x_amizade", "Amizade", "smile"),
+        OtherGenre("x_lgbt", "LGBTQ+", "heart"),
+        OtherGenre("x_slice", "Slice of life", "coffee"),
+        OtherGenre("x_culinario", "Culinário", "cake"),
+        OtherGenre("x_moda", "Moda", "sparkle"),
+        OtherGenre("x_idol", "Idols", "mic"),
+        OtherGenre("x_superacao", "Superação", "trophy")
+    )
+
+    fun exists(k: String): Boolean = all.any { it.key == k }
+
+    fun byKey(k: String): OtherGenre = all.first { it.key == k }
+}
+
 /** Três tons do gênero para as pétalas: uma mistura rica em vez de uma cor só. */
 fun genreTints(g: Genre): List<Int> = listOf(
     g.primary,

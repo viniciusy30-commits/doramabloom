@@ -1143,6 +1143,16 @@ object Atmosphere {
         return m.done()
     }
 
+    /** Símbolos misturados das categorias (gênero principal e secundários) de vários doramas. "Outros gêneros" não têm símbolos. */
+    fun ofCategories(ds: List<Drama>): Atmos {
+        val m = Mix()
+        for (d in ds) m.addGenre(Genres.byKey(d.genre))
+        for (d in ds) for (tk in d.tags) {
+            if (tk != d.genre && Genres.exists(tk)) m.addGenre(Genres.byKey(tk))
+        }
+        return m.done()
+    }
+
     /** Tela de um dorama: símbolos do gênero + um acento do status. */
     fun ofDrama(d: Drama): Atmos {
         val g = Genres.byKey(d.genre)
