@@ -552,7 +552,7 @@ class DetailActivity : AppCompatActivity() {
         // ---- assistir: abre a aba só deste dorama
         val watchRow = LinearLayout(this)
         watchRow.orientation = LinearLayout.HORIZONTAL
-        watchRow.gravity = Gravity.CENTER_VERTICAL
+        watchRow.gravity = Gravity.CENTER
         watchRow.clipChildren = false
         val wcard = LinearLayout(this)
         wcard.orientation = LinearLayout.HORIZONTAL
@@ -576,7 +576,6 @@ class DetailActivity : AppCompatActivity() {
         wcard.pressable(0.97f)
         wcard.setOnClickListener { openWatch(d) }
         watchRow.addView(wcard, lin(0, WRAP, 1f))
-        watchRow.addView(roundBtn("link", g.primary, false, 20) { askLink(d, g) }, lin(dp(52), dp(52), l = 10))
         col.addView(watchRow, lin(MATCH, WRAP, t = 14))
         updaters.add {
             if (d.lastUrl.isBlank() && watchedEps(d) == 0) {
@@ -867,42 +866,6 @@ class DetailActivity : AppCompatActivity() {
         i.putExtra("id", d.id)
         startActivity(i)
         overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
-    }
-
-    private fun askLink(d: Drama, g: Genre) {
-        val et = EditText(this)
-        et.hint = "https://..."
-        et.setSingleLine(true)
-        et.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-        et.setText(d.link)
-        val box = FrameLayout(this)
-        box.setPadding(dp(22), dp(8), dp(22), 0)
-        box.addView(et, FrameLayout.LayoutParams(MATCH, WRAP))
-        val b = AlertDialog.Builder(this)
-            .setTitle("Link de início")
-            .setMessage("Opcional: a página onde você assiste. Sem link, a aba abre no Google. Depois, ela sempre volta de onde você parou.")
-            .setView(box)
-            .setPositiveButton("Salvar") { _, _ ->
-                var v = et.text.toString().trim()
-                if (v.isNotEmpty() && !v.startsWith("http://") && !v.startsWith("https://")) v = "https://$v"
-                if (v != d.link) d.lastUrl = ""
-                d.link = v
-                Store.save(d)
-                sync()
-                refreshAll()
-                if (v.isNotEmpty()) softToast("Link salvo!", g.primary, "link")
-            }
-            .setNegativeButton("Cancelar", null)
-        if (d.link.isNotBlank()) {
-            b.setNeutralButton("Remover") { _, _ ->
-                d.link = ""
-                d.lastUrl = ""
-                Store.save(d)
-                sync()
-                refreshAll()
-            }
-        }
-        b.show()
     }
 
     private fun updatePetals(d: Drama) {

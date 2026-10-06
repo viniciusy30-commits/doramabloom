@@ -350,6 +350,51 @@ fun Context.multiChips(options: List<Opt>, initial: Set<String>, onChange: (Set<
     return sv
 }
 
+/** Faixa de chips com seleção múltipla e um chip "Todos" (key "all") que limpa a escolha. */
+fun Context.multiChipsAll(options: List<Opt>, initial: Set<String>, onChange: (Set<String>) -> Unit): HorizontalScrollView {
+    val sv = HorizontalScrollView(this)
+    sv.isHorizontalScrollBarEnabled = false
+    val row = LinearLayout(this)
+    row.orientation = LinearLayout.HORIZONTAL
+    row.setPadding(0, dp(2), 0, dp(2))
+    sv.addView(row)
+    val views = ArrayList<TextView>()
+    val chosen = HashSet<String>(initial)
+    val one = dp(1)
+
+    fun isOn(k: String): Boolean = if (k == "all") chosen.isEmpty() else chosen.contains(k)
+
+    fun restyle() {
+        for (i in options.indices) {
+            restyleChip(views[i], options[i].color, isOn(options[i].key), one)
+        }
+    }
+
+    for (i in options.indices) {
+        val o = options[i]
+        val tv = pill(o.label, Palette.card, o.color, 13f, o.icon)
+        tv.setOnClickListener {
+            if (o.key == "all") {
+                if (chosen.isEmpty()) {
+                    tv.pop(1.2f)
+                    return@setOnClickListener
+                }
+                chosen.clear()
+            } else if (chosen.contains(o.key)) {
+                chosen.remove(o.key)
+            } else {
+                chosen.add(o.key)
+            }
+            restyle()
+            onChange(HashSet<String>(chosen))
+        }
+        views.add(tv)
+        row.addView(tv, lin(WRAP, WRAP, r = 8))
+    }
+    restyle()
+    return sv
+}
+
 /** Chips que quebram de linha (nada fica cortado na borda), seleção única. */
 fun Context.chipFlow(options: List<Opt>, initial: String, onSelect: (String) -> Unit): FlowLayout {
     val fl = FlowLayout(this)

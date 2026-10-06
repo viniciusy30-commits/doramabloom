@@ -55,6 +55,7 @@ class EditActivity : AppCompatActivity() {
     private lateinit var synopsisIn: EditText
     private lateinit var minutesIn: EditText
     private lateinit var platformIn: EditText
+    private lateinit var linkIn: EditText
     private lateinit var yearIn: EditText
     private lateinit var castIn: EditText
     private lateinit var coupleIn: EditText
@@ -260,6 +261,13 @@ class EditActivity : AppCompatActivity() {
         pyRow.addView(platformIn, lin(0, WRAP, 2f, r = 8))
         pyRow.addView(yearIn, lin(0, WRAP, 1f))
         c5.addView(pyRow, lin(MATCH, WRAP))
+        c5.addView(fieldLabel("Link de início (opcional)"))
+        linkIn = input("https://...", ex?.link ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
+        linkIn.setSingleLine(true)
+        c5.addView(linkIn, lin(MATCH, WRAP))
+        val linkHint = label("A página onde você assiste. Sem link, a aba abre no Google. Depois, ela sempre volta de onde você parou.", 11.5f, Palette.muted)
+        linkHint.maxLines = 3
+        c5.addView(linkHint, lin(MATCH, WRAP, t = 4, l = 4))
         c5.addView(fieldLabel("Datas (segure para limpar)"))
         val dRow = LinearLayout(this)
         dRow.orientation = LinearLayout.HORIZONTAL
@@ -525,6 +533,8 @@ class EditActivity : AppCompatActivity() {
             return
         }
         val old = existing
+        var newLink = linkIn.text.toString().trim()
+        if (newLink.isNotEmpty() && !newLink.startsWith("http://") && !newLink.startsWith("https://")) newLink = "https://$newLink"
         val d = Drama(
             id = if (old != null) old.id else System.currentTimeMillis(),
             title = title,
@@ -549,8 +559,8 @@ class EditActivity : AppCompatActivity() {
             favorite = favorite,
             cover = coverPath,
             addedAt = if (old != null) old.addedAt else System.currentTimeMillis(),
-            link = old?.link ?: "",
-            lastUrl = old?.lastUrl ?: "",
+            link = newLink,
+            lastUrl = if (old != null && old.link == newLink) old.lastUrl else "",
             watchSeason = old?.watchSeason ?: -1,
             order = old?.order ?: 0L
         )
