@@ -431,11 +431,17 @@ class DetailActivity : AppCompatActivity() {
         flow.center = true
         flow.hGap = dp(6)
         flow.vGap = dp(6)
-        flow.addView(pill(g.label, glass, Color.WHITE, 11.5f, g.icon))
+        flow.addView(genrePill(g.label, g.icon, g.primary))
         for (tk in d.tags) {
-            if (tk == d.genre || !Genres.exists(tk)) continue
-            val tg = Genres.byKey(tk)
-            flow.addView(pill(tg.label, glass, Color.WHITE, 11.5f, tg.icon))
+            if (tk == d.genre) continue
+            if (Genres.exists(tk)) {
+                val tg = Genres.byKey(tk)
+                flow.addView(genrePill(tg.label, tg.icon, tg.primary))
+            } else if (OtherGenres.exists(tk)) {
+                // "outros gêneros" também aparecem, com a própria cor e o próprio símbolo
+                val og = OtherGenres.byKey(tk)
+                flow.addView(genrePill(og.label, og.icon, og.color))
+            }
         }
         val statusPill = pill("", Palette.pink, Color.WHITE, 11.5f, "play")
         flow.addView(statusPill)
@@ -458,10 +464,12 @@ class DetailActivity : AppCompatActivity() {
         strip.addView(badge, lin(dp(46), dp(46), r = 12))
         val rcol = LinearLayout(this)
         rcol.orientation = LinearLayout.VERTICAL
-        val rv = RatingView(this, 20, false)
+        // sempre 5 corações à mostra: cheios, meio-cheios ou só o contorno
+        val rv = RatingView(this, 22, false)
         rv.color = Color.WHITE
         rcol.addView(rv)
-        rcol.addView(label("nota de 10", 11f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 3))
+        val rvNote = label("", 11.5f, Color.parseColor("#F2FFFFFF"), true)
+        rcol.addView(rvNote, lin(WRAP, WRAP, t = 4))
         strip.addView(rcol, lin(0, WRAP, 1f))
         heroCol.addView(strip, lin(MATCH, WRAP, t = 16, l = 14, r = 14, b = 8))
         val tagLine = label(g.tagline, 12.5f, Color.parseColor("#F2FFFFFF"))
@@ -485,6 +493,7 @@ class DetailActivity : AppCompatActivity() {
                 badge.pop(1.6f)
             }
             rv.score = d.score
+            rvNote.text = if (d.score <= 0) "ainda sem nota" else "nota " + d.score + " de 10"
         }
 
         // ---- assistir: abre a aba só deste dorama
@@ -770,9 +779,16 @@ class DetailActivity : AppCompatActivity() {
         refreshAll()
         updatePetals(d)
         val oldRoot = rootView
-        if (oldRoot != null) host.removeView(oldRoot)
         rootView = root
         host.addView(root, FrameLayout.LayoutParams(MATCH, MATCH))
+        if (oldRoot != null && !entrance) {
+            // troca suave: a tela nova aparece por cima e a antiga some, sem corte nem piscada
+            root.alpha = 0f
+            root.animate().alpha(1f).setDuration(240).start()
+            oldRoot.animate().alpha(0f).setDuration(240).withEndAction { host.removeView(oldRoot) }.start()
+        } else if (oldRoot != null) {
+            host.removeView(oldRoot)
+        }
         if (host.parent == null) setContentView(host)
         ThemeMode.refresh(this)
         window.statusBarColor = g.soft
@@ -784,6 +800,13 @@ class DetailActivity : AppCompatActivity() {
             ring.pop(1.25f)
             for (i in 1 until col.childCount) col.getChildAt(i).riseIn(80L + i * 55L, 20, 400L)
         }
+    }
+
+    /** Etiqueta de gênero na cor dele (principal ou outro gênero), com borda branca para destacar sobre o fundo. */
+    private fun genrePill(label: String, icon: String, color: Int): TextView {
+        val t = pill(label, color, Color.WHITE, 11.5f, icon)
+        t.background = roundRect(color, dp(20).toFloat(), Color.WHITE, dp(1))
+        return t
     }
 
     private fun openWatch(d: Drama) {
