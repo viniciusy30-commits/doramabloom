@@ -1,3 +1,7 @@
+#id 2026-10-06-f
+#titulo Status, país e onde assistir separados dos gêneros
+- Na tela do dorama, os gêneros ficam sozinhos no topo e Status, País e Onde assistir ganharam um cartãozinho próprio logo abaixo, com bolinhas de ícone e colunas separadas.
+
 #id 2026-10-06-e
 #titulo Outros gêneros editáveis e mais cores
 - Em Config., agora tem a seção "Outros gêneros": dá para editar nome, cor e símbolo, excluir e criar os seus. Os que vêm com o app podem ser excluídos e voltam em "Restaurar padrões".

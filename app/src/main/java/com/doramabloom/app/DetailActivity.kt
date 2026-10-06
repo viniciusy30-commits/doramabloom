@@ -443,11 +443,62 @@ class DetailActivity : AppCompatActivity() {
                 flow.addView(genrePill(og.label, og.icon, og.color))
             }
         }
-        val statusPill = pill("", Palette.pink, Color.WHITE, 11.5f, "play")
-        flow.addView(statusPill)
-        flow.addView(pill(d.country, glass, Color.WHITE, 11.5f, "flag"))
-        if (d.platform.isNotBlank()) flow.addView(pill(d.platform, glass, Color.WHITE, 11.5f, "tv"))
         heroCol.addView(flow, lin(MATCH, WRAP, t = 12, l = 16, r = 16))
+
+        // status, país e onde assistir: um cartãozinho à parte, em colunas, separado dos gêneros
+        val infoCard = LinearLayout(this)
+        infoCard.orientation = LinearLayout.HORIZONTAL
+        infoCard.gravity = Gravity.CENTER_VERTICAL
+        infoCard.setPadding(dp(4), dp(14), dp(4), dp(14))
+        infoCard.background = gradient(
+            mixColor(g.primary, Color.WHITE, 0.26f), mixColor(g.primary, Color.WHITE, 0.10f),
+            dp(26).toFloat(), GradientDrawable.Orientation.TOP_BOTTOM
+        )
+        // bolinha de ícone: círculo branco com anel, ícone colorido dentro
+        fun bubble(icon: String, tint: Int, fill: Int): Pair<FrameLayout, IconView> {
+            val b = FrameLayout(this)
+            val bg = GradientDrawable()
+            bg.shape = GradientDrawable.OVAL
+            bg.setColor(fill)
+            bg.setStroke(dp(2), Color.WHITE)
+            b.background = bg
+            b.elevation = dp(2).toFloat()
+            val iv = IconView(this, icon, tint, 18)
+            b.addView(iv, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+            return Pair(b, iv)
+        }
+        fun infoCol(title: String, b: View, valueView: TextView): LinearLayout {
+            val c = LinearLayout(this)
+            c.orientation = LinearLayout.VERTICAL
+            c.gravity = Gravity.CENTER_HORIZONTAL
+            c.addView(b, lin(dp(38), dp(38)))
+            val t = label(title, 9f, Color.parseColor("#D9FFFFFF"), true)
+            t.letterSpacing = 0.14f
+            t.gravity = Gravity.CENTER
+            c.addView(t, lin(WRAP, WRAP, t = 7))
+            valueView.maxLines = 2
+            valueView.gravity = Gravity.CENTER
+            valueView.setPadding(dp(4), 0, dp(4), 0)
+            c.addView(valueView, lin(WRAP, WRAP, t = 2))
+            return c
+        }
+        fun divider(): View {
+            val v = View(this)
+            v.setBackgroundColor(mixColor(g.primary, Color.WHITE, 0.45f))
+            return v
+        }
+        val (stBubble, stIcon) = bubble("play", g.primary, Palette.pink)
+        val statusText = label("", 13.5f, Color.WHITE, true, true)
+        infoCard.addView(infoCol("STATUS", stBubble, statusText), lin(0, WRAP, 1f))
+        infoCard.addView(divider(), lin(dp(1), dp(46)))
+        val (coBubble, _) = bubble("flag", g.primary, Color.WHITE)
+        infoCard.addView(infoCol("PAÍS", coBubble, label(d.country, 13.5f, Color.WHITE, true, true)), lin(0, WRAP, 1f))
+        if (d.platform.isNotBlank()) {
+            infoCard.addView(divider(), lin(dp(1), dp(46)))
+            val (plBubble, _) = bubble("tv", g.primary, Color.WHITE)
+            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, label(d.platform, 13.5f, Color.WHITE, true, true)), lin(0, WRAP, 1f))
+        }
+        heroCol.addView(infoCard, lin(MATCH, WRAP, t = 14, l = 14, r = 14))
 
         // faixa da nota
         val strip = LinearLayout(this)
@@ -481,12 +532,14 @@ class DetailActivity : AppCompatActivity() {
 
         updaters.add {
             val st = Statuses.byKey(d.status)
-            statusPill.text = st.label
-            statusPill.background = roundRect(st.color, dp(20).toFloat(), Color.WHITE, dp(1))
-            (statusPill.compoundDrawables[0] as? IconDrawable)?.let {
-                it.name = st.icon
-                it.color = Color.WHITE
-            }
+            statusText.text = st.label
+            val sbg = GradientDrawable()
+            sbg.shape = GradientDrawable.OVAL
+            sbg.setColor(st.color)
+            sbg.setStroke(dp(2), Color.WHITE)
+            stBubble.background = sbg
+            stIcon.tint = Color.WHITE
+            stIcon.setIcon(st.icon)
             val newText = if (d.score <= 0) "-" else d.score.toString()
             if (badge.text.toString() != newText) {
                 badge.text = newText
