@@ -76,7 +76,7 @@ class DramaAdapter(
 
     private fun sig(d: Drama): String =
         d.title + "|" + d.status + "|" + d.score + "|" + d.favorite + "|" + d.watched + "|" + d.seasonEps +
-            "|" + d.genre + "|" + d.cover + "|" + d.country + "|" + d.year + "|" + d.tags + "|" +
+            "|" + d.genre + "|" + d.cover + "|" + d.country + "|" + d.year + "|" + d.tags + "|" + d.shelfTags + "|" +
             d.platform + "|" + d.watchSeason
 
     override fun getItemId(position: Int): Long = items[position].id
@@ -271,12 +271,12 @@ class DramaAdapter(
         val fl = h.flow
         if (fl != null) {
             while (fl.childCount > 2) fl.removeViewAt(2)
-            var n = 0
-            for (tk in d.tags) {
-                if (tk == d.genre) continue
+            // os gêneros extras escolhidos para a Estante (se não escolheu, os 2 primeiros)
+            fun ok(k: String) = k != d.genre && d.tags.contains(k) && (OtherGenres.exists(k) || Genres.exists(k))
+            val picks = d.shelfTags.filter { ok(it) }
+            val show = (if (picks.isNotEmpty()) picks else d.tags.filter { ok(it) }).take(2)
+            for (tk in show) {
                 val isOther = OtherGenres.exists(tk)
-                if (!isOther && !Genres.exists(tk)) continue
-                if (n >= 2) break
                 val tp = if (isOther) {
                     val og = OtherGenres.byKey(tk)
                     fl.context.pill(og.label, og.soft, og.dark, 10.5f, og.icon)
@@ -286,7 +286,6 @@ class DramaAdapter(
                 }
                 tp.setPadding(fl.dp(9), fl.dp(4), fl.dp(9), fl.dp(4))
                 fl.addView(tp)
-                n++
             }
         }
         val plat = h.plat

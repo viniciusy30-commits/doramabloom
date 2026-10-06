@@ -28,6 +28,8 @@ class EditActivity : AppCompatActivity() {
     private var originalCover = ""
     private var genreKey = "romance"
     private var tags = HashSet<String>()
+    private val shelfPick = ArrayList<String>() // até 2 gêneros extras que aparecem na Estante
+    private var shelfBox: LinearLayout? = null
     private var statusKey = "quero"
     private var country = countries[0]
     private var score = 0
@@ -73,6 +75,7 @@ class EditActivity : AppCompatActivity() {
             originalCover = ex.cover
             genreKey = ex.genre
             tags = HashSet(ex.tags)
+            shelfPick.addAll(ex.shelfTags)
             statusKey = ex.status
             country = ex.country
             score = ex.score
@@ -381,6 +384,7 @@ class EditActivity : AppCompatActivity() {
         for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon))
         val flow = chipFlow(gOpts, genreKey) {
             genreKey = it
+            refreshShelfPicks()
             stylePanel()
             refreshCover()
             coverView.pop(1.25f)
@@ -411,7 +415,78 @@ class EditActivity : AppCompatActivity() {
         )
         val allOpts = ArrayList<Opt>(gOpts)
         for (og in OtherGenres.all) allOpts.add(Opt(og.key, og.label, og.color, og.icon))
-        genreBox.addView(multiFlow(allOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
+        genreBox.addView(multiFlow(allOpts, tags) {
+            tags = HashSet(it)
+            refreshShelfPicks()
+        }, lin(MATCH, WRAP))
+
+        // quais dos extras aparecem no cartão da Estante (o principal sempre aparece)
+        val sb = LinearLayout(this)
+        sb.orientation = LinearLayout.VERTICAL
+        shelfBox = sb
+        genreBox.addView(sb, lin(MATCH, WRAP))
+        refreshShelfPicks()
+    }
+
+    /** Lista dos gêneros extras marcados, na ordem em que o dorama já os tinha. */
+    private fun orderedExtras(): List<String> {
+        val base = existing?.tags ?: emptyList()
+        return tags.filter { it != genreKey && (OtherGenres.exists(it) || Genres.exists(it)) }
+            .sortedBy { val i = base.indexOf(it); if (i < 0) 1000 else i }
+    }
+
+    /** Escolha de até 2 gêneros extras para aparecerem na Estante. */
+    private fun refreshShelfPicks() {
+        val box = shelfBox ?: return
+        box.removeAllViews()
+        val extras = orderedExtras()
+        shelfPick.retainAll(extras.toSet())
+        if (shelfPick.isEmpty()) shelfPick.addAll(extras.take(2))
+        while (shelfPick.size > 2) shelfPick.removeAt(0)
+        if (extras.isEmpty()) return
+        box.addView(fieldLabel("Aparecem na Estante"))
+        box.addView(
+            label("O gênero principal sempre aparece. Escolha até 2 dos extras para aparecerem junto no cartão.", 12f, Palette.muted),
+            lin(MATCH, WRAP, b = 8)
+        )
+        val fl = FlowLayout(this)
+        fl.hGap = dp(8)
+        fl.vGap = dp(8)
+        val views = ArrayList<Pair<String, TextView>>()
+        fun colorOf(k: String): Int = if (OtherGenres.exists(k)) OtherGenres.byKey(k).color else Genres.byKey(k).primary
+        fun style() {
+            for ((k, tv) in views) {
+                val c = colorOf(k)
+                val on = shelfPick.contains(k)
+                val fg = if (on) Color.WHITE else c
+                tv.background = roundRect(if (on) c else Palette.card, dp(20).toFloat(), c, dp(1))
+                tv.setTextColor(fg)
+                (tv.compoundDrawables[0] as? IconDrawable)?.color = fg
+            }
+        }
+        for (k in extras) {
+            val tv = if (OtherGenres.exists(k)) {
+                val og = OtherGenres.byKey(k)
+                pill(og.label, Palette.card, og.color, 13f, og.icon)
+            } else {
+                val g = Genres.byKey(k)
+                pill(g.label, Palette.card, g.primary, 13f, g.icon)
+            }
+            tv.setOnClickListener {
+                if (shelfPick.contains(k)) {
+                    shelfPick.remove(k)
+                } else {
+                    if (shelfPick.size >= 2) shelfPick.removeAt(0)
+                    shelfPick.add(k)
+                }
+                style()
+                tv.pop(1.15f)
+            }
+            views.add(Pair(k, tv))
+            fl.addView(tv)
+        }
+        style()
+        box.addView(fl, lin(MATCH, WRAP))
     }
 
     /** Botão de favorito na cor do gênero escolhido. */
@@ -562,7 +637,8 @@ class EditActivity : AppCompatActivity() {
             link = newLink,
             lastUrl = if (old != null && old.link == newLink) old.lastUrl else "",
             watchSeason = old?.watchSeason ?: -1,
-            order = old?.order ?: 0L
+            order = old?.order ?: 0L,
+            shelfTags = shelfPick.filter { tags.contains(it) && it != genreKey }.take(2)
         )
         normalize(d)
         val tot = totalEps(d)

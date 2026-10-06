@@ -1,3 +1,7 @@
+#id 2026-10-06-h
+#titulo Escolha os gêneros que aparecem na Estante
+- Na edição do dorama, em "Aparecem na Estante", você escolhe até 2 gêneros extras para aparecerem no cartão. O gênero principal sempre aparece.
+
 #id 2026-10-06-g
 #titulo Vários outros gêneros no filtro e link na edição
 - Nos filtros da Estante, em "Outros gêneros" dá para marcar mais de um: aparecem só os doramas que têm todos os marcados. "Todos" limpa a escolha.

@@ -306,7 +306,9 @@ data class Drama(
     var lastUrl: String = "",
     var watchSeason: Int = -1,
     /** Posição na sua ordem manual (0 = ainda sem posição, aparece no topo). */
-    var order: Long = 0L
+    var order: Long = 0L,
+    /** Até 2 gêneros extras que aparecem no cartão da Estante (vazio = os 2 primeiros). */
+    var shelfTags: List<String> = emptyList()
 )
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
@@ -469,6 +471,9 @@ private fun Drama.toJson(): JSONObject {
     val ta = JSONArray()
     for (t in tags) ta.put(t)
     o.put("tags", ta)
+    val sa = JSONArray()
+    for (t in shelfTags) sa.put(t)
+    o.put("shelfTags", sa)
     o.put("status", status)
     o.put("score", score)
     o.put("seasonEps", intsToJson(seasonEps))
@@ -528,7 +533,8 @@ private fun dramaFromJson(o: JSONObject): Drama {
         link = o.optString("link", ""),
         lastUrl = o.optString("lastUrl", ""),
         watchSeason = o.optInt("watchSeason", -1),
-        order = o.optLong("order", 0L)
+        order = o.optLong("order", 0L),
+        shelfTags = jsonStrings(o.optJSONArray("shelfTags"))
     )
     normalize(d)
     return d
