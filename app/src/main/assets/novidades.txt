@@ -1,3 +1,18 @@
+#id 2026-10-07-v
+#titulo Todos os gêneros agora têm cena própria no Início
+- Início: entram as últimas 6 cenas exclusivas. Escolar (raios de sol, aviõezinhos de papel, rabiscos de lousa, relógio da escola e pétalas), Suspense (persianas de luz, olho gigante que observa, relógio, batimento no monitor, lanterna e contagem regressiva), Médico (monitor cardíaco, DNA girando, cruzes, remédios e moléculas), Família (casa com fumaça, família de mãos dadas, bolo com velinhas, presentes e luzinhas), Vida real (xícara de café com vapor, sol da manhã, passarinhos e a cidade acordando) e Vingança (lua vermelha, ampulheta, adagas, gotas de sangue, vidro trincando e caveiras).
+- Com isso, todos os 18 gêneros do app têm animação única. Gêneros que você criar continuam com a animação padrão.
+
+#id 2026-10-07-u
+#titulo Mais 6 gêneros com cena própria no Início
+- Início: agora também têm cena exclusiva Comédia (festa com confete, balões, risadas e holofotes), Mistério (lupa, quadro de pistas com barbante, cidade à noite e interrogações), Drama (chuva, vidraça, lágrimas, coração partido e poças), Musical (palco, holofotes, equalizador, pauta e notas), Esporte (estádio, torcida fazendo a ola, bola quicando, troféu e medalhas) e Realeza (salão do trono, cortinas de veludo, estandartes, coroa, joias e glitter dourado).
+- Os gêneros que faltam continuam com a animação de antes por enquanto.
+
+#id 2026-10-07-t
+#titulo Cada gênero com a sua própria cena animada no Início
+- Início: o fundo animado em volta da capa agora é uma cena exclusiva para 6 gêneros: Romance (luzinhas, coração que bate, pétalas e corações subindo), Terror (cemitério sob a lua, morcegos, fantasmas, olhos no escuro, raio e aranha), Fantasia (aurora, círculo mágico girando, borboletas e castelo), Ação (linhas de velocidade, cortes de espada, faíscas e chamas), Histórico (pôr do sol, montanhas, pagode, lanternas e grous) e Ficção científica (planeta, OVNI, foguete, grade neon e chuva de código).
+- Os outros gêneros continuam com a animação de antes, por enquanto. Em breve cada um ganha a sua cena.
+
 #id 2026-10-07-s
 #titulo Início com fundo animado e logo do streaming ao lado do status
 - Início: a parte colorida em volta da capa agora só tem a capa. Saíram a nota, o coração de favorito, o ano, os episódios e a logo daí.

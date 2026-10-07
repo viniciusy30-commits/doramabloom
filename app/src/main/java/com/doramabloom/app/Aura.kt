@@ -49,6 +49,7 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
     private val star = Path()
     private val ray = Path()
     private val twoPi = (2.0 * Math.PI).toFloat()
+    private val kit = SceneKit(u)
 
     private val bubbles = makeMotes(15, 11L, 0.035f, 0.075f, 5f, 15f, 18f)
     private val petalsM = makeMotes(13, 23L, 0.03f, 0.06f, 13f, 22f, 26f)
@@ -158,6 +159,15 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
             clip.addRoundRect(poster, 20f * u, 20f * u, Path.Direction.CW)
             if (Build.VERSION.SDK_INT >= 26) c.clipOutPath(clip)
             else @Suppress("DEPRECATION") c.clipPath(clip, Region.Op.DIFFERENCE)
+        }
+
+        // gêneros com cena própria (Romance, Terror, Fantasia, Ação, Histórico, Ficção científica)
+        val scene = AuraScenes.forKey(gg.key)
+        if (scene != null) {
+            scene.draw(c, w, h, t, poster, hasPoster, kit)
+            c.restore()
+            if (isShown) postInvalidateOnAnimation()
+            return
         }
 
         // 1) auroras: manchas de luz colorida à deriva
