@@ -216,6 +216,14 @@ object OtherGenres {
     private var edits: Map<String, OtherGenre> = emptyMap()
     private var builtin: List<OtherGenre> = factory
     private var extraList: List<OtherGenre> = emptyList()
+    private var hidden: Set<String> = emptySet()
+
+    /** Gêneros de fábrica que você apagou. */
+    fun hiddenKeys(): Set<String> = hidden
+
+    fun setHidden(s: Set<String>) {
+        hidden = s
+    }
 
     fun setEdits(m: Map<String, OtherGenre>) {
         edits = m
@@ -229,7 +237,7 @@ object OtherGenres {
     fun factoryOf(k: String): OtherGenre? = factory.firstOrNull { it.key == k }
 
     /** De fábrica (com suas edições) e depois os que você criou. */
-    val all: List<OtherGenre> get() = builtin + extraList
+    val all: List<OtherGenre> get() = builtin.filter { !hidden.contains(it.key) } + extraList
 
     fun custom(): List<OtherGenre> = extraList
 
@@ -311,8 +319,17 @@ data class Drama(
     /** Arquivo de áudio da trilha sonora (cópia dentro do app); vazio = sem trilha. */
     var soundtrack: String = "",
     var castPeople: List<CastPerson> = emptyList(),
-    var couplePhoto: String = ""
+    var couplePhoto: String = "",
+    /** Até 2 gêneros extras escolhidos para aparecer no cartão da Estante (vazio = os 2 primeiros). */
+    var shelfTags: List<String> = emptyList()
 )
+
+/** Gêneros extras que aparecem no cartão da Estante: os escolhidos (até 2) ou, sem escolha, os 2 primeiros. */
+fun shelfPick(d: Drama): List<String> {
+    val avail = d.tags.filter { it != d.genre && (Genres.exists(it) || OtherGenres.exists(it)) }
+    val chosen = d.shelfTags.filter { avail.contains(it) }.distinct().take(2)
+    return if (chosen.isNotEmpty()) chosen else avail.take(2)
+}
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
 fun watchedEps(d: Drama): Int = d.watched.sum()
@@ -515,6 +532,7 @@ private fun Drama.toJson(): JSONObject {
     o.put("kind", kind)
     o.put("soundtrack", soundtrack)
     o.put("couplePhoto", couplePhoto)
+    o.put("shelfTags", JSONArray().also { a -> for (t in shelfTags) a.put(t) })
     val cp = JSONArray()
     for (p in castPeople) {
         val po = JSONObject()
@@ -566,7 +584,8 @@ private fun dramaFromJson(o: JSONObject): Drama {
         kind = o.optString("kind", "serie"),
         soundtrack = o.optString("soundtrack", ""),
         castPeople = castFromJson(o.optJSONArray("castPeople"), o.optString("cast", "")),
-        couplePhoto = o.optString("couplePhoto", "")
+        couplePhoto = o.optString("couplePhoto", ""),
+        shelfTags = jsonStrings(o.optJSONArray("shelfTags"))
     )
     normalize(d)
     return d
@@ -697,6 +716,7 @@ object Store {
 
     private const val OKEY = "customOthers"
     private const val OEKEY = "otherEdits"
+    private const val OHKEY = "otherHidden"
 
     private fun otherToJson(g: OtherGenre): JSONObject {
         val o = JSONObject()
@@ -751,6 +771,10 @@ object Store {
             val m = HashMap<String, OtherGenre>()
             for (g in parseOthers(JSONArray(prefs.getString(OEKEY, "[]") ?: "[]"), false)) m[g.key] = g
             OtherGenres.setEdits(m)
+            val hs = HashSet<String>()
+            val ha = JSONArray(prefs.getString(OHKEY, "[]") ?: "[]")
+            for (i in 0 until ha.length()) hs.add(ha.optString(i, ""))
+            OtherGenres.setHidden(hs)
         } catch (e: Exception) {
             // dados corrompidos: sem outros gêneros próprios
         }
@@ -762,7 +786,9 @@ object Store {
         for (g in OtherGenres.custom()) arr.put(otherToJson(g))
         val earr = JSONArray()
         for (g in OtherGenres.edited().values) earr.put(otherToJson(g))
-        prefs.edit().putString(OKEY, arr.toString()).putString(OEKEY, earr.toString()).apply()
+        val harr = JSONArray()
+        for (k in OtherGenres.hiddenKeys()) harr.put(k)
+        prefs.edit().putString(OKEY, arr.toString()).putString(OEKEY, earr.toString()).putString(OHKEY, harr.toString()).apply()
     }
 
     /** Salva a edição de um "outro gênero" (criado por você ou de fábrica). */
@@ -797,13 +823,36 @@ object Store {
         OtherGenres.setCustom(OtherGenres.custom().filter { it.key != key })
         var changed = false
         for (d in list) {
-            if (d.tags.contains(key)) {
+            if (d.tags.contains(key) || d.shelfTags.contains(key)) {
                 d.tags = d.tags.filter { it != key }
+                d.shelfTags = d.shelfTags.filter { it != key }
                 changed = true
             }
         }
         persistOthers()
         if (changed) persist()
+    }
+
+    /** Apaga um "outro gênero" que veio com o app (volta em "Restaurar padrões"). */
+    fun hideOtherGenre(key: String) {
+        OtherGenres.setHidden(OtherGenres.hiddenKeys() + key)
+        var changed = false
+        for (d in list) {
+            if (d.tags.contains(key) || d.shelfTags.contains(key)) {
+                d.tags = d.tags.filter { it != key }
+                d.shelfTags = d.shelfTags.filter { it != key }
+                changed = true
+            }
+        }
+        persistOthers()
+        if (changed) persist()
+    }
+
+    /** Traz de volta os de fábrica apagados e desfaz as edições deles (os seus ficam). */
+    fun restoreOtherDefaults() {
+        OtherGenres.setHidden(emptySet())
+        OtherGenres.setEdits(emptyMap())
+        persistOthers()
     }
 
     /** Junta (ou troca, se replace) os "outros gêneros" de um backup. */
@@ -821,6 +870,10 @@ object Store {
             for (g in eds) if (!m.containsKey(g.key)) m[g.key] = g
             OtherGenres.setEdits(m)
         }
+        val hid = HashSet<String>(if (replace) emptySet() else OtherGenres.hiddenKeys())
+        val ha = root.optJSONArray("otherHidden")
+        if (ha != null) for (i in 0 until ha.length()) hid.add(ha.optString(i, ""))
+        OtherGenres.setHidden(hid)
         persistOthers()
     }
 
@@ -1028,6 +1081,7 @@ object Store {
         root.put("genreEdits", ea)
         root.put("otherGenres", JSONArray().also { a -> for (g in OtherGenres.custom()) a.put(otherToJson(g)) })
         root.put("otherEdits", JSONArray().also { a -> for (g in OtherGenres.edited().values) a.put(otherToJson(g)) })
+        root.put("otherHidden", JSONArray().also { a -> for (k in OtherGenres.hiddenKeys()) a.put(k) })
         root.put("dramas", arr)
         return root.toString()
     }
@@ -1141,6 +1195,7 @@ object Store {
             root.put("genreEdits", ea)
             root.put("otherGenres", JSONArray().also { a -> for (g in OtherGenres.custom()) a.put(otherToJson(g)) })
             root.put("otherEdits", JSONArray().also { a -> for (g in OtherGenres.edited().values) a.put(otherToJson(g)) })
+        root.put("otherHidden", JSONArray().also { a -> for (k in OtherGenres.hiddenKeys()) a.put(k) })
             root.put("dramas", arr)
             zip.putNextEntry(ZipEntry("backup.json"))
             zip.write(root.toString().toByteArray(Charsets.UTF_8))

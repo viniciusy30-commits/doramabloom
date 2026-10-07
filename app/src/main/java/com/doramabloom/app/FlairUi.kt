@@ -8,6 +8,7 @@ import android.graphics.LinearGradient
 import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -84,6 +85,7 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
     private var orbit = 0f
     private var armT = 0f
     private var pressT = 0f
+    private var dimT = 0f
     private var pressing = false
     private var seeking = false
     private var seekFrac = 0f
@@ -183,6 +185,10 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         armT += (armTarget - armT) * minOf(1f, dt * 5f)
         val pressTarget = if (pressing) 1f else 0f
         pressT += (pressTarget - pressT) * minOf(1f, dt * 14f)
+        // escurece devagar enquanto toca (para destacar o disco) e clareia devagar ao pausar
+        val dimTarget = if (playing) 1f else 0f
+        dimT += (dimTarget - dimT) * minOf(1f, dt * 3.2f)
+        if (abs(dimT - dimTarget) < 0.004f) dimT = dimTarget
 
         val pad = 16f * u
         val R = 48f * u
@@ -201,7 +207,9 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         p.style = Paint.Style.FILL
         p.shader = LinearGradient(
             0f, 0f, w, h,
-            mixColor(primary, white, 0.34f), mixColor(primary, deep, 0.30f), Shader.TileMode.CLAMP
+            mixColor(mixColor(primary, white, 0.34f), mixColor(deep, Color.BLACK, 0.55f), dimT * 0.88f),
+            mixColor(mixColor(primary, deep, 0.30f), mixColor(deep, Color.BLACK, 0.80f), dimT * 0.92f),
+            Shader.TileMode.CLAMP
         )
         c.drawRoundRect(rect, rad, rad, p)
         p.shader = null
@@ -209,6 +217,20 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         clip.addRoundRect(rect, rad, rad, Path.Direction.CW)
         c.save()
         c.clipPath(clip)
+
+        // foco de luz no disco enquanto toca
+        if (dimT > 0.01f) {
+            p.style = Paint.Style.FILL
+            p.shader = RadialGradient(
+                cx, cy, R * 2.3f,
+                intArrayOf(mixColor(primary, white, 0.25f), mixColor(primary, deep, 0.2f), Color.TRANSPARENT),
+                floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP
+            )
+            p.alpha = (110 * dimT).toInt()
+            c.drawCircle(cx, cy, R * 2.3f, p)
+            p.shader = null
+            p.alpha = 255
+        }
 
         // enfeites de fundo: bolhas, símbolos do gênero e brilhinhos
         p.style = Paint.Style.FILL
@@ -432,7 +454,8 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
 
         val armBusy = abs(armT - armTarget) > 0.01f
         val pressBusy = abs(pressT - pressTarget) > 0.01f
-        if (playing || pts.isNotEmpty() || armBusy || pressBusy || seeking) postInvalidateOnAnimation()
+        val dimBusy = dimT != dimTarget
+        if (playing || pts.isNotEmpty() || armBusy || pressBusy || seeking || dimBusy) postInvalidateOnAnimation()
     }
 }
 
@@ -504,14 +527,17 @@ class Beat(ctx: Context) : FrameLayout(ctx) {
 }
 
 /** Fundo do cartão do casal: bolhas, marcas d'água do gênero e corações/brilhos subindo devagarinho. */
-class CoupleDecor(ctx: Context, private val g: Genre) : View(ctx) {
+class CoupleDecor(ctx: Context, private val g: Genre, themed: Boolean = false) : View(ctx) {
     private class P(var x: Float, var y: Float, var vy: Float, var size: Float, var phase: Float, var rot: Float, var a: Int, var ic: Int)
 
     private val u = resources.displayMetrics.density
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rnd = java.util.Random()
     private val ps = ArrayList<P>()
-    private val icons: List<String> = (listOf("heart", "sparkle", "heart") + g.petals).distinct()
+    // themed = só os símbolos do gênero (usado no Elenco); senão, corações e brilhos junto
+    private val icons: List<String> =
+        if (themed) (listOf(g.icon) + g.petals + listOf("sparkle")).distinct()
+        else (listOf("heart", "sparkle", "heart") + g.petals).distinct()
     private var last = 0L
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

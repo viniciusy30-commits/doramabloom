@@ -2,6 +2,7 @@ package com.doramabloom.app
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Looper
@@ -94,6 +95,14 @@ class DetailActivity : AppCompatActivity() {
                     val r = android.graphics.Rect()
                     v.isShown && v.getGlobalVisibleRect(r) && r.contains(ev.rawX.toInt(), ev.rawY.toInt())
                 } ?: false
+                // rolar o elenco (ou qualquer faixa que role para o lado) também não troca de dorama
+                if (!blocked) {
+                    val r2 = android.graphics.Rect()
+                    blocked = swipeBlocks.any { v ->
+                        val scrolls = v !is HorizontalScrollView || v.canScrollHorizontally(1) || v.canScrollHorizontally(-1)
+                        scrolls && v.isShown && v.getGlobalVisibleRect(r2) && r2.contains(ev.rawX.toInt(), ev.rawY.toInt())
+                    }
+                }
                 tracker?.recycle()
                 tracker = VelocityTracker.obtain()
                 tracker?.addMovement(ev)
@@ -305,6 +314,7 @@ class DetailActivity : AppCompatActivity() {
     }
 
     private var swipeBlock: View? = null
+    private val swipeBlocks = ArrayList<View>()
     private var blocked = false
 
     /** Player da trilha sonora: vinil girando, botão com símbolos do gênero em volta e ondas para pular. */
@@ -413,6 +423,7 @@ class DetailActivity : AppCompatActivity() {
     private fun build(entrance: Boolean) {
         releaseSound()
         swipeBlock = null
+        swipeBlocks.clear()
         val d = Store.get(id)
         if (d == null) {
             finish()
@@ -998,19 +1009,8 @@ class DetailActivity : AppCompatActivity() {
     }
 
     /** Etiqueta de gênero na cor dele (principal ou outro gênero), com borda branca para destacar sobre o fundo. */
-    private fun genrePill(label: String, icon: String, color: Int, colors: List<Int> = emptyList()): TextView {
-        val t = pill(label, color, Color.WHITE, 11.5f, icon)
-        if (colors.size > 1) {
-            // várias cores: degradê com borda branca fininha e texto com sombrinha para ler sobre qualquer cor
-            val bg = multiColorBg(colors, true, dp(20).toFloat(), 0) as GradientDrawable
-            bg.setStroke(dp(1), Color.WHITE)
-            t.background = bg
-            t.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(150, 0, 0, 0))
-        } else {
-            t.background = roundRect(color, dp(20).toFloat(), Color.WHITE, dp(1))
-        }
-        return t
-    }
+    private fun genrePill(label: String, icon: String, color: Int, colors: List<Int> = emptyList()): TextView =
+        vividPill(label, icon, if (colors.size > 1) colors else listOf(color), 11.5f)
 
     private fun openWatch(d: Drama) {
         val i = Intent(this, WatchActivity::class.java)
@@ -1045,33 +1045,101 @@ class DetailActivity : AppCompatActivity() {
         return Pair(b, v)
     }
 
-    /** Elenco: fotinhas redondas em fila, cada uma com o nome embaixo. */
+    /** Elenco: cartão enfeitado na cor do gênero, com um "crachá" por pessoa (foto grande, número e nome). */
     private fun buildCastCard(d: Drama, g: Genre): View? {
         val people = d.castPeople.filter { it.name.isNotBlank() }
         if (people.isEmpty()) return null
-        val c = card(14, 22)
-        c.addView(sectionTitle("Elenco", "person", g.primary))
+
+        val root = FrameLayout(this)
+        root.clipChildren = false
+        val bg = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(g.soft, mixColor(g.soft, g.primary, 0.20f)))
+        bg.cornerRadius = dp(28).toFloat()
+        bg.setStroke(dp(1), mixColor(g.primary, Color.WHITE, 0.45f))
+        root.background = bg
+        val clipper = FrameLayout(this)
+        clipper.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(v: View, o: android.graphics.Outline) {
+                o.setRoundRect(0, 0, v.width, v.height, dp(28).toFloat())
+            }
+        }
+        clipper.clipToOutline = true
+        clipper.addView(CoupleDecor(this, g, true), FrameLayout.LayoutParams(MATCH, MATCH))
+        root.addView(clipper, FrameLayout.LayoutParams(MATCH, MATCH))
+
+        val c = LinearLayout(this)
+        c.orientation = LinearLayout.VERTICAL
+        c.setPadding(0, dp(18), 0, dp(18))
+        root.addView(c, FrameLayout.LayoutParams(MATCH, WRAP))
+
+        // cabeçalho: bolinha com ícone, título e quantidade
+        val head = LinearLayout(this)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.gravity = Gravity.CENTER_VERTICAL
+        val dot = FrameLayout(this)
+        val dbg = GradientDrawable()
+        dbg.shape = GradientDrawable.OVAL
+        dbg.setColor(g.primary)
+        dbg.setStroke(dp(2), Color.WHITE)
+        dot.background = dbg
+        dot.addView(IconView(this, g.icon, Color.WHITE, 18), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        head.addView(dot, lin(dp(38), dp(38), r = 10))
+        val ttl = LinearLayout(this)
+        ttl.orientation = LinearLayout.VERTICAL
+        ttl.addView(label("Elenco", 21f, g.dark, true, true))
+        val auto = g.tagline.startsWith("Seu gênero") || g.tagline.isBlank()
+        val subTxt = (if (auto) "elenco de " + g.label.lowercase() else g.tagline) + (if (people.size > 2) " · deslize" else "")
+        val subTv = label(subTxt, 11.5f, g.primary, true)
+        subTv.maxLines = 1
+        subTv.ellipsize = TextUtils.TruncateAt.END
+        ttl.addView(subTv, lin(WRAP, WRAP, t = 1))
+        head.addView(ttl, lin(0, WRAP, 1f))
+        head.addView(
+            vividPill(if (people.size == 1) "1 pessoa" else people.size.toString() + " pessoas", "sparkle", listOf(g.primary), 11.5f),
+            lin(WRAP, WRAP)
+        )
+        c.addView(head, lin(MATCH, WRAP, l = 18, r = 18))
+
         val hs = HorizontalScrollView(this)
         hs.isHorizontalScrollBarEnabled = false
+        hs.clipToPadding = false
+        hs.setPadding(dp(18), dp(16), dp(8), dp(2))
+        swipeBlocks.add(hs)
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
-        row.setPadding(0, dp(14), 0, dp(2))
         for ((i, p) in people.withIndex()) {
             val item = LinearLayout(this)
             item.orientation = LinearLayout.VERTICAL
             item.gravity = Gravity.CENTER_HORIZONTAL
-            item.addView(avatarView(p.photo, 76, g.primary, g.soft, g.primary), lin(dp(76), dp(76)))
-            val nm = label(p.name, 12f, Palette.text, true)
+            item.setPadding(dp(10), dp(14), dp(10), dp(12))
+            val ibg = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Palette.card, mixColor(Palette.card, g.primary, 0.16f)))
+            ibg.cornerRadius = dp(24).toFloat()
+            ibg.setStroke(dp(1), mixColor(g.primary, Color.WHITE, 0.45f))
+            item.background = ibg
+
+            val ph = FrameLayout(this)
+            ph.clipChildren = false
+            ph.addView(avatarView(p.photo, 84, g.primary, g.soft, g.primary), FrameLayout.LayoutParams(dp(84), dp(84)))
+            val seal = SealView(this)
+            seal.set(g)
+            ph.addView(seal, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.BOTTOM or Gravity.END))
+            item.addView(ph, lin(dp(84), dp(84)))
+
+            val nm = label(p.name, 13f, Palette.text, true)
             nm.gravity = Gravity.CENTER
             nm.maxLines = 2
             nm.ellipsize = TextUtils.TruncateAt.END
-            item.addView(nm, lin(dp(84), WRAP, t = 7))
+            item.addView(nm, lin(dp(92), WRAP, t = 9))
+            val line = LinearLayout(this)
+            line.orientation = LinearLayout.HORIZONTAL
+            line.gravity = Gravity.CENTER
+            for (k in 0 until 3) line.addView(IconView(this, if (k == 1) g.icon else "sparkle", g.primary, if (k == 1) 12 else 9), lin(WRAP, WRAP, l = 2, r = 2))
+            item.addView(line, lin(WRAP, WRAP, t = 6))
             item.fadeScaleIn(minOf(i, 6) * 60L, 300L)
-            row.addView(item, lin(dp(88), WRAP, r = 6))
+            row.addView(item, lin(dp(116), WRAP, r = 10))
         }
         hs.addView(row)
         c.addView(hs, lin(MATCH, WRAP))
-        return c
+        return root
     }
 
     /** Casal favorito: polaroid grande e centralizada (veja coupleCard em FlairUi.kt). */

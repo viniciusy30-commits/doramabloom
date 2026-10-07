@@ -1,3 +1,13 @@
+#id 2026-10-07-p
+#titulo Cores de verdade nos gêneros e outros gêneros sem limite
+- Estante, edição e filtros: os gêneros agora aparecem com as cores vivas deles, igualzinho na tela do dorama (fundo colorido, texto branco). Os com várias cores, como o LGBTQ+, mostram o degradê.
+- Na edição do dorama, nova parte "Aparecem na Estante": escolha até 2 dos outros gêneros para aparecerem no cartão (o principal sempre aparece).
+- Em Config., nova seção "Outros gêneros": edite, apague, crie os seus e restaure os padrões. Dá para misturar quantas cores quiser (toque no + para adicionar uma cor).
+- Grade da Estante: cada dorama virou um cartão completo, igual ao da lista: capa grande com selo, coração e status, e embaixo título, ano e país, gêneros, nota em corações, onde assistir e progresso.
+- Elenco bem mais bonito: cartão enfeitado na cor do gênero, com cabeçalho e contagem de pessoas, e um crachá por ator com foto grande, selo do gênero e nome. Tudo temático: símbolos, cores e frase do gênero principal do dorama.
+- Elenco: rolar a fileira de atores para o lado não troca mais de dorama.
+- Trilha sonora: ao tocar, o cartão escurece devagar e o disco ganha um foco de luz; ao pausar, clareia suavemente.
+
 #id 2026-10-07-o
 #titulo Trilha sonora e casal favorito bem mais caprichados
 - Trilha sonora: agora é um toca-discos fofo. Um vinil com o símbolo do gênero gira, o braço desce no disco, o botão de play ganha ondinhas e os símbolos do gênero giram em volta dele, e notinhas misturadas com esses símbolos sobem enquanto toca.

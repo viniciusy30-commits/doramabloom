@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -28,6 +29,8 @@ class EditActivity : AppCompatActivity() {
     private var originalCover = ""
     private var genreKey = "romance"
     private var tags = HashSet<String>()
+    private var shelf = ArrayList<String>()
+    private var shelfBox: LinearLayout? = null
     private var statusKey = "quero"
     private var country = countries[0]
     private var score = 0
@@ -90,6 +93,7 @@ class EditActivity : AppCompatActivity() {
             originalCover = ex.cover
             genreKey = ex.genre
             tags = HashSet(ex.tags)
+            shelf = ArrayList(ex.shelfTags)
             statusKey = ex.status
             country = ex.country
             score = ex.score
@@ -470,8 +474,56 @@ class EditActivity : AppCompatActivity() {
             lin(MATCH, WRAP, b = 8)
         )
         val allOpts = ArrayList<Opt>(gOpts)
-        for (og in OtherGenres.all) allOpts.add(Opt(og.key, og.label, og.color, og.icon))
-        genreBox.addView(multiFlow(allOpts, tags) { tags = HashSet(it) }, lin(MATCH, WRAP))
+        for (og in OtherGenres.all) allOpts.add(Opt(og.key, og.label, og.color, og.icon, og.colors))
+        genreBox.addView(multiFlow(allOpts, tags) {
+            tags = HashSet(it)
+            buildShelfArea()
+        }, lin(MATCH, WRAP))
+
+        // "Aparecem na Estante": quais dos outros gêneros vão no cartão (além do principal)
+        val sb = LinearLayout(this)
+        sb.orientation = LinearLayout.VERTICAL
+        shelfBox = sb
+        genreBox.addView(sb, lin(MATCH, WRAP))
+        buildShelfArea()
+    }
+
+    private fun optFor(k: String): Opt? {
+        if (OtherGenres.exists(k)) {
+            val og = OtherGenres.byKey(k)
+            return Opt(og.key, og.label, og.color, og.icon, og.colors)
+        }
+        if (Genres.exists(k)) {
+            val g = Genres.byKey(k)
+            return Opt(g.key, g.label, g.primary, g.icon)
+        }
+        return null
+    }
+
+    /** Escolha (até 2) dos gêneros que aparecem no cartão da Estante; o principal sempre aparece. */
+    private fun buildShelfArea() {
+        val box = shelfBox ?: return
+        box.removeAllViews()
+        val order = Genres.all.map { it.key } + OtherGenres.all.map { it.key }
+        val avail = tags.filter { it != genreKey && optFor(it) != null }.sortedBy { order.indexOf(it) }
+        shelf = ArrayList(shelf.filter { avail.contains(it) }.distinct().take(2))
+        if (avail.isEmpty()) {
+            box.visibility = View.GONE
+            return
+        }
+        box.visibility = View.VISIBLE
+        box.addView(fieldLabel("Aparecem na Estante"))
+        box.addView(
+            label(
+                "O gênero principal sempre aparece. Escolha até 2 dos outros para aparecerem no cartão (sem escolha, aparecem os 2 primeiros).",
+                12f, Palette.muted
+            ),
+            lin(MATCH, WRAP, b = 8)
+        )
+        val opts = avail.mapNotNull { optFor(it) }
+        box.addView(multiFlow(opts, shelf.toSet(), 2) { chosen ->
+            shelf = ArrayList(avail.filter { chosen.contains(it) })
+        }, lin(MATCH, WRAP))
     }
 
     /** Botão de favorito na cor do gênero escolhido. */
@@ -710,7 +762,8 @@ class EditActivity : AppCompatActivity() {
             kind = kind,
             soundtrack = soundtrackPath,
             castPeople = castList.filter { it.name.isNotBlank() }.map { CastPerson(it.name.trim(), it.photo) },
-            couplePhoto = couplePhotoPath
+            couplePhoto = couplePhotoPath,
+            shelfTags = shelf.filter { tags.contains(it) && it != genreKey }
         )
         normalize(d)
         val tot = totalEps(d)

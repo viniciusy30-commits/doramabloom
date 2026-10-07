@@ -438,23 +438,16 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
  * ou um que veio com o app. Nome, cor e símbolo, com prévia ao vivo. Eles só classificam e filtram.
  */
 fun Activity.showOtherGenreEditor(existing: OtherGenre?, onDone: (OtherGenre) -> Unit) {
-    if (existing == null && OtherGenres.custom().size >= 40) {
+    if (existing == null && OtherGenres.custom().size >= 60) {
         softToast("Você já criou muitos outros gêneros!", Palette.pink, "tag")
         return
     }
-    // até 3 cores para mesclar; a mesma cor repetida não conta (não mescla)
-    val slots = arrayOfNulls<Int>(3)
-    val startCols = existing?.colors ?: listOf(genreColorChoices[0])
-    for (i in 0 until minOf(3, startCols.size)) slots[i] = startCols[i]
+    // quantas cores quiser (até 12) para mesclar; a mesma cor repetida não conta (não mescla)
+    val cols = ArrayList<Int>(existing?.colors ?: listOf(genreColorChoices[0]))
+    if (cols.isEmpty()) cols.add(genreColorChoices[0])
     var activeSlot = 0
-    // o arco-íris de fábrica tem 6 cores: se você não mexer nas 3 primeiras, as outras ficam
-    val tailCols = startCols.drop(3)
-    fun effective(): List<Int> {
-        val base = slots.filterNotNull().distinct()
-        val untouched = slots.toList() == startCols.take(3).let { l -> List(3) { l.getOrNull(it) } }
-        return if (tailCols.isNotEmpty() && untouched) (base + tailCols).distinct() else base
-    }
-    var color = slots[0] ?: genreColorChoices[0]
+    fun effective(): List<Int> = cols.distinct()
+    var color = cols[0]
     var icon = existing?.icon ?: "tag"
     val icons: List<String> = if (genreIconChoices.contains(icon)) genreIconChoices else listOf(icon) + genreIconChoices
 
@@ -495,66 +488,87 @@ fun Activity.showOtherGenreEditor(existing: OtherGenre?, onDone: (OtherGenre) ->
         }
     }
 
-    col.addView(label("Cores (até 3)", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 2))
+    col.addView(label("Cores (quantas quiser)", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 2))
     col.addView(
-        label("Escolha uma, duas ou três para mesclar. Se repetir a mesma cor, ela não mescla.", 11.5f, Palette.muted),
+        label("Toque no + para adicionar mais uma cor: todas se mesclam num degradê. Se repetir a mesma cor, ela não mescla.", 11.5f, Palette.muted),
         lin(MATCH, WRAP, b = 8)
     )
-    val slotRow = LinearLayout(this)
-    slotRow.orientation = LinearLayout.HORIZONTAL
-    slotRow.gravity = Gravity.CENTER_VERTICAL
-    col.addView(slotRow, lin(MATCH, WRAP))
-    val slotViews = ArrayList<TextView>()
-    val pickers = ArrayList<ColorPicker>()
+    val slotFlow = FlowLayout(this)
+    slotFlow.hGap = dp(8)
+    slotFlow.vGap = dp(8)
+    col.addView(slotFlow, lin(MATCH, WRAP))
     val pickerBox = FrameLayout(this)
+    col.addView(pickerBox, lin(MATCH, WRAP, t = 10))
     val removeBtn = label("Tirar esta cor", 12.5f, Palette.pinkDark, true)
     removeBtn.setPadding(dp(4), dp(8), dp(4), dp(8))
+    col.addView(removeBtn, lin(WRAP, WRAP, t = 4))
 
-    fun styleSlots() {
-        for (i in 0 until 3) {
-            val tv = slotViews[i]
-            val c = slots[i]
-            val bg = GradientDrawable()
-            bg.shape = GradientDrawable.OVAL
-            bg.setColor(c ?: Palette.card)
-            bg.setStroke(if (i == activeSlot) dp(3) else dp(2), if (i == activeSlot) Palette.pink else Palette.line)
-            tv.background = bg
-            tv.text = if (c == null) "+" else ""
-            pickers[i].visibility = if (i == activeSlot) View.VISIBLE else View.GONE
-        }
-        removeBtn.visibility = if (activeSlot > 0 && slots[activeSlot] != null) View.VISIBLE else View.GONE
-    }
-
-    for (i in 0 until 3) {
-        val tv = label("", 18f, Palette.muted, true)
-        tv.gravity = Gravity.CENTER
-        tv.setOnClickListener {
-            activeSlot = i
-            styleSlots()
-        }
-        tv.pressable(0.9f)
-        slotViews.add(tv)
-        slotRow.addView(tv, lin(dp(44), dp(44), r = 12))
-        val pk = ColorPicker(this, slots[i] ?: genreColorChoices[i * 9 % genreColorChoices.size]) {
-            slots[i] = it
-            styleSlots()
+    lateinit var rebuildSlots: () -> Unit
+    fun rebuildPicker() {
+        pickerBox.removeAllViews()
+        val idx = activeSlot
+        val pk = ColorPicker(this, cols[idx]) {
+            cols[idx] = it
+            rebuildSlots()
             restyle()
             prevBox.pop(1.1f)
         }
-        pickers.add(pk)
         pickerBox.addView(pk, FrameLayout.LayoutParams(MATCH, WRAP))
     }
-    slotRow.addView(label("Toque numa bolinha para escolher", 11.5f, Palette.muted), lin(WRAP, WRAP, l = 4))
-    col.addView(pickerBox, lin(MATCH, WRAP, t = 10))
-    removeBtn.setOnClickListener {
-        slots[activeSlot] = null
-        activeSlot = 0
-        styleSlots()
-        restyle()
-        prevBox.pop(1.1f)
+    rebuildSlots = {
+        slotFlow.removeAllViews()
+        for (i in cols.indices) {
+            val cell = FrameLayout(this)
+            val dot = View(this)
+            val bg = GradientDrawable()
+            bg.shape = GradientDrawable.OVAL
+            bg.setColor(cols[i])
+            bg.setStroke(if (i == activeSlot) dp(3) else dp(2), if (i == activeSlot) Palette.pink else Palette.line)
+            dot.background = bg
+            cell.addView(dot, FrameLayout.LayoutParams(dp(40), dp(40)))
+            cell.setOnClickListener {
+                activeSlot = i
+                rebuildSlots()
+                rebuildPicker()
+            }
+            cell.pressable(0.9f)
+            slotFlow.addView(cell)
+        }
+        if (cols.size < 12) {
+            val cell = FrameLayout(this)
+            val plus = label("+", 20f, Palette.pinkDark, true)
+            plus.gravity = Gravity.CENTER
+            val bg = GradientDrawable()
+            bg.shape = GradientDrawable.OVAL
+            bg.setColor(Palette.card)
+            bg.setStroke(dp(2), Palette.pinkDark)
+            plus.background = bg
+            cell.addView(plus, FrameLayout.LayoutParams(dp(40), dp(40)))
+            cell.setOnClickListener {
+                cols.add(genreColorChoices[(cols.size * 9 + 4) % genreColorChoices.size])
+                activeSlot = cols.size - 1
+                rebuildSlots()
+                rebuildPicker()
+                restyle()
+                prevBox.pop(1.1f)
+            }
+            cell.pressable(0.9f)
+            slotFlow.addView(cell)
+        }
+        removeBtn.visibility = if (cols.size > 1) View.VISIBLE else View.GONE
     }
-    col.addView(removeBtn, lin(WRAP, WRAP, t = 4))
-    styleSlots()
+    removeBtn.setOnClickListener {
+        if (cols.size > 1) {
+            cols.removeAt(activeSlot)
+            activeSlot = 0
+            rebuildSlots()
+            rebuildPicker()
+            restyle()
+            prevBox.pop(1.1f)
+        }
+    }
+    rebuildSlots()
+    rebuildPicker()
 
     col.addView(label("Símbolo", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
     val icFlow = FlowLayout(this)

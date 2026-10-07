@@ -262,14 +262,38 @@ fun Context.scoreBadge(sizeDp: Int, textSp: Float): TextView {
     return t
 }
 
-class Opt(val key: String, val label: String, val color: Int, val icon: String? = null)
+class Opt(val key: String, val label: String, val color: Int, val icon: String? = null, val colors: List<Int> = emptyList())
 
-private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int) {
-    tv.background = roundRect(if (sel) col else Palette.card, dpPx * 20f, col, dpPx)
-    val fg = if (sel) Color.WHITE else col
-    tv.setTextColor(fg)
-    val dr = tv.compoundDrawables[0]
-    if (dr is IconDrawable) dr.color = fg
+private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int, colors: List<Int> = emptyList()) {
+    val multi = colors.distinct().size > 1
+    if (multi) {
+        val cs = colors.distinct()
+        val arr: IntArray
+        val stroke: Int
+        if (sel) {
+            arr = IntArray(cs.size) { cs[it] }
+            stroke = Color.WHITE
+        } else {
+            arr = IntArray(cs.size) { mixColor(cs[it], Palette.card, 0.66f) }
+            stroke = cs[0]
+        }
+        val bg = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, if (arr.size == 1) intArrayOf(arr[0], arr[0]) else arr)
+        bg.cornerRadius = dpPx * 20f
+        bg.setStroke(dpPx, stroke)
+        tv.background = bg
+        val fg = if (sel) Color.WHITE else Palette.text
+        tv.setTextColor(fg)
+        if (sel) tv.setShadowLayer(dpPx * 2f, 0f, dpPx.toFloat(), Color.argb(150, 0, 0, 0)) else tv.setShadowLayer(0f, 0f, 0f, 0)
+        val dr = tv.compoundDrawables[0]
+        if (dr is IconDrawable) dr.color = fg
+    } else {
+        tv.background = roundRect(if (sel) col else mixColor(col, Palette.card, 0.84f), dpPx * 20f, col, dpPx)
+        val fg = if (sel) Color.WHITE else col
+        tv.setTextColor(fg)
+        tv.setShadowLayer(0f, 0f, 0f, 0)
+        val dr = tv.compoundDrawables[0]
+        if (dr is IconDrawable) dr.color = fg
+    }
     if (sel && tv.getTag(TAG_SEL) != true) tv.pop()
     tv.setTag(TAG_SEL, sel)
 }
@@ -288,7 +312,7 @@ fun Context.chipScroller(options: List<Opt>, initial: String, onSelect: (String)
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, options[i].key == current, one)
+            restyleChip(views[i], options[i].color, options[i].key == current, one, options[i].colors)
         }
     }
 
@@ -331,7 +355,7 @@ fun Context.multiChips(options: List<Opt>, initial: Set<String>, onChange: (Set<
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one)
+            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one, options[i].colors)
         }
     }
 
@@ -362,7 +386,7 @@ fun Context.chipFlow(options: List<Opt>, initial: String, onSelect: (String) -> 
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, options[i].key == current, one)
+            restyleChip(views[i], options[i].color, options[i].key == current, one, options[i].colors)
         }
     }
 
@@ -392,7 +416,7 @@ fun Context.chipFlow(options: List<Opt>, initial: String, onSelect: (String) -> 
 }
 
 /** Chips que quebram de linha, seleção múltipla. */
-fun Context.multiFlow(options: List<Opt>, initial: Set<String>, onChange: (Set<String>) -> Unit): FlowLayout {
+fun Context.multiFlow(options: List<Opt>, initial: Set<String>, max: Int = 0, onChange: (Set<String>) -> Unit): FlowLayout {
     val fl = FlowLayout(this)
     fl.hGap = dp(8)
     fl.vGap = dp(8)
@@ -403,7 +427,7 @@ fun Context.multiFlow(options: List<Opt>, initial: Set<String>, onChange: (Set<S
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one)
+            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one, options[i].colors)
         }
     }
 
@@ -411,7 +435,15 @@ fun Context.multiFlow(options: List<Opt>, initial: Set<String>, onChange: (Set<S
         val o = options[i]
         val tv = pill(o.label, Palette.card, o.color, 13f, o.icon)
         tv.setOnClickListener {
-            if (chosen.contains(o.key)) chosen.remove(o.key) else chosen.add(o.key)
+            if (chosen.contains(o.key)) {
+                chosen.remove(o.key)
+            } else {
+                if (max > 0 && chosen.size >= max) {
+                    tv.pop(1.2f)
+                    return@setOnClickListener
+                }
+                chosen.add(o.key)
+            }
             restyle()
             onChange(HashSet<String>(chosen))
         }
@@ -1165,27 +1197,33 @@ object Atmosphere {
     }
 }
 
-/** Etiqueta de "outro gênero": com 2 ou 3 cores, o fundo e o texto mesclam em degradê. */
-fun Context.otherPill(g: OtherGenre, size: Float = 12f): TextView {
-    val cols = g.colors.take(6)
-    val t = pill(g.label, g.soft, g.dark, size, g.icon)
-    if (cols.size > 1) {
-        val bg = GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            IntArray(cols.size) { mixColor(cols[it], Color.WHITE, 0.80f) }
-        )
-        bg.cornerRadius = dp(20).toFloat()
+/**
+ * Etiqueta de gênero com as cores vivas dele (igual à tela do dorama): fundo na cor (ou degradê,
+ * se tiver várias), texto branco com sombrinha e borda branca fininha.
+ */
+fun Context.vividPill(label: String, icon: String?, colors: List<Int>, size: Float = 12f): TextView {
+    val cs = colors.distinct().ifEmpty { listOf(Palette.pink) }
+    val t = pill(label, cs[0], Color.WHITE, size, icon)
+    if (cs.size > 1) {
+        val bg = multiColorBg(cs, true, dp(20).toFloat(), 0) as GradientDrawable
+        bg.setStroke(dp(1), Color.WHITE)
         t.background = bg
+    } else {
+        t.background = roundRect(cs[0], dp(20).toFloat(), Color.WHITE, dp(1))
     }
+    t.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(130, 0, 0, 0))
     return t
 }
+
+/** Etiqueta de "outro gênero": cores vivas, com degradê quando tem mais de uma cor. */
+fun Context.otherPill(g: OtherGenre, size: Float = 12f): TextView = vividPill(g.label, g.icon, g.colors, size)
 
 /**
  * Fundo em degradê para gêneros com 2 ou mais cores (ex.: arco-íris do LGBTQ+).
  * vivid = true usa as cores puras; false usa tons suaves. strokePx > 0 põe uma borda fininha.
  */
 fun multiColorBg(colors: List<Int>, vivid: Boolean, radiusPx: Float, strokePx: Int = 0): android.graphics.drawable.Drawable {
-    val cs = if (colors.isEmpty()) listOf(Color.GRAY) else colors.take(6)
+    val cs = if (colors.isEmpty()) listOf(Color.GRAY) else colors.take(16)
     val arr = IntArray(maxOf(2, cs.size)) { i ->
         val c = cs[minOf(i, cs.size - 1)]
         if (vivid) c else mixColor(c, Color.WHITE, 0.80f)

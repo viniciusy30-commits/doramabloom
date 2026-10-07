@@ -868,7 +868,7 @@ class MainActivity : AppCompatActivity() {
         // outros gêneros: só etiquetas para filtrar (não trocam o tema nem os símbolos)
         val otherOpts = ArrayList<Opt>()
         otherOpts.add(Opt("all", "Todos", Palette.pink, "tag"))
-        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, og.color, og.icon))
+        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, og.color, og.icon, og.colors))
         panel.addView(label("Outros gêneros", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
         panel.addView(chipScroller(otherOpts, otherFilter) {
             otherFilter = it
@@ -1352,6 +1352,70 @@ class MainActivity : AppCompatActivity() {
         }
         gcard.addView(newGenre, lin(MATCH, WRAP, t = 18))
         col.addView(gcard, lin(MATCH, WRAP))
+
+        // outros gêneros: só classificam e filtram; dá para editar, criar, apagar e mesclar cores
+        col.addView(section("Outros gêneros", "tag"))
+        val ocard = card(14, 22)
+        ocard.addView(
+            label(
+                "Etiquetas para classificar e filtrar (Policial, LGBTQ+, Chaebol…). Edite, apague ou crie as suas, e misture quantas cores quiser.",
+                12f, Palette.muted
+            )
+        )
+        val refreshOthers = {
+            seenVersion = Store.version
+            showTab(4, false)
+        }
+        val othersMine = Store.all()
+        for (og in OtherGenres.all) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            val left = LinearLayout(this)
+            left.orientation = LinearLayout.VERTICAL
+            left.addView(otherPill(og, 13f), lin(WRAP, WRAP))
+            val n = othersMine.count { it.tags.contains(og.key) }
+            left.addView(
+                label(if (n == 1) "1 dorama" else "$n doramas", 11f, Palette.muted, true),
+                lin(WRAP, WRAP, t = 3, l = 4)
+            )
+            row.addView(left, lin(0, WRAP, 1f))
+            row.addView(roundBtn("edit", og.color, false, 14) {
+                showOtherGenreEditor(og) { refreshOthers() }
+            }, lin(dp(34), dp(34), l = 8))
+            row.addView(roundBtn("delete", og.color, false, 14) {
+                AlertDialog.Builder(this)
+                    .setTitle("Excluir gênero?")
+                    .setMessage("\"" + og.label + "\" sai dos doramas que têm essa etiqueta.")
+                    .setPositiveButton("Excluir") { _, _ ->
+                        if (otherFilter == og.key) otherFilter = "all"
+                        if (og.custom) Store.removeOtherGenre(og.key) else Store.hideOtherGenre(og.key)
+                        refreshOthers()
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            }, lin(dp(34), dp(34), l = 8))
+            ocard.addView(row, lin(MATCH, WRAP, t = 10))
+        }
+        val newOther = bigPill("Criar novo outro gênero", Palette.pink, Color.WHITE, 14f, "add")
+        newOther.setOnClickListener { showOtherGenreEditor(null) { refreshOthers() } }
+        ocard.addView(newOther, lin(MATCH, WRAP, t = 18))
+        if (OtherGenres.hiddenKeys().isNotEmpty() || OtherGenres.edited().isNotEmpty()) {
+            val rst = pill("Restaurar padrões", Palette.pinkSoft, Palette.pinkDark, 13f, "replay")
+            rst.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Restaurar padrões?")
+                    .setMessage("Os que vieram com o app voltam ao original (os que você criou ficam).")
+                    .setPositiveButton("Restaurar") { _, _ ->
+                        Store.restoreOtherDefaults()
+                        refreshOthers()
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            }
+            ocard.addView(rst, lin(WRAP, WRAP, t = 10))
+        }
+        col.addView(ocard, lin(MATCH, WRAP))
 
         // backup
         col.addView(section("Backup", "download"))
