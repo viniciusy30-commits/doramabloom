@@ -176,8 +176,8 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         if (w <= 0f || h <= 0f) return
         val now = System.nanoTime()
         // se a tela ficou parada (ou o app demorou a desenhar), não "pula" a animação: recomeça de um passo normal
-        val gap = if (last == 0L) 0f else (now - last) / 1_000_000_000f
-        val dt = if (last == 0L || gap > 0.1f) 0.016f else gap.coerceAtMost(0.05f)
+        val frameGap = if (last == 0L) 0f else (now - last) / 1_000_000_000f
+        val dt = if (last == 0L || frameGap > 0.1f) 0.016f else frameGap.coerceAtMost(0.05f)
         last = now
         t += dt
         if (playing) {
