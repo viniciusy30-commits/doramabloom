@@ -6,8 +6,8 @@
 - Frases por nota: notas de 1 a 4 mostram "Terminei por educação", de 5 a 7 uma frase de meme (igual para todos os gêneros) e de 8 a 10 a frase única do gênero, que já existia.
 - Ao editar um gênero dá para mudar as 3 frases (notas 1-4, 5-7 e 8-10).
 - Doramas sem nota não mostram nenhuma frase.
-- Leitura mais fácil: textos apagados ficaram mais fortes, os chips de filtro têm cor de texto mais legível, e na tela do dorama as caixas de tipo/status/país/onde assistir e da nota ganharam fundo mais escuro com letras maiores.
-- Início: o selo do gênero agora fica na mesma altura da bolinha do streaming.
+- Leitura mais fácil: textos apagados ficaram mais fortes, os chips de filtro têm cor de texto mais legível, e na tela do dorama as letras das caixas ficaram um pouco maiores e com sombrinha, mantendo as cores de sempre.
+- Início: o selo do gênero saiu de cima da capa e foi para o lado direito do título, centralizado.
 - Estante: em "Outros gêneros" dá para marcar vários (mostra os doramas que têm todos os marcados) e o botão "Novo gênero" saiu dos filtros (continua em Config.).
 - Início: o streaming aparece só com o símbolo da marca, centralizado e sem caixinha em volta; na Estante (lista e grade) aparece a etiqueta com o símbolo e o nome, nas cores da marca; as bolinhas de ano, episódios e onde assistir subiram, e o selo do gênero ficou menor e mais afastado da capa e da borda.
 

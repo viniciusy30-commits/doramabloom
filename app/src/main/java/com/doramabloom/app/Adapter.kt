@@ -523,12 +523,9 @@ class DramaAdapter(
         flp.setMargins(0, c.dp(12), c.dp(12), 0)
         hero.addView(fav, flp)
 
-        // selo do gênero: adesivo no cantinho da capa
+        // selo do gênero: adesivo ao lado do título, na parte de baixo do cartão
         val seal = SealView(c, true)
         seal.rotation = -8f
-        val slp = FrameLayout.LayoutParams(c.dp(54), c.dp(54), Gravity.BOTTOM or Gravity.END)
-        slp.setMargins(0, 0, c.dp(9), c.dp(38))
-        hero.addView(seal, slp)
         // bolinhas de informação (ano, episódios, plataforma) no espaço ao lado da capa
         val stats = LinearLayout(c)
         stats.orientation = LinearLayout.VERTICAL
@@ -552,16 +549,24 @@ class DramaAdapter(
         val title = c.label("", 23f, Palette.text, true, true)
         title.maxLines = 2
         title.ellipsize = TextUtils.TruncateAt.END
-        info.addView(title, c.lin(MATCH, WRAP))
+        val textCol = LinearLayout(c)
+        textCol.orientation = LinearLayout.VERTICAL
+        textCol.addView(title, c.lin(MATCH, WRAP))
         val sub = c.label("", 12.5f, Palette.muted)
         sub.maxLines = 1
         sub.ellipsize = TextUtils.TruncateAt.END
-        info.addView(sub, c.lin(MATCH, WRAP, t = 2, b = 4))
+        textCol.addView(sub, c.lin(MATCH, WRAP, t = 2, b = 4))
         // frase fofa do gênero
         val tag = c.fitLabel("", 12f, Palette.muted, false, false, 8f)
         tag.setTypeface(tag.typeface, android.graphics.Typeface.ITALIC)
         tag.compoundDrawablePadding = c.dp(6)
-        info.addView(tag, c.lin(MATCH, WRAP, b = 10))
+        textCol.addView(tag, c.lin(MATCH, WRAP))
+        val head = LinearLayout(c)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.addView(textCol, c.lin(0, WRAP, 1f))
+        head.addView(seal, c.lin(c.dp(64), c.dp(64), l = 10, r = 2))
+        info.addView(head, c.lin(MATCH, WRAP, b = 10))
 
         val chips = LinearLayout(c)
         chips.orientation = LinearLayout.HORIZONTAL
