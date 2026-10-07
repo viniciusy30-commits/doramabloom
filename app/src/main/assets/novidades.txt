@@ -1,3 +1,9 @@
+#id 2026-10-07-w
+#titulo Cenas do Início refeitas, sem piscar, e o novo gênero Crime
+- Início: refiz do zero as cenas de Romance (galhos de cerejeira floridos, pétalas que viram no ar, corações com brilho, carta de amor e fio de coraçõezinhos), Fantasia (aurora, lua crescente, círculo mágico, castelo, fadas com rastro, borboletas e cristais), Histórico (sol enorme, montanhas com névoa, pagode e hanok, lanternas e grous), Comédia (cortina de circo, holofotes, carinhas rindo até chorar, balões e estouros de HAHA), Médico (monitor de ECG, DNA, estetoscópio, cápsulas e molécula), Família (casa com fumaça, família de mãos dadas, bandeirinhas, balões de coração e folhas), Vida real (cidade acordando, café com vapor, passarinhos e plantinha) e Vingança (lua de sangue, lírios-aranha, adaga no fio, ampulheta, fio do destino e vidro trincado).
+- Chega de tela piscando: os brilhos agora são degradês macios, os símbolos são desenhados à mão (corações, pétalas, flores, borboletas, folhas, gotas e cápsulas de verdade) e tudo acende e apaga devagar.
+- Novo gênero Crime, com cena própria: sirenes vermelha e azul, fita policial, contorno de giz, marcadores de prova, impressão digital sendo escaneada, algemas e distintivo.
+
 #id 2026-10-07-v
 #titulo Todos os gêneros agora têm cena própria no Início
 - Início: entram as últimas 6 cenas exclusivas. Escolar (raios de sol, aviõezinhos de papel, rabiscos de lousa, relógio da escola e pétalas), Suspense (persianas de luz, olho gigante que observa, relógio, batimento no monitor, lanterna e contagem regressiva), Médico (monitor cardíaco, DNA girando, cruzes, remédios e moléculas), Família (casa com fumaça, família de mãos dadas, bolo com velinhas, presentes e luzinhas), Vida real (xícara de café com vapor, sol da manhã, passarinhos e a cidade acordando) e Vingança (lua vermelha, ampulheta, adagas, gotas de sangue, vidro trincando e caveiras).

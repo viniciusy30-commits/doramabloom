@@ -118,7 +118,9 @@ object Genres {
         Genre("vida", "Vida real", "coffee", c("#C79A7B"), c("#F6E9DF"), c("#6B4630"),
             listOf("coffee", "leaf", "sun"), "Cotidiano gostoso, café quentinho e paz"),
         Genre("vinganca", "Vingança", "skull", c("#B03A5B"), c("#F8DDE5"), c("#5E1128"),
-            listOf("skull", "dagger", "hourglass"), "Frieza, planos e a hora do acerto de contas")
+            listOf("skull", "dagger", "hourglass"), "Frieza, planos e a hora do acerto de contas"),
+        Genre("crime", "Crime", "lock", c("#8A94A6"), c("#E6E9EF"), c("#3C4452"),
+            listOf("lock", "key", "eye"), "Sirenes, pistas e um caso para resolver")
     )
 
     private var edits: Map<String, Genre> = emptyMap()
