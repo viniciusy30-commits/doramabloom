@@ -57,6 +57,13 @@ class ShelfBanner(ctx: Context) : View(ctx) {
         invalidate()
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        // não influencia a altura da faixa: só acompanha o tamanho que o texto der a ela
+        val w = getDefaultSize(0, widthMeasureSpec)
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
+        setMeasuredDimension(w, h)
+    }
+
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         super.onSizeChanged(w, h, ow, oh)
         leftScrim = LinearGradient(
