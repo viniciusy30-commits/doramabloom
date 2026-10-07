@@ -1,3 +1,62 @@
+#id 2026-10-07-o
+#titulo Trilha sonora e casal favorito bem mais caprichados
+- Trilha sonora: agora é um toca-discos fofo. Um vinil com o símbolo do gênero gira, o braço desce no disco, o botão de play ganha ondinhas e os símbolos do gênero giram em volta dele, e notinhas misturadas com esses símbolos sobem enquanto toca.
+- As ondas embaixo mostram o quanto já tocou e dá para tocar nelas para pular para outro pedaço. O nome da música não aparece mais. Tudo usa as cores do gênero do dorama.
+- Casal favorito: virou uma polaroid grande e centralizada, com fita adesiva, adesivo do gênero, coração batendo, os nomes escritos à mão (com um coração entre eles) e corações subindo no fundo.
+
+#id 2026-10-07-n
+#titulo Fotos do elenco e do casal
+- Na edição, o elenco virou uma lista: cada ator ou atriz tem nome e uma foto (toque no círculo para escolher). O casal favorito também tem foto.
+- Na tela do dorama aparece o cartão "Elenco", com as fotinhas redondas e o nome embaixo de cada uma, e o cartão "Casal favorito" com a foto grande.
+
+#id 2026-10-07-m
+#titulo Trilha sonora de cada dorama
+- Na edição do dorama tem o cartão "Trilha sonora": escolha o arquivo de áudio que você baixou.
+- Na tela do dorama aparece um player com play e pause e uma barrinha de progresso. A música para sozinha quando você sai da tela.
+
+#id 2026-10-07-l
+#titulo Cores mescladas mais vivas na Estante
+- Os gêneros com cores mescladas (como o LGBTQ+) agora aparecem com as cores vivas também na lista e na grade da Estante.
+
+#id 2026-10-07-k
+#titulo Série ou filme
+- Na edição do dorama tem o campo "Tipo": Série ou Filme.
+- Na tela do dorama, o cartão de informações ganhou a coluna TIPO.
+
+#id 2026-10-06-j
+#titulo Arco-íris no LGBTQ+ e cores mescladas nos outros gêneros
+- O gênero LGBTQ+ agora tem as cores da bandeira (arco-íris) nos filtros, na edição e na tela do dorama.
+- Ao criar ou editar um "outro gênero", dá para escolher até 3 cores e elas se mesclam num degradê. Se repetir a mesma cor, não mescla.
+
+#id 2026-10-06-i
+#titulo Grade da Estante bem mais caprichada
+- Na visualização em grade, cada dorama virou um cartão: capa grande de pôster com cantos arredondados, selo do gênero, coração, nota e status em cima de um degradê.
+- Embaixo da capa: título, ano e país, os gêneros escolhidos, corações da nota, onde assistir e a barrinha de progresso com a porcentagem.
+
+#id 2026-10-06-h
+#titulo Escolha os gêneros que aparecem na Estante
+- Na edição do dorama, em "Aparecem na Estante", você escolhe até 2 gêneros extras para aparecerem no cartão. O gênero principal sempre aparece.
+
+#id 2026-10-06-g
+#titulo Vários outros gêneros no filtro e link na edição
+- Nos filtros da Estante, em "Outros gêneros" dá para marcar mais de um: aparecem só os doramas que têm todos os marcados. "Todos" limpa a escolha.
+- O botão de link saiu da tela do dorama e agora fica na edição, em Detalhes ("Link de início"). Deixe vazio para remover.
+- O botão "Continuar assistindo" ficou centralizado, ocupando a largura toda.
+
+#id 2026-10-06-f
+#titulo Status, país e onde assistir separados dos gêneros
+- Na tela do dorama, os gêneros ficam sozinhos no topo e Status, País e Onde assistir ganharam um cartãozinho próprio logo abaixo, com bolinhas de ícone e colunas separadas.
+
+#id 2026-10-06-e
+#titulo Outros gêneros editáveis e mais cores
+- Em Config., agora tem a seção "Outros gêneros": dá para editar nome, cor e símbolo, excluir e criar os seus. Os que vêm com o app podem ser excluídos e voltam em "Restaurar padrões".
+- Mais cores para escolher (50+ prontas) e duas barrinhas para misturar a cor do seu jeito, tanto nos gêneros principais quanto nos outros gêneros.
+- Mais símbolos para escolher na hora de criar ou editar um gênero.
+- O botão "Novo gênero" saiu dos filtros da Estante; para criar, é só ir em Config.
+- Os gêneros principais ganharam o nome "Gêneros principais" nas configurações.
+- O Perfil agora fica no topo das configurações.
+- O backup .zip também guarda os seus outros gêneros (criados, editados e excluídos).
+
 #id 2026-10-06-d
 #titulo Troca de doramas mais fofa e Outros gêneros
 - Ao arrastar de um dorama para outro, o vão no meio agora fica cheio de símbolos caindo, misturando as categorias dos dois doramas.
