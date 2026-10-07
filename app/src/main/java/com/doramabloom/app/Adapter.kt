@@ -1,7 +1,9 @@
 package com.doramabloom.app
 
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -204,7 +206,15 @@ class DramaAdapter(
         val pc = h.percent
         if (pc != null) {
             pc.text = (progressOf(d) * 100).toInt().toString() + "%"
-            pc.setTextColor(g.dark)
+            if (mode == 4) {
+                pc.setTextColor(Color.WHITE)
+                pc.background = GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(mixColor(g.primary, Color.WHITE, 0.2f), g.primary)
+                ).also { it.cornerRadius = pc.dp(12).toFloat() }
+            } else {
+                pc.setTextColor(g.dark)
+            }
         }
         val chip = h.chip
         if (chip != null) {
@@ -271,7 +281,19 @@ class DramaAdapter(
         }
         h.cover.bind(d, reqW)
         h.title.text = d.title
-        if (mode == 4) h.title.setTextColor(g.dark)
+        if (mode == 4) {
+            h.title.setTextColor(g.dark)
+            h.title.textSize = 26f
+            h.title.setShadowLayer(h.title.dp(8).toFloat(), 0f, h.title.dp(1).toFloat(), Color.argb(90, Color.red(g.primary), Color.green(g.primary), Color.blue(g.primary)))
+            // painel de baixo com um tom do gênero que sobe do fundo, combinando com o tema da capa
+            val panel = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Palette.card, mixColor(Palette.card, g.primary, 0.20f))
+            )
+            panel.cornerRadius = h.itemView.dp(34).toFloat()
+            panel.setStroke(h.itemView.dp(1), mixColor(g.primary, Color.WHITE, 0.55f))
+            h.itemView.background = panel
+        }
         h.sub?.text = subtitle(d)
         bindDynamic(h, d, g, st, false)
         h.seal?.set(g)
@@ -349,7 +371,22 @@ class DramaAdapter(
         }
         val plus = h.plus
         if (plus != null) {
-            plus.background = roundRect(g.primary, plus.dp(if (mode == 4) 26 else 22).toFloat())
+            if (mode == 4) {
+                val gb = GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(mixColor(g.primary, Color.WHITE, 0.25f), g.primary, mixColor(g.primary, Color.BLACK, 0.12f))
+                )
+                gb.cornerRadius = plus.dp(26).toFloat()
+                gb.setStroke(plus.dp(1), mixColor(g.primary, Color.WHITE, 0.6f))
+                plus.background = gb
+                plus.elevation = plus.dp(8).toFloat()
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    plus.outlineSpotShadowColor = g.primary
+                    plus.outlineAmbientShadowColor = g.primary
+                }
+            } else {
+                plus.background = roundRect(g.primary, plus.dp(22).toFloat())
+            }
             plus.setOnClickListener { onPlus?.invoke(d, plus) }
         }
         h.itemView.setOnClickListener { onClick(d) }
@@ -585,29 +622,42 @@ class DramaAdapter(
                 }
             }
         }
+        // nota em corações do lado direito, na mesma linha do status e do streaming
+        chips.addView(View(c), c.lin(0, c.dp(1), 1f))
+        val rating = RatingView(c, 17, false)
+        chips.addView(rating, c.lin(WRAP, WRAP))
         info.addView(chips, c.lin(MATCH, WRAP))
 
         val prow = LinearLayout(c)
         prow.orientation = LinearLayout.HORIZONTAL
         prow.gravity = Gravity.CENTER_VERTICAL
-        val prog = c.label("", 14f, Palette.text, true)
+        val prog = c.label("", 14.5f, Palette.text, true)
         prog.maxLines = 1
         prog.ellipsize = TextUtils.TruncateAt.END
         prow.addView(prog, c.lin(0, WRAP, 1f, r = 8))
-        val rating = RatingView(c, 17, false)
-        prow.addView(rating, c.lin(WRAP, WRAP))
-        info.addView(prow, c.lin(MATCH, WRAP, t = 12))
+        val percent = c.label("", 12.5f, Color.WHITE, true)
+        percent.setPadding(c.dp(10), c.dp(3), c.dp(10), c.dp(3))
+        prow.addView(percent, c.lin(WRAP, WRAP))
+        info.addView(prow, c.lin(MATCH, WRAP, t = 14))
         val bar = SoftBar(c)
-        info.addView(bar, c.lin(MATCH, c.dp(11), t = 6))
+        info.addView(bar, c.lin(MATCH, c.dp(12), t = 7))
 
-        val plus = c.pill("Continuar assistindo", Palette.pink, Color.WHITE, 15f, "play")
-        plus.setPadding(c.dp(18), c.dp(13), c.dp(18), c.dp(13))
-        info.addView(plus, c.lin(MATCH, WRAP, t = 12))
+        val plus = ShineText(c)
+        plus.text = "Continuar assistindo"
+        plus.textSize = 15f
+        plus.setTextColor(Color.WHITE)
+        plus.typeface = android.graphics.Typeface.DEFAULT_BOLD
+        plus.gravity = Gravity.CENTER
+        plus.setCompoundDrawables(c.iconDrawable("play", Color.WHITE, c.dp(19)), null, null, null)
+        plus.compoundDrawablePadding = c.dp(8)
+        plus.setPadding(c.dp(18), c.dp(14), c.dp(18), c.dp(14))
+        plus.pressable()
+        info.addView(plus, c.lin(MATCH, WRAP, t = 14))
         root.addView(info, c.lin(MATCH, WRAP))
 
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
-            chip = chip, marks = marks, plus = plus,
+            chip = chip, marks = marks, plus = plus, percent = percent,
             tagline = tag, seal = seal, aura = aura
         )
     }
@@ -762,5 +812,46 @@ class DramaAdapter(
             root, cover, title, prog = prog, bar = bar, badge = badge, fav = fav,
             seal = seal, dot = dot, frame = outer
         )
+    }
+}
+
+
+/** Botão com um reflexo de luz que passa de tempos em tempos (fica em volta do texto, dentro das pontas redondas). */
+class ShineText(ctx: Context) : TextView(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val clip = android.graphics.Path()
+    private val rect = android.graphics.RectF()
+    private val sweep = android.graphics.LinearGradient(
+        0f, 0f, 1f, 0f,
+        intArrayOf(Color.argb(0, 255, 255, 255), Color.argb(120, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        null, android.graphics.Shader.TileMode.CLAMP
+    )
+    private val start = System.nanoTime()
+
+    override fun onDraw(c: Canvas) {
+        super.onDraw(c)
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (w <= 0f || h <= 0f) return
+        val t = (System.nanoTime() - start) / 1_000_000_000f
+        val ph = (t % 3.6f) / 1.0f
+        if (ph < 1f) {
+            rect.set(0f, 0f, w, h)
+            clip.rewind()
+            clip.addRoundRect(rect, h / 2f, h / 2f, android.graphics.Path.Direction.CW)
+            c.save()
+            c.clipPath(clip)
+            val bw = h * 1.6f
+            val bx = -bw + ph * (w + bw * 2f)
+            c.translate(bx, 0f)
+            c.scale(bw, h)
+            p.shader = sweep
+            c.drawRect(0f, 0f, 1f, 1f, p)
+            p.shader = null
+            c.restore()
+            postInvalidateOnAnimation()
+        } else {
+            postInvalidateDelayed(90)
+        }
     }
 }

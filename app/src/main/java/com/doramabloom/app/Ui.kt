@@ -581,6 +581,7 @@ object Covers {
  * da cor do gênero, com uma moldurinha branca e sombra suave (como uma foto/polaroid).
  */
 class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = false) : FrameLayout(ctx) {
+    private val ctx0: Context = ctx
     private class Placeholder(ctx: Context) : View(ctx) {
         val d = IconDrawable("heart", Color.parseColor("#E6FFFFFF"))
         val blossom = IconDrawable("blossom", Color.parseColor("#55FFFFFF"))
@@ -701,32 +702,6 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
             drawIcon(c, set[i % set.size], col, w * q[0], h * q[1], q[2] * u, q[3])
         }
 
-        // duas "folhas" inclinadas atrás da capa (cores sólidas, bordas nítidas)
-        if (img.visibility == View.VISIBLE && img.width > 0) {
-            val cx = (img.left + img.right) / 2f
-            val cy = (img.top + img.bottom) / 2f
-            val grow = 3f * u
-            decoRect.set(img.left - grow, img.top - grow, img.right + grow, img.bottom + grow)
-            val stroke = Paint(Paint.ANTI_ALIAS_FLAG)
-            stroke.style = Paint.Style.STROKE
-            stroke.strokeWidth = 1.5f * u
-            stroke.color = mixColor(g.primary, Palette.card, 0.35f)
-
-            c.save()
-            c.rotate(-5.5f, cx, cy)
-            p.color = soft
-            c.drawRoundRect(decoRect, 22f * u, 22f * u, p)
-            c.drawRoundRect(decoRect, 22f * u, 22f * u, stroke)
-            c.restore()
-
-            c.save()
-            c.rotate(4.5f, cx, cy)
-            p.color = paper
-            c.drawRoundRect(decoRect, 22f * u, 22f * u, p)
-            c.drawRoundRect(decoRect, 22f * u, 22f * u, stroke)
-            c.restore()
-        }
-
         // borda de baixo ondulada, na cor do cartão (transição fofa para a parte de baixo)
         val amp = 7f * u
         val n = 7
@@ -776,6 +751,11 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
                 bw = bmp.width
                 bh = bmp.height
                 deco = g
+                img.elevation = ctx0.dp(14).toFloat()
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    img.outlineSpotShadowColor = g.primary
+                    img.outlineAmbientShadowColor = g.primary
+                }
                 background = gradient(g.soft, mixColor(g.primary, Palette.card, 0.55f))
                 requestLayout()
                 invalidate()

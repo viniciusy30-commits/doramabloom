@@ -1,3 +1,8 @@
+#id 2026-10-07-zb
+#titulo Início com a capa em destaque e cartão refeito
+- Capa: agora ela brilha de verdade. Um halo de luz respira em volta, uma moldura dupla (borda de pérola e outra na cor do gênero) com enfeites nos cantos, dois cometas de luz correndo pela moldura, brilho de foto revelada e um reflexo de luz que passa pela capa de tempos em tempos. A sombra da capa agora tem a cor do gênero. Saíram as folhas inclinadas de trás.
+- Parte de baixo: painel com um tom do gênero subindo do fundo, título maior com brilho, nota em corações do lado do status e do streaming, porcentagem em etiqueta colorida, barra de progresso mais grossa e botão Continuar assistindo em degradê, com sombra colorida e um reflexo de luz passando.
+
 #id 2026-10-07-za
 #titulo Fitinha da capa removida
 - Início: saiu a fitinha adesiva listrada que ficava no topo da capa do dorama.

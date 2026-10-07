@@ -3,8 +3,10 @@ package com.doramabloom.app
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PathMeasure
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Region
@@ -62,6 +64,27 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
     private var aur: Array<RadialGradient> = emptyArray()
     private var rayShader: RadialGradient? = null
 
+    // destaque da capa: halo, moldura dupla, cometas de luz, brilho de foto e reflexo passando
+    private val ring = Path()
+    private val ringSeg = Path()
+    private val pmeas = PathMeasure()
+    private val ringPos = FloatArray(2)
+    private val ringTan = FloatArray(2)
+    private val clipIn = Path()
+    private val inner = RectF()
+    private var halo: RadialGradient? = null
+    private var haloR = 0f
+    private val gloss = LinearGradient(
+        0f, 0f, 1f, 1f,
+        intArrayOf(Color.argb(85, 255, 255, 255), Color.argb(0, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+    )
+    private val sweep = LinearGradient(
+        0f, 0f, 1f, 0f,
+        intArrayOf(Color.argb(0, 255, 255, 255), Color.argb(150, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        null, Shader.TileMode.CLAMP
+    )
+
     init {
         star.moveTo(0f, -1f)
         star.lineTo(0.16f, -0.16f)
@@ -101,6 +124,7 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
             RadialGradient(0f, 0f, 100f, intArrayOf(al(tints[i], 120f), al(tints[i], 0f)), null, Shader.TileMode.CLAMP)
         }
         buildRays()
+        halo = null
         invalidate()
     }
 
@@ -165,7 +189,9 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
         val scene = AuraScenes.forKey(gg.key)
         if (scene != null) {
             scene.draw(c, w, h, t, poster, hasPoster, kit)
+            if (hasPoster) drawSpotlight(c, t, gg)
             c.restore()
+            if (hasPoster) drawPosterGloss(c, t)
             if (isShown) postInvalidateOnAnimation()
             return
         }
@@ -318,7 +344,129 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
             c.drawCircle(hx, hy, 2.6f * u, p)
         }
 
+        if (hasPoster) drawSpotlight(c, t, gg)
         c.restore()
+        if (hasPoster) drawPosterGloss(c, t)
         if (isShown) postInvalidateOnAnimation()
+    }
+
+    /** Trecho [a, b] do contorno medido (dá a volta se precisar). */
+    private fun ringStroke(c: Canvas, len: Float, a: Float, b: Float) {
+        val a0 = ((a % len) + len) % len
+        val b0 = ((b % len) + len) % len
+        ringSeg.rewind()
+        if (b0 >= a0) {
+            pmeas.getSegment(a0, b0, ringSeg, true)
+        } else {
+            pmeas.getSegment(a0, len, ringSeg, true)
+            pmeas.getSegment(0f, b0, ringSeg, true)
+        }
+        c.drawPath(ringSeg, p)
+    }
+
+    /** Em volta da capa (nunca por cima dela): halo de luz, moldura dupla, enfeites e cometas correndo. */
+    private fun drawSpotlight(c: Canvas, t: Float, gg: Genre) {
+        val pw = poster.width()
+        val ph = poster.height()
+        val rad = max(pw, ph) * 0.95f
+        if (halo == null || Math.abs(haloR - rad) > 1f) {
+            haloR = rad
+            halo = RadialGradient(
+                0f, 0f, rad,
+                intArrayOf(al(Color.WHITE, 135f), al(tints[0], 95f), al(tints[0], 0f)),
+                floatArrayOf(0.35f, 0.62f, 1f), Shader.TileMode.CLAMP
+            )
+        }
+        val breathe = 0.5f + 0.5f * sin(t * 1.5f)
+        p.style = Paint.Style.FILL
+        p.shader = halo
+        p.alpha = (190f + 65f * breathe).toInt().coerceIn(0, 255)
+        c.save()
+        c.translate(poster.centerX(), poster.centerY())
+        c.drawCircle(0f, 0f, rad, p)
+        c.restore()
+        p.shader = null
+        p.alpha = 255
+
+        // moldura dupla: uma borda de pérola e outra na cor do gênero
+        p.style = Paint.Style.STROKE
+        grown.set(poster.left - 6f * u, poster.top - 6f * u, poster.right + 6f * u, poster.bottom + 6f * u)
+        p.strokeWidth = 2f * u
+        p.color = al(Color.WHITE, 150f + 70f * breathe)
+        c.drawRoundRect(grown, 26f * u, 26f * u, p)
+        grown.set(poster.left - 13f * u, poster.top - 13f * u, poster.right + 13f * u, poster.bottom + 13f * u)
+        val r2 = 33f * u
+        p.strokeWidth = 1.3f * u
+        p.color = al(tints[0], 170f)
+        c.drawRoundRect(grown, r2, r2, p)
+
+        // enfeites nos quatro cantos da moldura
+        val k = r2 * 0.29f
+        val cxs = floatArrayOf(grown.left + k, grown.right - k, grown.left + k, grown.right - k)
+        val cys = floatArrayOf(grown.top + k, grown.top + k, grown.bottom - k, grown.bottom - k)
+        for (i in 0 until 4) {
+            val s = (13f + 2.5f * sin(t * 2.2f + i * 1.6f)) * u
+            drawIcon(c, if (i % 2 == 0) gg.icon else "sparkle", al(Color.WHITE, 235f), cxs[i], cys[i], s, (if (i % 2 == 0) -12f else 12f) + 8f * sin(t * 1.3f + i))
+        }
+
+        // dois cometas de luz correndo pela moldura
+        ring.rewind()
+        ring.addRoundRect(grown, r2, r2, Path.Direction.CW)
+        pmeas.setPath(ring, true)
+        val len = pmeas.length
+        if (len > 0f) {
+            p.strokeCap = Paint.Cap.ROUND
+            p.style = Paint.Style.STROKE
+            for (kk in 0 until 2) {
+                val head = ((t * 0.10f + kk * 0.5f) % 1f) * len
+                val tail = len * 0.13f
+                val parts = 10
+                for (s in 0 until parts) {
+                    val f = s.toFloat() / parts
+                    p.strokeWidth = (3.4f - 2.4f * f) * u
+                    p.color = al(if (kk == 0) Color.WHITE else tints[0], 235f * (1f - f) * (1f - f))
+                    ringStroke(c, len, head - tail * (f + 1f / parts), head - tail * f)
+                }
+                pmeas.getPosTan(head, ringPos, ringTan)
+                drawStar(c, ringPos[0], ringPos[1], 7.5f * u, t * 70f + kk * 40f, 1f)
+            }
+            p.strokeCap = Paint.Cap.BUTT
+        }
+        p.style = Paint.Style.FILL
+    }
+
+    /** Por cima da capa: brilho de foto revelada e, de tempos em tempos, um reflexo de luz passando. */
+    private fun drawPosterGloss(c: Canvas, t: Float) {
+        val b = 3f * u
+        inner.set(poster.left + b, poster.top + b, poster.right - b, poster.bottom - b)
+        if (inner.width() <= 0f || inner.height() <= 0f) return
+        clipIn.rewind()
+        clipIn.addRoundRect(inner, 17f * u, 17f * u, Path.Direction.CW)
+        c.save()
+        c.clipPath(clipIn)
+        p.style = Paint.Style.FILL
+        c.save()
+        c.translate(inner.left, inner.top)
+        c.scale(inner.width(), inner.height())
+        p.shader = gloss
+        p.alpha = 255
+        c.drawRect(0f, 0f, 1f, 1f, p)
+        c.restore()
+        val ph = (t % 6.5f) / 1.5f
+        if (ph < 1f) {
+            val e = ph * ph * (3f - 2f * ph)
+            val bw = 95f * u
+            val bx = inner.left - bw + e * (inner.width() + bw * 2f)
+            c.save()
+            c.rotate(18f, inner.centerX(), inner.centerY())
+            c.translate(bx, inner.top - inner.height() * 0.3f)
+            c.scale(bw, inner.height() * 1.6f)
+            p.shader = sweep
+            c.drawRect(0f, 0f, 1f, 1f, p)
+            c.restore()
+        }
+        p.shader = null
+        p.alpha = 255
+        c.restore()
     }
 }
