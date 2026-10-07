@@ -574,7 +574,7 @@ class DetailActivity : AppCompatActivity() {
         val heroCol = LinearLayout(this)
         heroCol.orientation = LinearLayout.VERTICAL
         // voltar, editar e favoritar ficam dentro do card, no topo: o card sobe e aparece inteiro
-        heroCol.addView(top, lin(MATCH, WRAP, t = 8, l = 12, r = 12))
+        heroCol.addView(top, lin(MATCH, WRAP, t = 6, l = 12, r = 12))
 
         // palco da capa
         val cw = dp(180)
@@ -603,14 +603,14 @@ class DetailActivity : AppCompatActivity() {
         cover.bind(d, 900)
         ring.addView(cover, FrameLayout.LayoutParams(cw, ch))
         stage.addView(ring, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        heroCol.addView(stage, lin(MATCH, WRAP, t = 2, b = 6))
+        heroCol.addView(stage, lin(MATCH, WRAP, t = 0, b = 2))
 
         val title = label(d.title, 26f, Color.WHITE, true, true)
         title.gravity = Gravity.CENTER
         title.maxLines = 3
         title.ellipsize = TextUtils.TruncateAt.END
         title.setShadowLayer(6f, 0f, 2f, Color.parseColor("#55000000"))
-        heroCol.addView(title, lin(MATCH, WRAP, t = 14, l = 20, r = 20))
+        heroCol.addView(title, lin(MATCH, WRAP, t = 8, l = 20, r = 20))
         if (d.original.isNotBlank()) {
             val og = label(d.original, 13f, Color.parseColor("#E6FFFFFF"))
             og.gravity = Gravity.CENTER
@@ -637,14 +637,14 @@ class DetailActivity : AppCompatActivity() {
                 flow.addView(genrePill(og.label, og.icon, og.color, og.colors))
             }
         }
-        heroCol.addView(flow, lin(MATCH, WRAP, t = 12, l = 16, r = 16))
+        heroCol.addView(flow, lin(MATCH, WRAP, t = 8, l = 16, r = 16))
 
         // status, país e onde assistir: um cartãozinho à parte, em colunas, separado dos gêneros
         val infoCard = LinearLayout(this)
         infoCard.orientation = LinearLayout.HORIZONTAL
         // alinhado pelo topo: se um valor (ex.: "Coreia do Sul") quebrar em 2 linhas, os ícones e títulos continuam na mesma altura
         infoCard.gravity = Gravity.TOP
-        infoCard.setPadding(dp(4), dp(14), dp(4), dp(14))
+        infoCard.setPadding(dp(4), dp(10), dp(4), dp(10))
         infoCard.background = gradient(
             mixColor(g.primary, Color.WHITE, 0.26f), mixColor(g.primary, Color.WHITE, 0.10f),
             dp(26).toFloat(), GradientDrawable.Orientation.TOP_BOTTOM
@@ -703,11 +703,11 @@ class DetailActivity : AppCompatActivity() {
             val (plBubble, _) = bubble("tv", g.primary, Color.WHITE)
             infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, streamRow(Streamings.encode(Streamings.parse(d.platform).take(1)), 10f, true)), lin(0, WRAP, 1f))
         }
-        heroCol.addView(infoCard, lin(MATCH, WRAP, t = 14, l = 14, r = 14))
+        heroCol.addView(infoCard, lin(MATCH, WRAP, t = 10, l = 14, r = 14))
 
         // trilha sonora do dorama (só aparece se você escolheu um arquivo na edição)
         if (d.soundtrack.isNotEmpty() && File(d.soundtrack).exists()) {
-            heroCol.addView(buildMusicBar(d, g), lin(MATCH, WRAP, t = 10, l = 14, r = 14))
+            heroCol.addView(buildMusicBar(d, g), lin(MATCH, WRAP, t = 8, l = 14, r = 14))
         }
 
         // faixa da nota
@@ -733,11 +733,11 @@ class DetailActivity : AppCompatActivity() {
         rvNote.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(110, 0, 0, 0))
         rcol.addView(rvNote, lin(WRAP, WRAP, t = 4))
         strip.addView(rcol, lin(0, WRAP, 1f))
-        heroCol.addView(strip, lin(MATCH, WRAP, t = 16, l = 14, r = 14, b = 8))
+        heroCol.addView(strip, lin(MATCH, WRAP, t = 10, l = 14, r = 14, b = 4))
         val tagLine = label(g.lineFor(d.score), 14f, Color.WHITE)
         tagLine.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(120, 0, 0, 0))
         tagLine.gravity = Gravity.CENTER
-        heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 16))
+        heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 10))
 
         hero.addView(heroCol, FrameLayout.LayoutParams(MATCH, WRAP))
         col.addView(hero, lin(MATCH, WRAP))
@@ -745,7 +745,7 @@ class DetailActivity : AppCompatActivity() {
         // ---- encaixe: o card inteiro cabe na tela, no topo (o botão de continuar fica logo abaixo, ao descer).
         // Se sobrar altura a capa cresce até o tamanho original; se faltar, ela encolhe só o necessário.
         var curCh = ch
-        val minCh = dp(170)
+        val minCh = dp(150)
         val maxCh = dp(280)
         fun fitHero() {
             val vh = sv.height

@@ -2,6 +2,7 @@
 #titulo Detalhe: card inteiro no topo da tela
 - O card do dorama agora sobe até o topo e aparece inteiro de uma vez: voltar, editar e favoritar ficaram dentro do card, em cima.
 - A capa se ajusta sozinha ao tamanho da sua tela (encolhe só o necessário, ou cresce se sobrar espaço) para tudo caber. Ao descer, o botão de continuar assistindo está logo abaixo.
+- Espaços do card ficaram mais enxutos para a capa não precisar encolher demais e a frase de baixo não ser cortada.
 
 #id 2026-10-07-zf
 #titulo Estante: selo só na faixa do gênero
