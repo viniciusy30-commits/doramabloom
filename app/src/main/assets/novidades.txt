@@ -4,6 +4,7 @@
 - Elenco: "Elenco" e a quantidade de pessoas ficam na mesma linha; a frase do gênero saiu do cartão.
 - Trilha sonora: o escurecer ao dar play pela primeira vez agora é uma animação suave e contínua. O áudio carrega em segundo plano, então a tela não trava mais no primeiro toque.
 - Trilha sonora: o botão de play agora fica bem centralizado.
+- Tipo, status, país e onde assistir: quando um nome quebra em 2 linhas (ex.: Coreia do Sul), os ícones e títulos continuam alinhados na mesma altura.
 - Casal favorito: tirei a fita adesiva transparente de cima da polaroid.
 
 #id 2026-10-07-p

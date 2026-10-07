@@ -609,7 +609,8 @@ class DetailActivity : AppCompatActivity() {
         // status, país e onde assistir: um cartãozinho à parte, em colunas, separado dos gêneros
         val infoCard = LinearLayout(this)
         infoCard.orientation = LinearLayout.HORIZONTAL
-        infoCard.gravity = Gravity.CENTER_VERTICAL
+        // alinhado pelo topo: se um valor (ex.: "Coreia do Sul") quebrar em 2 linhas, os ícones e títulos continuam na mesma altura
+        infoCard.gravity = Gravity.TOP
         infoCard.setPadding(dp(4), dp(14), dp(4), dp(14))
         infoCard.background = gradient(
             mixColor(g.primary, Color.WHITE, 0.26f), mixColor(g.primary, Color.WHITE, 0.10f),
