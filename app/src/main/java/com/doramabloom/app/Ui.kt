@@ -1164,3 +1164,18 @@ object Atmosphere {
         return m.done()
     }
 }
+
+/** Etiqueta de "outro gênero": com 2 ou 3 cores, o fundo e o texto mesclam em degradê. */
+fun Context.otherPill(g: OtherGenre, size: Float = 12f): TextView {
+    val cols = g.colors.take(6)
+    val t = pill(g.label, g.soft, g.dark, size, g.icon)
+    if (cols.size > 1) {
+        val bg = GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            IntArray(cols.size) { mixColor(cols[it], Color.WHITE, 0.80f) }
+        )
+        bg.cornerRadius = dp(20).toFloat()
+        t.background = bg
+    }
+    return t
+}

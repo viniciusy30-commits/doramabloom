@@ -279,7 +279,7 @@ class DramaAdapter(
                 if (n >= 2) break
                 val tp = if (isOther) {
                     val og = OtherGenres.byKey(tk)
-                    fl.context.pill(og.label, og.soft, og.dark, 10.5f, og.icon)
+                    fl.context.otherPill(og, 10.5f)
                 } else {
                     val tg = Genres.byKey(tk)
                     fl.context.pill(tg.label, tg.soft, tg.dark, 10.5f, tg.icon)
