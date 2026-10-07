@@ -490,7 +490,7 @@ class DetailActivity : AppCompatActivity() {
         sv.isVerticalScrollBarEnabled = false
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        col.setPadding(dp(16), dp(10), dp(16), dp(40))
+        col.setPadding(dp(16), dp(6), dp(16), dp(40))
         col.clipChildren = false
         col.clipToPadding = false
         sv.clipChildren = false
@@ -514,14 +514,16 @@ class DetailActivity : AppCompatActivity() {
             mid.orientation = LinearLayout.VERTICAL
             mid.gravity = Gravity.CENTER_HORIZONTAL
             if (listName.isNotBlank()) {
-                val nl = fitLabel(listName, 14f, g.dark, true, true, 8f, true)
+                val nl = fitLabel(listName, 14f, Color.WHITE, true, true, 8f, true)
+                nl.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), Color.argb(120, 0, 0, 0))
                 nl.gravity = Gravity.CENTER
                 nl.maxLines = 1
                 nl.ellipsize = TextUtils.TruncateAt.END
                 mid.addView(nl, lin(MATCH, WRAP))
             }
             if (ids.size > 1 && pos >= 0) {
-                val pl = label("‹   " + (pos + 1) + " de " + ids.size + "   ›", 11.5f, g.primary, true)
+                val pl = label("‹   " + (pos + 1) + " de " + ids.size + "   ›", 11.5f, Color.parseColor("#E6FFFFFF"), true)
+                pl.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), Color.argb(120, 0, 0, 0))
                 pl.gravity = Gravity.CENTER
                 mid.addView(pl, lin(MATCH, WRAP, t = 1))
             }
@@ -543,7 +545,7 @@ class DetailActivity : AppCompatActivity() {
             val bg = GradientDrawable()
             bg.shape = GradientDrawable.OVAL
             bg.setColor(if (d.favorite) g.primary else Palette.card)
-            bg.setStroke(dp(2), g.primary)
+            bg.setStroke(dp(2), if (d.favorite) Color.WHITE else g.primary)
             favBtn.background = bg
             favIcon.tint = if (d.favorite) Color.WHITE else g.primary
         }
@@ -560,8 +562,7 @@ class DetailActivity : AppCompatActivity() {
             }
             updatePetals(d)
         }
-        top.addView(favBtn, lin(dp(52), dp(52)))
-        col.addView(top, lin(MATCH, WRAP))
+        top.addView(favBtn, lin(dp(44), dp(44)))
 
         // ---- hero: capa grande no centro, fundo liso e enfeitado (nada borrado), duas capas com a foto atrás
         val hero = FrameLayout(this)
@@ -572,12 +573,15 @@ class DetailActivity : AppCompatActivity() {
 
         val heroCol = LinearLayout(this)
         heroCol.orientation = LinearLayout.VERTICAL
+        // voltar, editar e favoritar ficam dentro do card, no topo: o card sobe e aparece inteiro
+        heroCol.addView(top, lin(MATCH, WRAP, t = 8, l = 12, r = 12))
 
         // palco da capa
         val cw = dp(180)
         val ch = dp(270)
         val stage = FrameLayout(this)
         stage.clipChildren = false
+        val ghosts = ArrayList<CoverView>()
         // as duas capas dos lados continuam mostrando a foto (agora bem nítidas)
         for (side in intArrayOf(-1, 1)) {
             val ghost = CoverView(this, 24)
@@ -588,6 +592,7 @@ class DetailActivity : AppCompatActivity() {
             ghost.scaleY = 0.86f
             ghost.translationX = side * dp(80).toFloat()
             stage.addView(ghost, FrameLayout.LayoutParams(cw, ch, Gravity.CENTER))
+            ghosts.add(ghost)
         }
         val ring = FrameLayout(this)
         ring.clipChildren = false
@@ -598,7 +603,7 @@ class DetailActivity : AppCompatActivity() {
         cover.bind(d, 900)
         ring.addView(cover, FrameLayout.LayoutParams(cw, ch))
         stage.addView(ring, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        heroCol.addView(stage, lin(MATCH, WRAP, t = 28, b = 6))
+        heroCol.addView(stage, lin(MATCH, WRAP, t = 2, b = 6))
 
         val title = label(d.title, 26f, Color.WHITE, true, true)
         title.gravity = Gravity.CENTER
@@ -735,7 +740,38 @@ class DetailActivity : AppCompatActivity() {
         heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 16))
 
         hero.addView(heroCol, FrameLayout.LayoutParams(MATCH, WRAP))
-        col.addView(hero, lin(MATCH, WRAP, t = 10))
+        col.addView(hero, lin(MATCH, WRAP))
+
+        // ---- encaixe: o card inteiro cabe na tela, no topo (o botão de continuar fica logo abaixo, ao descer).
+        // Se sobrar altura a capa cresce até o tamanho original; se faltar, ela encolhe só o necessário.
+        var curCh = ch
+        val minCh = dp(170)
+        val maxCh = dp(280)
+        fun fitHero() {
+            val vh = sv.height
+            val hh = hero.height
+            if (vh <= 0 || hh <= 0) return
+            val excess = hh - (vh - col.paddingTop - dp(8))
+            if (Math.abs(excess) <= 1) return
+            val nh = (curCh - excess).coerceIn(minCh, maxCh)
+            if (nh == curCh) return
+            curCh = nh
+            val nw = nh * cw / ch
+            val k = nw.toFloat() / cw
+            val clp = cover.layoutParams
+            clp.width = nw
+            clp.height = nh
+            cover.layoutParams = clp
+            for ((i, gh) in ghosts.withIndex()) {
+                val glp = gh.layoutParams
+                glp.width = nw
+                glp.height = nh
+                gh.layoutParams = glp
+                gh.translationX = (if (i == 0) -1 else 1) * dp(80) * k
+            }
+        }
+        hero.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> hero.post { fitHero() } }
+        sv.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> hero.post { fitHero() } }
 
         updaters.add {
             val st = Statuses.byKey(d.status)

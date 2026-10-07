@@ -1,3 +1,13 @@
+#id 2026-10-07-zg
+#titulo Detalhe: card inteiro no topo da tela
+- O card do dorama agora sobe até o topo e aparece inteiro de uma vez: voltar, editar e favoritar ficaram dentro do card, em cima.
+- A capa se ajusta sozinha ao tamanho da sua tela (encolhe só o necessário, ou cresce se sobrar espaço) para tudo caber. Ao descer, o botão de continuar assistindo está logo abaixo.
+
+#id 2026-10-07-zf
+#titulo Estante: selo só na faixa do gênero
+- O selo do gênero saiu de cima das capas (na lista e nas grades) e fica só na faixa do tema.
+- O selo da faixa não é mais cortado em cima quando balança.
+
 #id 2026-10-07-ze
 #titulo Estante: faixa do tema sem piscar
 - Corrigido o bug que fazia o fundo da faixa do gênero escurecer e clarear sem parar (Todos, Escolar e outros). Agora o fundo fica sempre inteiro e só a animação do tema se mexe.

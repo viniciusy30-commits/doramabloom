@@ -426,10 +426,6 @@ class DramaAdapter(
         val coverFrame = TallFrame(c, c.dp(158))
         val cover = CoverView(c, 18)
         coverFrame.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
-        val seal = SealView(c)
-        val slp = FrameLayout.LayoutParams(c.dp(36), c.dp(36), Gravity.TOP or Gravity.START)
-        slp.setMargins(c.dp(5), c.dp(5), 0, 0)
-        coverFrame.addView(seal, slp)
         root.addView(coverFrame, c.lin(c.dp(112), MATCH, r = 14))
 
         val col = LinearLayout(c)
@@ -489,7 +485,7 @@ class DramaAdapter(
         root.addView(col, c.lin(0, WRAP, 1f))
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
-            chip = chip, genreChip = gc, fav = fav, seal = seal, percent = percent,
+            chip = chip, genreChip = gc, fav = fav, percent = percent,
             flow = flow, plat = plat, note = note, frame = root
         )
     }
@@ -687,11 +683,6 @@ class DramaAdapter(
         val scrim = View(c)
         frame.addView(scrim, FrameLayout.LayoutParams(MATCH, c.dp(64), Gravity.BOTTOM))
 
-        val seal = SealView(c)
-        val slp = FrameLayout.LayoutParams(c.dp(34), c.dp(34), Gravity.TOP or Gravity.START)
-        slp.setMargins(c.dp(5), c.dp(5), 0, 0)
-        frame.addView(seal, slp)
-
         val fav = c.favBadge(28)
         val flp = FrameLayout.LayoutParams(c.dp(36), c.dp(36))
         flp.gravity = Gravity.TOP or Gravity.END
@@ -750,7 +741,7 @@ class DramaAdapter(
 
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
-            chip = chip, genreChip = gc, fav = fav, scrim = scrim, seal = seal, percent = percent,
+            chip = chip, genreChip = gc, fav = fav, scrim = scrim, percent = percent,
             flow = flow, plat = plat, note = note, frame = root
         )
     }
@@ -770,11 +761,6 @@ class DramaAdapter(
         val cover = CoverView(c, 18)
         cover.elevation = 0f
         frame.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
-
-        val seal = SealView(c)
-        val slp = FrameLayout.LayoutParams(c.dp(30), c.dp(30), Gravity.TOP or Gravity.START)
-        slp.setMargins(c.dp(4), c.dp(4), 0, 0)
-        frame.addView(seal, slp)
 
         val fav = c.favBadge(28)
         val flp = FrameLayout.LayoutParams(c.dp(36), c.dp(36))
@@ -816,7 +802,7 @@ class DramaAdapter(
         }
         return VH(
             root, cover, title, prog = prog, bar = bar, badge = badge, fav = fav,
-            seal = seal, dot = dot, frame = outer
+            dot = dot, frame = outer
         )
     }
 }

@@ -1060,6 +1060,14 @@ class MainActivity : AppCompatActivity() {
 
         // faixa do gênero aberto: a cena animada do tema fica por trás de tudo
         val ebWrap = FrameLayout(this)
+        // tudo da faixa (inclusive o selo balançando) é cortado no contorno arredondado: nada sai de dentro dela
+        val bannerR = dp(24).toFloat()
+        ebWrap.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, bannerR)
+            }
+        }
+        ebWrap.clipToOutline = true
         val banner = ShelfBanner(this)
         ebWrap.addView(banner, FrameLayout.LayoutParams(MATCH, MATCH))
         effBanner = banner
@@ -1067,6 +1075,7 @@ class MainActivity : AppCompatActivity() {
         eb.orientation = LinearLayout.VERTICAL
         eb.setPadding(dp(16), dp(13), dp(16), dp(11))
         eb.clipChildren = false
+        eb.clipToPadding = false // senão o padding corta o selo quando ele sobe/balança
         val shadow = Color.argb(150, 0, 0, 0)
         val r1 = LinearLayout(this)
         r1.orientation = LinearLayout.HORIZONTAL
