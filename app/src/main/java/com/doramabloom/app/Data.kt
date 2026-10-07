@@ -342,15 +342,15 @@ data class Drama(
     var soundtrack: String = "",
     var castPeople: List<CastPerson> = emptyList(),
     var couplePhoto: String = "",
-    /** Até 2 gêneros extras escolhidos para aparecer no cartão da Estante (vazio = os 2 primeiros). */
+    /** Até 3 gêneros extras escolhidos para aparecer no cartão da Estante (vazio = os 3 primeiros). */
     var shelfTags: List<String> = emptyList()
 )
 
-/** Gêneros extras que aparecem no cartão da Estante: os escolhidos (até 2) ou, sem escolha, os 2 primeiros. */
+/** Gêneros extras que aparecem no cartão da Estante: os escolhidos (até 3) ou, sem escolha, os 3 primeiros. */
 fun shelfPick(d: Drama): List<String> {
     val avail = d.tags.filter { it != d.genre && (Genres.exists(it) || OtherGenres.exists(it)) }
-    val chosen = d.shelfTags.filter { avail.contains(it) }.distinct().take(2)
-    return if (chosen.isNotEmpty()) chosen else avail.take(2)
+    val chosen = d.shelfTags.filter { avail.contains(it) }.distinct().take(3)
+    return if (chosen.isNotEmpty()) chosen else avail.take(3)
 }
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()

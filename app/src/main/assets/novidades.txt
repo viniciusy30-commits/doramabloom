@@ -1,3 +1,25 @@
+#id 2026-10-07-za
+#titulo Fitinha da capa removida
+- Início: saiu a fitinha adesiva listrada que ficava no topo da capa do dorama.
+
+#id 2026-10-07-z
+#titulo Datas de início e fim digitadas
+- Ao editar um dorama, as datas de início e fim agora são digitadas direto, sem abrir o calendário. Você escreve só os números (ex.: 07102026) e as barras entram sozinhas: 07/10/2026.
+- Se a data não existir ou ficar pela metade, o campo fica vermelho e o app avisa antes de salvar. Para limpar uma data, é só apagar o campo.
+
+#id 2026-10-07-y
+#titulo Estante por gênero: deslize para o lado e troque de gênero
+- Estante: os filtros de outros gêneros e de países saíram. Ficaram só o status e o gênero principal.
+- Cada gênero principal agora é uma página: deslize para o lado para ir ao próximo gênero ou toque nos chips de gênero para pular direto. Os chips acompanham o deslize. A primeira página, Todos, mostra tudo.
+- Faixa do gênero aberto: selo grande, nome, a frase do gênero, quantos doramas, quantos assistindo e concluídos, nota média, o nome do gênero anterior e do próximo e bolinhas coloridas mostrando em que página você está. A cor do app e as pétalas também mudam com o gênero.
+- Só aparecem os gêneros que têm pelo menos um dorama. O status e a busca valem para a página aberta, e a ordem (inclusive Minha ordem) vale em cada uma.
+
+#id 2026-10-07-x
+#titulo Estante com 3 gêneros e casal favorito todo animado
+- Estante: o status agora fica ao lado de onde assistir, e isso liberou espaço para mais um gênero em cima. Na edição, em vez de escolher 2 outros gêneros para aparecer na Estante, agora são 3.
+- Casal favorito: saíram o coração batendo e a logo do gênero de cima da foto. Em volta e por trás da polaroid entrou uma animação nova: um coração de luz contornando a foto com cometas correndo e luzinhas piscando, brilho que bate como um coração, raios suaves girando, corações e estrelas em órbita por trás da foto, bolhas e pétalas subindo, estrelinhas cintilando e, de tempos em tempos, uma chuva de corações que sai de trás da foto. Tudo nas cores do gênero.
+- Onde assistir: se você marcar mais de um, o primeiro vira o principal e é o único que aparece na Estante, na capa e no topo do dorama. Todos os marcados aparecem só na parte de Informações dentro do dorama.
+
 #id 2026-10-07-w
 #titulo Cenas do Início refeitas, sem piscar, e o novo gênero Crime
 - Início: refiz do zero as cenas de Romance (galhos de cerejeira floridos, pétalas que viram no ar, corações com brilho, carta de amor e fio de coraçõezinhos), Fantasia (aurora, lua crescente, círculo mágico, castelo, fadas com rastro, borboletas e cristais), Histórico (sol enorme, montanhas com névoa, pagode e hanok, lanternas e grous), Comédia (cortina de circo, holofotes, carinhas rindo até chorar, balões e estouros de HAHA), Médico (monitor de ECG, DNA, estetoscópio, cápsulas e molécula), Família (casa com fumaça, família de mãos dadas, bandeirinhas, balões de coração e folhas), Vida real (cidade acordando, café com vapor, passarinhos e plantinha) e Vingança (lua de sangue, lírios-aranha, adaga no fio, ampulheta, fio do destino e vidro trincado).

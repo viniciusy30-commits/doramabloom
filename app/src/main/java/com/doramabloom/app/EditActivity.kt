@@ -1,6 +1,5 @@
 package com.doramabloom.app
 
-import android.app.DatePickerDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -51,8 +50,8 @@ class EditActivity : AppCompatActivity() {
     private lateinit var seasonCountTv: TextView
     private lateinit var rewatchTv: TextView
     private lateinit var scoreTv: TextView
-    private lateinit var startBtn: TextView
-    private lateinit var endBtn: TextView
+    private lateinit var startIn: EditText
+    private lateinit var endIn: EditText
     private lateinit var titleIn: EditText
     private lateinit var originalIn: EditText
     private lateinit var synopsisIn: EditText
@@ -285,37 +284,14 @@ class EditActivity : AppCompatActivity() {
         c5.addView(fieldLabel("Ano"))
         yearIn = input("Ano", ex?.year ?: "", InputType.TYPE_CLASS_NUMBER)
         c5.addView(yearIn, lin(MATCH, WRAP))
-        c5.addView(fieldLabel("Datas (segure para limpar)"))
+        c5.addView(fieldLabel("Datas (é só digitar os números)"))
         val dRow = LinearLayout(this)
         dRow.orientation = LinearLayout.HORIZONTAL
-        startBtn = pill("", Palette.card, Palette.pink, 12f, "play")
-        endBtn = pill("", Palette.card, Palette.pink, 12f, "check")
-        startBtn.setOnClickListener {
-            pickDate(startDate) {
-                startDate = it
-                refreshDates()
-            }
-        }
-        startBtn.setOnLongClickListener {
-            startDate = 0L
-            refreshDates()
-            true
-        }
-        endBtn.setOnClickListener {
-            pickDate(endDate) {
-                endDate = it
-                refreshDates()
-            }
-        }
-        endBtn.setOnLongClickListener {
-            endDate = 0L
-            refreshDates()
-            true
-        }
-        dRow.addView(startBtn, lin(WRAP, WRAP, r = 8))
-        dRow.addView(endBtn, lin(WRAP, WRAP))
+        startIn = dateInput("Início: dd/mm/aaaa", startDate) { startDate = it }
+        endIn = dateInput("Fim: dd/mm/aaaa", endDate) { endDate = it }
+        dRow.addView(startIn, lin(0, WRAP, 1f, r = 8))
+        dRow.addView(endIn, lin(0, WRAP, 1f))
         c5.addView(dRow, lin(MATCH, WRAP))
-        refreshDates()
         col.addView(c5, lin(MATCH, WRAP, t = 12))
 
         // ---------------- tipo e trilha sonora
@@ -503,13 +479,13 @@ class EditActivity : AppCompatActivity() {
         return null
     }
 
-    /** Escolha (até 2) dos gêneros que aparecem no cartão da Estante; o principal sempre aparece. */
+    /** Escolha (até 3) dos gêneros que aparecem no cartão da Estante; o principal sempre aparece. */
     private fun buildShelfArea() {
         val box = shelfBox ?: return
         box.removeAllViews()
         val order = Genres.all.map { it.key } + OtherGenres.all.map { it.key }
         val avail = tags.filter { it != genreKey && optFor(it) != null }.sortedBy { order.indexOf(it) }
-        shelf = ArrayList(shelf.filter { avail.contains(it) }.distinct().take(2))
+        shelf = ArrayList(shelf.filter { avail.contains(it) }.distinct().take(3))
         if (avail.isEmpty()) {
             box.visibility = View.GONE
             return
@@ -518,13 +494,13 @@ class EditActivity : AppCompatActivity() {
         box.addView(fieldLabel("Aparecem na Estante"))
         box.addView(
             label(
-                "O gênero principal sempre aparece. Escolha até 2 dos outros para aparecerem no cartão (sem escolha, aparecem os 2 primeiros).",
+                "O gênero principal sempre aparece. Escolha até 3 dos outros para aparecerem no cartão (sem escolha, aparecem os 3 primeiros).",
                 12f, Palette.muted
             ),
             lin(MATCH, WRAP, b = 8)
         )
         val opts = avail.mapNotNull { optFor(it) }
-        box.addView(multiFlow(opts, shelf.toSet(), 2) { chosen ->
+        box.addView(multiFlow(opts, shelf.toSet(), 3) { chosen ->
             shelf = ArrayList(avail.filter { chosen.contains(it) })
         }, lin(MATCH, WRAP))
     }
@@ -591,23 +567,57 @@ class EditActivity : AppCompatActivity() {
     private fun fmt(ms: Long): String =
         SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR")).format(Date(ms))
 
-    private fun refreshDates() {
-        startBtn.text = "Início: " + (if (startDate > 0L) fmt(startDate) else "escolher")
-        endBtn.text = "Fim: " + (if (endDate > 0L) fmt(endDate) else "escolher")
+    /** Campo de data digitada: só números, as barras entram sozinhas (ex.: 07102026 vira 07/10/2026). */
+    private fun dateInput(hint: String, initial: Long, onValue: (Long) -> Unit): EditText {
+        val e = input(hint, if (initial > 0L) fmt(initial) else "", InputType.TYPE_CLASS_NUMBER)
+        e.textSize = 14f
+        e.maxLines = 1
+        var busy = false
+        e.doAfterTextChanged { ed ->
+            if (busy || ed == null) return@doAfterTextChanged
+            val digits = ed.toString().filter { it.isDigit() }.take(8)
+            val sb = StringBuilder()
+            for (i in digits.indices) {
+                if (i == 2 || i == 4) sb.append('/')
+                sb.append(digits[i])
+            }
+            val txt = sb.toString()
+            if (txt != ed.toString()) {
+                busy = true
+                e.setText(txt)
+                e.setSelection(txt.length)
+                busy = false
+            }
+            val ms = parseDate(txt)
+            onValue(if (ms != null) ms else 0L)
+            val bad = txt.isNotEmpty() && ms == null && txt.length == 10
+            e.background = roundRect(Palette.card, dp(18).toFloat(), if (bad) Color.parseColor("#E5484D") else Palette.line, dp(if (bad) 2 else 1))
+        }
+        return e
     }
 
-    private fun pickDate(current: Long, onPick: (Long) -> Unit) {
-        val cal = Calendar.getInstance()
-        if (current > 0L) cal.timeInMillis = current
-        DatePickerDialog(
-            this,
-            { _, y, m, dd ->
-                val c = Calendar.getInstance()
-                c.set(y, m, dd, 12, 0, 0)
-                onPick(c.timeInMillis)
-            },
-            cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)
-        ).show()
+    /** "dd/MM/aaaa" para milissegundos (meio-dia); null se não for uma data de verdade. */
+    private fun parseDate(t: String): Long? {
+        if (t.length != 10) return null
+        val dd = t.substring(0, 2).toIntOrNull() ?: return null
+        val mm = t.substring(3, 5).toIntOrNull() ?: return null
+        val yy = t.substring(6, 10).toIntOrNull() ?: return null
+        if (yy < 1900 || yy > 2100) return null
+        val c = Calendar.getInstance()
+        c.isLenient = false
+        c.clear()
+        c.set(yy, mm - 1, dd, 12, 0, 0)
+        return try {
+            c.timeInMillis
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Campo preenchido pela metade ou com data que não existe: não deixa salvar sem avisar. */
+    private fun dateProblem(e: EditText): Boolean {
+        val t = e.text.toString()
+        return t.isNotEmpty() && parseDate(t) == null
     }
 
     private fun rebuildSeasons() {
@@ -756,6 +766,11 @@ class EditActivity : AppCompatActivity() {
         if (title.isEmpty()) {
             Toast.makeText(this, "Dê um nome ao dorama.", Toast.LENGTH_SHORT).show()
             titleIn.requestFocus()
+            return
+        }
+        if (dateProblem(startIn) || dateProblem(endIn)) {
+            Toast.makeText(this, "Confira a data: use dia/mês/ano, como 07/10/2026.", Toast.LENGTH_SHORT).show()
+            (if (dateProblem(startIn)) startIn else endIn).requestFocus()
             return
         }
         val old = existing

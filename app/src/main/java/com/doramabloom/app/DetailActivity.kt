@@ -696,7 +696,7 @@ class DetailActivity : AppCompatActivity() {
         if (d.platform.isNotBlank()) {
             infoCard.addView(divider(), lin(dp(1), dp(46)))
             val (plBubble, _) = bubble("tv", g.primary, Color.WHITE)
-            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, streamRow(d.platform, 10f, true)), lin(0, WRAP, 1f))
+            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, streamRow(Streamings.encode(Streamings.parse(d.platform).take(1)), 10f, true)), lin(0, WRAP, 1f))
         }
         heroCol.addView(infoCard, lin(MATCH, WRAP, t = 14, l = 14, r = 14))
 

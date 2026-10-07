@@ -8,6 +8,7 @@ import android.graphics.LinearGradient
 import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PathMeasure
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
@@ -655,8 +656,385 @@ class CoupleDecor(ctx: Context, private val g: Genre, themed: Boolean = false) :
 }
 
 /**
- * Casal favorito: uma polaroid grandona e centralizada, levemente torta e flutuando, com fita adesiva,
- * adesivo do gênero, coração batendo, os nomes escritos à mão e corações subindo no fundo.
+ * Aura do casal favorito: tudo acontece por trás/em volta da polaroid. Um coração de luz desenha o
+ * contorno com cometas correndo e luzinhas piscando, raios suaves giram, o brilho bate no ritmo de um
+ * coração (duas batidinhas e pausa), estrelas e corações giram em órbita por trás da foto, bolhas
+ * e pétalas sobem balançando, estrelinhas de 4 pontas cintilam e, de tempos em tempos, uma chuva de
+ * corações explode de trás da foto. Tudo nas cores do gênero com toques de rosa e dourado.
+ */
+class LoveAura(ctx: Context, private val g: Genre, private val photoWDp: Float, private val photoHDp: Float) : View(ctx) {
+    private class Mote(var x: Float, var y: Float, var vy: Float, var size: Float, var phase: Float, var rot: Float, var a: Int, var ic: Int, var kind: Int)
+    private class Bit(var ang: Float, var speed: Float, var size: Float, var age: Float, var ic: Int, var spin: Float)
+
+    private val u = resources.displayMetrics.density
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rnd = java.util.Random(11L)
+    private val motes = ArrayList<Mote>()
+    private val bits = ArrayList<Bit>()
+    private val heart = Path()
+    private val seg = Path()
+    private val star = Path()
+    private val ray = Path()
+    private var pm: PathMeasure? = null
+    private var plen = 0f
+    private val pos = FloatArray(2)
+    private val tan = FloatArray(2)
+    private var dotX = FloatArray(0)
+    private var dotY = FloatArray(0)
+    private var glow: RadialGradient? = null
+    private var blobA: RadialGradient? = null
+    private var blobB: RadialGradient? = null
+    private var rayShader: LinearGradient? = null
+    private var t = 0f
+    private var last = 0L
+    private var burstIn = 1.4f
+    private val twinkles = ArrayList<FloatArray>()
+
+    private val pink = Color.parseColor("#FF8FB8")
+    private val gold = Color.parseColor("#FFE6A3")
+    private val icons: List<String> = (listOf("heart", "heart", "sparkle", "heart") + g.petals).distinct()
+
+    private val lite: Int get() = mixColor(g.primary, Color.WHITE, 0.6f)
+    private val warm: Int get() = mixColor(g.primary, pink, 0.55f)
+
+    init {
+        // estrelinha de 4 pontas (raio 1)
+        star.moveTo(0f, -1f)
+        star.quadTo(0.10f, -0.10f, 1f, 0f)
+        star.quadTo(0.10f, 0.10f, 0f, 1f)
+        star.quadTo(-0.10f, 0.10f, -1f, 0f)
+        star.quadTo(-0.10f, -0.10f, 0f, -1f)
+        star.close()
+        for (i in 0 until 9) twinkles.add(floatArrayOf(rnd.nextFloat(), rnd.nextFloat(), rnd.nextFloat() * 6.28f, 0.7f + rnd.nextFloat() * 0.9f, 7f + rnd.nextFloat() * 8f))
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = getDefaultSize(0, widthMeasureSpec)
+        val h = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) MeasureSpec.getSize(heightMeasureSpec) else 0
+        setMeasuredDimension(w, h)
+    }
+
+    private fun spawn(anywhere: Boolean): Mote {
+        val kind = if (rnd.nextInt(4) == 0) 1 else 0 // 1 = bolha de luz
+        return Mote(
+            rnd.nextFloat() * width,
+            if (anywhere) rnd.nextFloat() * height else height + 24f * u,
+            (kind.let { if (it == 1) 9f else 14f } + rnd.nextFloat() * 16f) * u,
+            (if (kind == 1) 6f + rnd.nextFloat() * 11f else 9f + rnd.nextFloat() * 12f) * u,
+            rnd.nextFloat() * 6.28f,
+            (rnd.nextFloat() - 0.5f) * 50f,
+            110 + rnd.nextInt(110),
+            rnd.nextInt(icons.size),
+            kind
+        )
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        motes.clear()
+        if (w <= 0 || h <= 0) return
+        for (i in 0 until 20) motes.add(spawn(true))
+        val cx = w / 2f
+        val cy = h / 2f
+        val pr = g.primary
+        glow = RadialGradient(cx, cy, w * 0.62f, intArrayOf(mixColor(pr, Color.WHITE, 0.25f), pr, Color.TRANSPARENT), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP)
+        blobA = RadialGradient(0f, 0f, 120f * u, intArrayOf(pink, Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
+        blobB = RadialGradient(0f, 0f, 130f * u, intArrayOf(mixColor(pr, Color.WHITE, 0.5f), Color.TRANSPARENT), null, Shader.TileMode.CLAMP)
+        val rr = w * 0.80f
+        rayShader = LinearGradient(0f, 0f, 0f, -rr, mixColor(pr, Color.WHITE, 0.75f), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+        ray.rewind()
+        val half = rr * 0.085f
+        ray.moveTo(0f, 0f)
+        ray.lineTo(-half, -rr)
+        ray.lineTo(half, -rr)
+        ray.close()
+
+        // contorno de coração em volta da foto
+        val hw = minOf(w * 0.97f, photoWDp * u + 96f * u)
+        val sx = hw / 32f
+        val sy = sx * 1.10f
+        heart.rewind()
+        val n = 220
+        for (i in 0..n) {
+            val a = (i.toDouble() / n) * 2.0 * Math.PI
+            val x = 16.0 * Math.pow(Math.sin(a), 3.0)
+            val y = -(13.0 * Math.cos(a) - 5.0 * Math.cos(2 * a) - 2.0 * Math.cos(3 * a) - Math.cos(4 * a))
+            val px = cx + (x * sx).toFloat()
+            val py = cy + ((y - 2.5) * sy).toFloat() + 8f * u
+            if (i == 0) heart.moveTo(px, py) else heart.lineTo(px, py)
+        }
+        heart.close()
+        val m = PathMeasure(heart, true)
+        pm = m
+        plen = m.length
+        val dots = 40
+        dotX = FloatArray(dots)
+        dotY = FloatArray(dots)
+        for (i in 0 until dots) {
+            m.getPosTan(plen * i / dots, pos, tan)
+            dotX[i] = pos[0]
+            dotY[i] = pos[1]
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        last = 0L
+    }
+
+    /** Desenha o trecho [a, b] do contorno (dando a volta se precisar). */
+    private fun strokeSeg(c: Canvas, a: Float, b: Float) {
+        val m = pm ?: return
+        if (plen <= 0f) return
+        val a0 = ((a % plen) + plen) % plen
+        val b0 = ((b % plen) + plen) % plen
+        seg.rewind()
+        if (b0 >= a0) {
+            m.getSegment(a0, b0, seg, true)
+        } else {
+            m.getSegment(a0, plen, seg, true)
+            m.getSegment(0f, b0, seg, true)
+        }
+        c.drawPath(seg, p)
+    }
+
+    private fun drawStar(c: Canvas, x: Float, y: Float, r: Float, rot: Float, color: Int, alpha: Int) {
+        p.style = Paint.Style.FILL
+        p.shader = null
+        p.color = color
+        p.alpha = alpha.coerceIn(0, 255)
+        c.save()
+        c.translate(x, y)
+        c.rotate(rot)
+        c.scale(r, r)
+        c.drawPath(star, p)
+        c.restore()
+    }
+
+    override fun onDraw(c: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (w <= 0f || h <= 0f) return
+        val now = System.nanoTime()
+        val dt = if (last == 0L) 0.016f else ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
+        last = now
+        t += dt
+        val cx = w / 2f
+        val cy = h / 2f
+        val pr = g.primary
+        val lt = lite
+        val wm = warm
+
+        // batida de coração: duas batidinhas e uma pausa
+        val v = (t % 1.8f) / 1.8f
+        val b1 = sin(Math.PI * (v / 0.17f).coerceIn(0f, 1f).toDouble()).toFloat()
+        val b2 = sin(Math.PI * ((v - 0.19f) / 0.17f).coerceIn(0f, 1f).toDouble()).toFloat()
+        val beat = maxOf(b1, b2)
+
+        // 1) brilho grande que respira e bate
+        val gl = glow
+        if (gl != null) {
+            c.save()
+            val k = 1f + 0.03f * sin(t * 1.1f) + 0.07f * beat
+            c.scale(k, k, cx, cy)
+            p.style = Paint.Style.FILL
+            p.shader = gl
+            p.alpha = (105 + 28 * sin(t * 0.9f) + 40 * beat).toInt().coerceIn(0, 255)
+            c.drawCircle(cx, cy, w * 0.62f, p)
+            p.shader = null
+            c.restore()
+        }
+
+        // 2) duas manchas de luz rosa e clara passeando devagar
+        val ba = blobA
+        val bb = blobB
+        if (ba != null && bb != null) {
+            p.style = Paint.Style.FILL
+            c.save()
+            c.translate(cx + cos(t * 0.45f) * w * 0.30f, cy + sin(t * 0.37f) * h * 0.30f)
+            p.shader = ba
+            p.alpha = 80
+            c.drawCircle(0f, 0f, 120f * u, p)
+            c.restore()
+            c.save()
+            c.translate(cx + cos(t * 0.33f + 3f) * w * 0.32f, cy + sin(t * 0.41f + 2f) * h * 0.32f)
+            p.shader = bb
+            p.alpha = 90
+            c.drawCircle(0f, 0f, 130f * u, p)
+            c.restore()
+            p.shader = null
+        }
+
+        // 3) raios de luz girando bem devagar
+        val rs = rayShader
+        if (rs != null) {
+            p.style = Paint.Style.FILL
+            p.shader = rs
+            p.color = lt
+            val spin = t * 7f
+            for (i in 0 until 12) {
+                c.save()
+                c.translate(cx, cy)
+                c.rotate(spin + i * 30f)
+                p.alpha = (26 + 22 * sin(t * 1.2f + i * 1.7f)).toInt().coerceIn(0, 255)
+                c.drawPath(ray, p)
+                c.restore()
+            }
+            p.shader = null
+        }
+
+        // 4) bolhas de luz e pétalas subindo, balançando
+        for (i in motes.indices) {
+            var q = motes[i]
+            q.y -= q.vy * dt
+            q.phase += dt * 1.3f
+            if (q.y < -26f * u) {
+                q = spawn(false)
+                motes[i] = q
+            }
+            val sx = q.x + sin(q.phase) * 14f * u
+            val edge = minOf(1f, minOf(q.y, h - q.y).coerceAtLeast(0f) / (46f * u))
+            val al = (q.a * edge).toInt()
+            if (q.kind == 1) {
+                p.shader = null
+                p.style = Paint.Style.FILL
+                p.color = if (i % 2 == 0) lt else wm
+                p.alpha = al / 5
+                c.drawCircle(sx, q.y, q.size, p)
+                p.style = Paint.Style.STROKE
+                p.strokeWidth = 1.4f * u
+                p.alpha = al / 2
+                c.drawCircle(sx, q.y, q.size, p)
+                p.style = Paint.Style.FILL
+                p.color = Color.WHITE
+                p.alpha = al / 2
+                c.drawCircle(sx - q.size * 0.35f, q.y - q.size * 0.35f, q.size * 0.18f, p)
+            } else {
+                val col = when (i % 3) { 0 -> wm; 1 -> lt; else -> pr }
+                drawGlyph(c, p, icons[q.ic % icons.size], sx, q.y, q.size, q.rot + sin(q.phase) * 14f, col, al)
+            }
+        }
+
+        // 5) contorno de coração: halo, linha e luzinhas
+        p.style = Paint.Style.STROKE
+        p.strokeCap = Paint.Cap.ROUND
+        p.strokeJoin = Paint.Join.ROUND
+        p.shader = null
+        p.color = wm
+        p.strokeWidth = (15f + 5f * beat) * u
+        p.alpha = (26 + 22 * beat).toInt()
+        c.drawPath(heart, p)
+        p.color = lt
+        p.strokeWidth = 6f * u
+        p.alpha = 54
+        c.drawPath(heart, p)
+        p.color = Color.WHITE
+        p.strokeWidth = 1.6f * u
+        p.alpha = (120 + 70 * beat).toInt()
+        c.drawPath(heart, p)
+
+        // dois cometas correndo pelo contorno, com rastro que apaga
+        if (plen > 0f) {
+            val speed = plen / 6.5f
+            for (k in 0 until 2) {
+                val head = (t * speed + k * plen / 2f)
+                val tail = plen * 0.17f
+                val parts = 12
+                for (s in 0 until parts) {
+                    val f = s.toFloat() / parts
+                    p.style = Paint.Style.STROKE
+                    p.color = if (k == 0) Color.WHITE else gold
+                    p.strokeWidth = (4.4f - 3.2f * f) * u
+                    p.alpha = (235 * (1f - f) * (1f - f)).toInt()
+                    strokeSeg(c, head - tail * (f + 1f / parts), head - tail * f)
+                }
+                val m = pm
+                if (m != null) {
+                    m.getPosTan(((head % plen) + plen) % plen, pos, tan)
+                    p.style = Paint.Style.FILL
+                    p.color = if (k == 0) lt else gold
+                    p.alpha = 70
+                    c.drawCircle(pos[0], pos[1], 9f * u, p)
+                    drawStar(c, pos[0], pos[1], 9f * u, t * 90f, Color.WHITE, 245)
+                }
+            }
+        }
+
+        // luzinhas piscando em volta do contorno (algumas são coraçõezinhos)
+        for (i in dotX.indices) {
+            val tw = 0.5f + 0.5f * sin(t * 2.3f + i * 0.93f)
+            if (i % 5 == 0) {
+                drawGlyph(c, p, "heart", dotX[i], dotY[i], (8f + 4f * tw) * u, 0f, if (i % 10 == 0) wm else Color.WHITE, (90 + 140 * tw).toInt())
+            } else {
+                p.style = Paint.Style.FILL
+                p.color = lt
+                p.alpha = (40 * tw).toInt()
+                c.drawCircle(dotX[i], dotY[i], 5f * u, p)
+                p.color = Color.WHITE
+                p.alpha = (110 + 140 * tw).toInt()
+                c.drawCircle(dotX[i], dotY[i], (1.2f + 1.3f * tw) * u, p)
+            }
+        }
+
+        // 6) corações e estrelinhas em órbita, passando por trás da foto
+        c.save()
+        c.rotate(-7f, cx, cy)
+        val rx = (photoWDp / 2f + 26f) * u
+        val ry = (photoHDp / 2f + 20f) * u
+        val orb = 9
+        for (i in 0 until orb) {
+            val a = t * 0.55f + i * 6.2832f / orb
+            val ox = cx + cos(a) * rx
+            val oy = cy + sin(a) * ry
+            val depth = 0.55f + 0.45f * sin(a)
+            val sz = (11f + 6f * depth) * u
+            if (i % 3 == 2) {
+                drawStar(c, ox, oy, sz * 0.8f, a * 60f, gold, (120 + 120 * depth).toInt())
+            } else {
+                drawGlyph(c, p, "heart", ox, oy, sz, sin(a) * 18f, if (i % 2 == 0) wm else lt, (110 + 130 * depth).toInt())
+            }
+        }
+        c.restore()
+
+        // 7) estrelinhas de 4 pontas cintilando
+        for (tw in twinkles) {
+            val ph = (t * tw[3] + tw[2]) % 6.2832f
+            val s = maxOf(0f, sin(ph))
+            if (s > 0.02f) drawStar(c, tw[0] * w, tw[1] * h, tw[4] * u * s, 20f * s, if (tw[2] > 3f) gold else Color.WHITE, (60 + 195 * s).toInt())
+        }
+
+        // 8) de vez em quando, uma chuva de corações sai de trás da foto
+        burstIn -= dt
+        if (burstIn <= 0f) {
+            burstIn = 5.5f + rnd.nextFloat() * 2f
+            for (i in 0 until 16) {
+                bits.add(Bit((i / 16f) * 6.2832f + rnd.nextFloat() * 0.3f, (70f + rnd.nextFloat() * 70f) * u, (9f + rnd.nextFloat() * 11f) * u, 0f, rnd.nextInt(icons.size), (rnd.nextFloat() - 0.5f) * 120f))
+            }
+        }
+        var bi = 0
+        while (bi < bits.size) {
+            val b = bits[bi]
+            b.age += dt
+            if (b.age >= 1.7f) {
+                bits.removeAt(bi)
+                continue
+            }
+            val e = 1f - Math.exp((-b.age * 2.2f).toDouble()).toFloat()
+            val d = b.speed * 1.5f * e
+            val bx = cx + cos(b.ang) * d * 1.05f
+            val by = cy + sin(b.ang) * d * 1.15f - b.age * 14f * u
+            val life = 1f - b.age / 1.7f
+            drawGlyph(c, p, icons[b.ic % icons.size], bx, by, b.size * (0.6f + 0.5f * e), b.spin * b.age, if (bi % 2 == 0) wm else Color.WHITE, (235 * life).toInt())
+            bi++
+        }
+
+        postInvalidateOnAnimation()
+    }
+}
+
+/**
+ * Casal favorito: uma polaroid grandona e centralizada, levemente torta e flutuando, com os nomes
+ * escritos à mão e, por trás/em volta, a aura animada de coração (LoveAura).
  */
 fun Context.coupleCard(d: Drama, g: Genre): View? {
     val hasPhoto = d.couplePhoto.isNotEmpty() && File(d.couplePhoto).exists()
@@ -758,31 +1136,17 @@ fun Context.coupleCard(d: Drama, g: Genre): View? {
     cap.gravity = Gravity.CENTER
     paper.addView(cap, clp)
 
-    // adesivo do gênero no canto
-    val seal = SealView(this)
-    seal.set(g)
-    seal.rotation = -12f
-    val slp = FrameLayout.LayoutParams(dp(54), dp(54), Gravity.BOTTOM or Gravity.START)
-    slp.setMargins(-dp(14), 0, 0, dp(46))
-    paper.addView(seal, slp)
-
-    // coração batendo
-    val beat = Beat(this)
-    val bbg = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(mixColor(g.primary, Color.WHITE, 0.25f), g.deep))
-    bbg.shape = GradientDrawable.OVAL
-    bbg.setStroke(dp(3), Color.WHITE)
-    beat.background = bbg
-    beat.elevation = dp(5).toFloat()
-    beat.addView(IconView(this, "heart", Color.WHITE, 26), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-    val blp = FrameLayout.LayoutParams(dp(58), dp(58), Gravity.BOTTOM or Gravity.END)
-    blp.setMargins(0, 0, -dp(14), dp(40))
-    paper.addView(beat, blp)
-
-    col.addView(frame, lin(dp(pw), dp(ph), t = 26, b = 4))
+    // palco: a aura animada fica por trás/em volta da polaroid e vai de ponta a ponta do cartão
+    val stage = FrameLayout(this)
+    stage.clipChildren = false
+    stage.clipToPadding = false
+    stage.addView(LoveAura(this, g, pw.toFloat(), ph.toFloat()), FrameLayout.LayoutParams(MATCH, MATCH))
+    stage.addView(frame, FrameLayout.LayoutParams(dp(pw), dp(ph), Gravity.CENTER))
+    col.addView(stage, lin(MATCH, dp(ph + 96), l = -16, r = -16, t = 0))
 
     // etiqueta final: de qual gênero é esse shipp
     val tag = pill("Shipp de " + g.label, g.primary, Color.WHITE, 12.5f, g.icon)
-    col.addView(tag, lin(WRAP, WRAP, t = 22))
+    col.addView(tag, lin(WRAP, WRAP, t = 2))
     return root
 }
 

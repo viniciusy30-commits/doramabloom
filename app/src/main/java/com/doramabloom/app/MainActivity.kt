@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -41,26 +42,30 @@ class MainActivity : AppCompatActivity() {
     private var accent = Palette.pink
 
     private var statusFilter = "all"
-    private var genreFilter = "all"
-    private var otherFilters: Set<String> = emptySet() // "Outros gêneros" (vários): só filtram, não mudam tema nem símbolos
-    private var countryFilter = "all"
+    private var genreFilter = "all" // página aberta na Estante: "all" ou o gênero principal
     private var query = ""
     private var sortMode = 0
     private var gridMode = false
-    private var filtersOpen = false
 
-    private var listAdapter: DramaAdapter? = null
     private var listRv: RecyclerView? = null
-    private var listEmpty: TextView? = null
     private var listInfo: TextView? = null
     private var searchBox: LinearLayout? = null
-    private var filterPill: TextView? = null
     private var clearPill: TextView? = null
     private var effBox: LinearLayout? = null
     private var effIcon: IconView? = null
     private var effSeal: SealView? = null
     private var effTitle: TextView? = null
     private var effSub: TextView? = null
+    private var effStats: TextView? = null
+    private var effCount: TextView? = null
+    private var effPrev: TextView? = null
+    private var effNext: TextView? = null
+    private val effDots = ArrayList<View>()
+    private var genreChips: View? = null
+    private var shelfKeys: List<String> = listOf("all")
+    private var shelfIdx = 0
+    private val shelfPages = HashSet<ShelfPage>()
+    private var shelfSnap: PagerSnapHelper? = null
     private var listBtn: FrameLayout? = null
     private var gridBtn: FrameLayout? = null
 
@@ -137,8 +142,8 @@ class MainActivity : AppCompatActivity() {
         }
         if (seenVersion != Store.version) {
             seenVersion = Store.version
-            if (tab == 1 && listAdapter != null) {
-                refreshList()
+            if (tab == 1 && listRv != null) {
+                if (computeShelfKeys() == shelfKeys) refreshList() else showTab(1, false)
             } else {
                 showTab(tab, false)
             }
@@ -275,7 +280,6 @@ class MainActivity : AppCompatActivity() {
                 genreFilter != "all" -> Genres.byKey(genreFilter).primary
                 statusFilter == "fav" -> Palette.pink
                 statusFilter != "all" -> Statuses.byKey(statusFilter).color
-                countryFilter != "all" -> Atmosphere.country(countryFilter).second
                 else -> Palette.pink
             }
             else -> Palette.pink
@@ -288,7 +292,7 @@ class MainActivity : AppCompatActivity() {
                 val d = homeWatching.getOrNull(homePage)
                 if (d != null) Atmosphere.ofDrama(d) else Atmosphere.of("all", "all", "all")
             }
-            1 -> Atmosphere.of(genreFilter, statusFilter, countryFilter)
+            1 -> Atmosphere.of(genreFilter, statusFilter, "all")
             else -> Atmosphere.of("all", "all", "all")
         }
         petals.setTheme(a.icons, a.tints)
@@ -307,7 +311,7 @@ class MainActivity : AppCompatActivity() {
         val dir = if (t >= tab) 1 else -1
         tab = t
         contentFrame.removeAllViews()
-        listAdapter = null
+        shelfPages.clear()
         listRv = null
         val v: View = try {
             val crash = getSharedPreferences("doramabloom_crash", MODE_PRIVATE)
@@ -564,16 +568,23 @@ class MainActivity : AppCompatActivity() {
 
     // --------------------------------------------------------------- ESTANTE
 
-    private fun filtered(): List<Drama> {
+    /** Páginas da Estante: "Todos" + cada gênero principal que tem pelo menos um dorama. */
+    private fun computeShelfKeys(): List<String> {
+        val used = Store.all().map { it.genre }.toSet()
+        return listOf("all") + Genres.all.map { it.key }.filter { used.contains(it) }
+    }
+
+    private fun keyLabel(k: String): String = if (k == "all") "Todos" else Genres.byKey(k).label
+    private fun keyColor(k: String): Int = if (k == "all") Palette.pink else Genres.byKey(k).primary
+
+    private fun filteredFor(key: String): List<Drama> {
         var l = Store.all()
         if (statusFilter == "fav") {
             l = l.filter { it.favorite }
         } else if (statusFilter != "all") {
             l = l.filter { it.status == statusFilter }
         }
-        if (genreFilter != "all") l = l.filter { it.genre == genreFilter || it.tags.contains(genreFilter) }
-        if (otherFilters.isNotEmpty()) l = l.filter { d -> otherFilters.all { d.tags.contains(it) } }
-        if (countryFilter != "all") l = l.filter { it.country == countryFilter }
+        if (key != "all") l = l.filter { it.genre == key }
         if (query.isNotBlank()) {
             l = l.filter {
                 it.title.contains(query, true) || it.original.contains(query, true) ||
@@ -590,6 +601,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun filtered(): List<Drama> = filteredFor(genreFilter)
+
     private fun sortLabel(): String = when (sortMode) {
         0 -> "Recentes"
         1 -> "A–Z"
@@ -598,136 +611,208 @@ class MainActivity : AppCompatActivity() {
         else -> "Minha ordem"
     }
 
-    /** Nome da lista aberta na Estante, conforme os filtros (ex.: "Assistindo", "Esporte", "Favoritos · Coreia do Sul"). */
-    private fun shelfListName(): String {
+    /** Nome da lista aberta na Estante (ex.: "Assistindo · Romance"). */
+    private fun shelfListName(key: String = genreFilter): String {
         val parts = ArrayList<String>()
         if (statusFilter == "fav") parts.add("Favoritos")
         else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
-        if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
-        for (k in otherFilters) if (OtherGenres.exists(k)) parts.add(OtherGenres.byKey(k).label)
-        if (countryFilter != "all") parts.add(countryFilter)
+        if (key != "all") parts.add(Genres.byKey(key).label)
         if (query.isNotBlank()) parts.add("Busca")
         return if (parts.isEmpty()) "Todos" else parts.joinToString(" · ")
     }
 
-    private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || otherFilters.isNotEmpty() || countryFilter != "all"
-
-    private fun filterCount(): Int =
-        (if (statusFilter != "all") 1 else 0) + (if (genreFilter != "all") 1 else 0) +
-            (if (otherFilters.isNotEmpty()) 1 else 0) + (if (countryFilter != "all") 1 else 0)
-
-    private fun statusTagline(k: String): String = when (k) {
-        "fav" -> "Os queridinhos do seu coração"
-        "assistindo" -> "O que está rolando agora"
-        "quero" -> "Sua listinha de desejos"
-        "concluido" -> "Maratonas finalizadas, que orgulho!"
-        "pausado" -> "Esperando a hora certa"
-        else -> "Os que ficaram pelo caminho"
-    }
-
-    /** Faixa que mostra o "efeito" dos filtros ativos. */
-    private fun updateEffect() {
-        val box = effBox ?: return
-        if (!anyFilter()) {
-            if (box.visibility == View.VISIBLE) box.collapse()
-            return
-        }
-        val parts = ArrayList<String>()
-        var icon: String
-        var title: String
-        var sub: String
-        var col: Int
-        var soft: Int
-        if (genreFilter != "all") {
-            val g = Genres.byKey(genreFilter)
-            icon = g.icon; title = g.label; sub = g.tagline; col = g.dark; soft = g.soft
-        } else if (statusFilter != "all") {
-            if (statusFilter == "fav") {
-                icon = "star"; title = "Favoritos"; col = Palette.pinkDark; soft = Palette.pinkSoft
-            } else {
-                val st = Statuses.byKey(statusFilter)
-                icon = st.icon; title = st.label; col = st.color; soft = lighten(st.color, 0.82f)
-            }
-            sub = statusTagline(statusFilter)
-        } else if (otherFilters.any { OtherGenres.exists(it) }) {
-            val ogs = otherFilters.filter { OtherGenres.exists(it) }.map { OtherGenres.byKey(it) }
-            val og = ogs[0]
-            icon = og.icon; title = ogs.joinToString(" · ") { it.label }; col = og.dark; soft = og.soft
-            sub = "Doramas marcados como " + ogs.joinToString(" e ") { it.label }
-        } else {
-            val cc = Atmosphere.country(countryFilter)
-            icon = "flag"; title = countryFilter; col = cc.second; soft = lighten(cc.second, 0.85f)
-            sub = "Doramas direto de " + countryFilter
-        }
-        if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
-        for (k in otherFilters) if (OtherGenres.exists(k)) parts.add(OtherGenres.byKey(k).label)
-        if (statusFilter != "all") parts.add(if (statusFilter == "fav") "Favoritos" else Statuses.byKey(statusFilter).label)
-        if (countryFilter != "all") parts.add(countryFilter)
-        effIcon?.setIcon(icon)
-        effIcon?.tint = col
-        if (genreFilter != "all") {
-            effSeal?.set(Genres.byKey(genreFilter))
-            effSeal?.visibility = View.VISIBLE
-            effIcon?.visibility = View.GONE
-        } else {
-            effSeal?.visibility = View.GONE
-            effIcon?.visibility = View.VISIBLE
-        }
-        effTitle?.text = if (parts.size > 1) parts.joinToString(" · ") else title
-        effTitle?.setTextColor(col)
-        effSub?.text = sub
-        box.background = roundRect(soft, dp(22).toFloat(), lighten(col, 0.5f), dp(1))
-        if (box.visibility != View.VISIBLE) box.expand() else box.pop(1.05f)
-    }
-
-    private fun updateFilterPills() {
-        val n = filterCount()
-        filterPill?.text = if (n > 0) "Filtros · $n" else "Filtros"
+    private fun updateClear() {
         val cp = clearPill ?: return
-        if (n > 0 && cp.visibility != View.VISIBLE) {
+        if (statusFilter != "all" && cp.visibility != View.VISIBLE) {
             cp.visibility = View.VISIBLE
             cp.fadeScaleIn()
-        } else if (n == 0 && cp.visibility == View.VISIBLE) {
+        } else if (statusFilter == "all" && cp.visibility == View.VISIBLE) {
             cp.visibility = View.GONE
         }
     }
 
-    private fun filtersChanged() {
-        refreshList()
-        updateEffect()
-        updateFilterPills()
-        applyAtmos()
+    /** Faixa do gênero aberto: selo, nome, frase, números do gênero, vizinhos e bolinhas de página. */
+    private fun updateEffect(animate: Boolean = true) {
+        val box = effBox ?: return
+        val key = genreFilter
+        val mine = Store.all().filter { key == "all" || it.genre == key }
+        val total = mine.size
+        val icon: String
+        val title: String
+        val sub: String
+        val col: Int
+        val soft: Int
+        if (key == "all") {
+            icon = "heart"; title = "Todos os gêneros"
+            sub = "Deslize para o lado e passeie pelos seus gêneros"
+            col = Palette.pinkDark; soft = Palette.pinkSoft
+        } else {
+            val g = Genres.byKey(key)
+            icon = g.icon; title = g.label; sub = g.tagline; col = g.dark; soft = g.soft
+        }
+        val parts = ArrayList<String>()
+        parts.add(total.toString() + (if (total == 1) " dorama" else " doramas"))
+        val watching = mine.count { it.status == "assistindo" }
+        val done = mine.count { it.status == "concluido" }
+        if (watching > 0) parts.add(watching.toString() + " assistindo")
+        if (done > 0) parts.add(done.toString() + (if (done == 1) " concluído" else " concluídos"))
+        val rated = mine.filter { it.score > 0 }
+        if (rated.isNotEmpty()) {
+            val avg = Math.round(rated.map { it.score }.average() * 10) / 10.0
+            parts.add("nota média " + avg.toString().replace('.', ','))
+        }
+        if (key != "all") {
+            effSeal?.set(Genres.byKey(key))
+            effSeal?.visibility = View.VISIBLE
+            effIcon?.visibility = View.GONE
+        } else {
+            effSeal?.visibility = View.GONE
+            effIcon?.setIcon(icon)
+            effIcon?.tint = col
+            effIcon?.visibility = View.VISIBLE
+        }
+        effTitle?.text = title
+        effTitle?.setTextColor(col)
+        effSub?.text = sub
+        effStats?.text = parts.joinToString("  ·  ")
+        effStats?.setTextColor(col)
+        effCount?.text = (shelfIdx + 1).toString() + " / " + shelfKeys.size
+        effCount?.setTextColor(col)
+        effCount?.background = roundRect(Color.argb(150, 255, 255, 255), dp(12).toFloat(), lighten(col, 0.55f), dp(1))
+        effPrev?.text = if (shelfIdx > 0) "‹  " + keyLabel(shelfKeys[shelfIdx - 1]) else ""
+        effNext?.text = if (shelfIdx < shelfKeys.size - 1) keyLabel(shelfKeys[shelfIdx + 1]) + "  ›" else ""
+        effPrev?.setTextColor(lighten(col, 0.1f))
+        effNext?.setTextColor(lighten(col, 0.1f))
+        for (i in effDots.indices) {
+            val dot = effDots[i]
+            val on = i == shelfIdx
+            val wTo = dp(if (on) 18 else 6)
+            val lp = dot.layoutParams
+            if (animate && lp.width != wTo) {
+                val a = android.animation.ValueAnimator.ofInt(lp.width, wTo)
+                a.duration = 240
+                a.addUpdateListener {
+                    lp.width = it.animatedValue as Int
+                    dot.layoutParams = lp
+                }
+                a.start()
+            } else {
+                lp.width = wTo
+                dot.layoutParams = lp
+            }
+            val k = shelfKeys.getOrNull(i) ?: "all"
+            dot.background = roundRect(if (on) keyColor(k) else mixColor(keyColor(k), Color.WHITE, 0.55f), dp(3).toFloat())
+        }
+        box.background = roundRect(soft, dp(22).toFloat(), lighten(col, 0.5f), dp(1))
+        if (animate) {
+            effTitle?.alpha = 0f
+            effTitle?.animate()?.alpha(1f)?.setDuration(240)?.start()
+            effSub?.alpha = 0f
+            effSub?.animate()?.alpha(1f)?.setDuration(320)?.start()
+            effSeal?.pop(1.25f)
+            effIcon?.pop(1.25f)
+            effCount?.pop(1.2f)
+        }
     }
 
-    private fun refreshList() {
-        val l = filtered()
-        listAdapter?.submit(l)
-        listEmpty?.visibility = if (l.isEmpty()) View.VISIBLE else View.GONE
-        listEmpty?.text = if (Store.all().isEmpty()) {
+    private fun updateCount() {
+        val info = listInfo ?: return
+        val n = filtered().size
+        val prev = info.text.toString().substringBefore(" ").toIntOrNull() ?: 0
+        info.text = n.toString() + (if (n == 1) " dorama" else " doramas")
+        if (prev != n) info.pop(1.08f)
+    }
+
+    /** A página [idx] ficou em foco (por deslize ou toque): troca o gênero, a faixa, as cores e o tema. */
+    private fun setPage(idx: Int) {
+        if (idx < 0 || idx >= shelfKeys.size) return
+        val changed = idx != shelfIdx
+        shelfIdx = idx
+        genreFilter = shelfKeys[idx]
+        genreChips?.selectChip(genreFilter)
+        val sv = genreChips as? android.widget.HorizontalScrollView
+        val row = sv?.getChildAt(0) as? LinearLayout
+        val cv = row?.getChildAt(idx)
+        if (sv != null && cv != null) sv.smoothScrollTo(maxOf(0, cv.left - dp(60)), 0)
+        updateEffect(changed)
+        updateCount()
+        if (changed) applyAtmos()
+    }
+
+    private fun goToPage(idx: Int) {
+        val rv = listRv ?: return
+        val cur = shelfIdx
+        setPage(idx)
+        if (Math.abs(idx - cur) > 2) rv.scrollToPosition(idx) else rv.smoothScrollToPosition(idx)
+    }
+
+    private fun fillPage(h: ShelfPage) {
+        val l = filteredFor(h.key)
+        h.adapter?.submit(l)
+        h.empty.visibility = if (l.isEmpty()) View.VISIBLE else View.GONE
+        h.empty.text = if (Store.all().isEmpty()) {
             "Sua estante está vazia.\nToque no + para adicionar!"
+        } else if (query.isNotBlank()) {
+            "Nada da busca neste gênero.\nDeslize para ver os outros."
         } else {
             "Nenhum dorama por aqui."
         }
-        if (l.isEmpty()) listEmpty?.fadeScaleIn()
-        val info = listInfo
-        if (info != null) {
-            val prev = info.text.toString().substringBefore(" ").toIntOrNull() ?: 0
-            info.text = l.size.toString() + (if (l.size == 1) " dorama" else " doramas")
-            if (prev != l.size) info.pop(1.08f)
+        if (l.isEmpty()) h.empty.fadeScaleIn()
+    }
+
+    private fun refreshList() {
+        for (h in shelfPages) fillPage(h)
+        updateCount()
+        updateClear()
+        updateEffect(false)
+    }
+
+    /** Uma página do carrossel da Estante: a lista dos doramas de um gênero principal. */
+    private inner class ShelfPage(val root: FrameLayout, val rv: RecyclerView, val empty: TextView) : RecyclerView.ViewHolder(root) {
+        var key = "all"
+        var adapter: DramaAdapter? = null
+        var th: ItemTouchHelper? = null
+    }
+
+    private inner class ShelfPager : RecyclerView.Adapter<ShelfPage>() {
+        override fun getItemCount(): Int = shelfKeys.size
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ShelfPage {
+            val root = FrameLayout(this@MainActivity)
+            root.layoutParams = RecyclerView.LayoutParams(MATCH, MATCH)
+            val rv = RecyclerView(this@MainActivity)
+            rv.clipToPadding = false
+            rv.setPadding(0, dp(4), 0, dp(24))
+            root.addView(rv, FrameLayout.LayoutParams(MATCH, MATCH))
+            val empty = label("", 15f, Palette.muted, true, true)
+            empty.gravity = Gravity.CENTER
+            root.addView(empty, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+            return ShelfPage(root, rv, empty)
+        }
+
+        override fun onBindViewHolder(h: ShelfPage, position: Int) {
+            h.key = shelfKeys[position]
+            val ad = DramaAdapter(if (gridMode) 3 else 0, { open(it, filteredFor(h.key), shelfListName(h.key)) })
+            h.adapter = ad
+            h.rv.layoutManager = if (gridMode) GridLayoutManager(this@MainActivity, 2) else LinearLayoutManager(this@MainActivity)
+            h.rv.adapter = ad
+            fillPage(h)
+            h.th?.attachToRecyclerView(null)
+            val th = makeTouch(h)
+            th.attachToRecyclerView(h.rv)
+            h.th = th
+            shelfPages.add(h)
+        }
+
+        override fun onViewRecycled(holder: ShelfPage) {
+            shelfPages.remove(holder)
+            super.onViewRecycled(holder)
         }
     }
 
-    private var touchHelper: ItemTouchHelper? = null
-
-    private fun applyView(rv: RecyclerView) {
-        rv.layoutManager = if (gridMode) GridLayoutManager(this, 2) else LinearLayoutManager(this)
-        listAdapter = DramaAdapter(if (gridMode) 3 else 0, { open(it, filtered(), shelfListName()) })
-        rv.adapter = listAdapter
-        refreshList()
-
-        // arrastar para reordenar (vale quando a ordem é "Minha ordem"; segure e arraste)
-        touchHelper?.attachToRecyclerView(null)
-        val th = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+    /** Arrastar para reordenar (vale quando a ordem é "Minha ordem"; segure e arraste). */
+    private fun makeTouch(h: ShelfPage): ItemTouchHelper {
+        return ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT, 0
         ) {
             override fun isLongPressDragEnabled(): Boolean = sortMode == 4
@@ -740,7 +825,7 @@ class MainActivity : AppCompatActivity() {
                 val a = viewHolder.bindingAdapterPosition
                 val b = target.bindingAdapterPosition
                 if (a < 0 || b < 0) return false
-                listAdapter?.move(a, b)
+                h.adapter?.move(a, b)
                 return true
             }
 
@@ -759,12 +844,33 @@ class MainActivity : AppCompatActivity() {
                 super.clearView(recyclerView, viewHolder)
                 viewHolder.itemView.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
                 viewHolder.itemView.elevation = 0f
-                val l = listAdapter?.items ?: return
+                val l = h.adapter?.items ?: return
                 if (sortMode == 4) Store.reorder(l.map { it.id })
             }
         })
-        th.attachToRecyclerView(rv)
-        touchHelper = th
+    }
+
+    /** Liga o carrossel de gêneros (deslizar para o lado troca de gênero). */
+    private fun applyPager(rv: RecyclerView) {
+        shelfPages.clear()
+        val lm = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+        rv.layoutManager = lm
+        rv.itemAnimator = null
+        rv.setItemViewCacheSize(2)
+        rv.adapter = ShelfPager()
+        if (shelfSnap == null) {
+            val snap = PagerSnapHelper()
+            snap.attachToRecyclerView(rv)
+            shelfSnap = snap
+            rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    val v = snap.findSnapView(lm) ?: return
+                    val pos = recyclerView.getChildAdapterPosition(v)
+                    if (pos >= 0 && pos != shelfIdx) setPage(pos)
+                }
+            })
+        }
+        rv.post { lm.scrollToPositionWithOffset(shelfIdx, 0) }
     }
 
     private fun squareBtn(icon: String, selected: Boolean): FrameLayout {
@@ -793,12 +899,17 @@ class MainActivity : AppCompatActivity() {
         val rv = listRv ?: return
         rv.animate().cancel()
         rv.animate().alpha(0f).setDuration(130).withEndAction {
-            applyView(rv)
+            rv.adapter?.notifyDataSetChanged()
             rv.animate().alpha(1f).setDuration(260).start()
         }.start()
     }
 
     private fun buildListTab(): View {
+        shelfKeys = computeShelfKeys()
+        shelfIdx = shelfKeys.indexOf(genreFilter).let { if (it < 0) 0 else it }
+        genreFilter = shelfKeys[shelfIdx]
+        shelfSnap = null
+
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.setPadding(dp(14), dp(12), dp(14), 0)
@@ -844,69 +955,77 @@ class MainActivity : AppCompatActivity() {
         for (s in Statuses.all) statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
         col.addView(chipScroller(statusOpts, statusFilter) {
             statusFilter = it
-            filtersChanged()
+            refreshList()
+            applyAtmos()
         }, lin(MATCH, WRAP, t = 10))
 
-        // filtros extras (gênero e país)
-        val panel = LinearLayout(this)
-        panel.orientation = LinearLayout.VERTICAL
-        panel.visibility = if (filtersOpen) View.VISIBLE else View.GONE
+        // gênero principal: os chips e o deslize para o lado andam juntos
         val genreOpts = ArrayList<Opt>()
-        genreOpts.add(Opt("all", "Todos os gêneros", Palette.pink, "tag"))
-        for (g in Genres.all) genreOpts.add(Opt(g.key, g.label, g.primary, g.icon))
-        val glabRow = LinearLayout(this)
-        glabRow.orientation = LinearLayout.HORIZONTAL
-        glabRow.gravity = Gravity.CENTER_VERTICAL
-        glabRow.addView(label("Gêneros", 13.5f, Palette.muted, true), lin(0, WRAP, 1f, l = 4))
-        panel.addView(glabRow, lin(MATCH, WRAP, t = 8))
-        panel.addView(chipScroller(genreOpts, genreFilter) {
-            genreFilter = it
-            filtersChanged()
-        }, lin(MATCH, WRAP, t = 4))
-        // outros gêneros: só etiquetas para filtrar (não trocam o tema nem os símbolos)
-        val otherOpts = ArrayList<Opt>()
-        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, og.color, og.icon, og.colors))
-        panel.addView(label("Outros gêneros (pode marcar vários)", 13.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
-        panel.addView(multiChips(otherOpts, otherFilters) {
-            otherFilters = it
-            filtersChanged()
-        }, lin(MATCH, WRAP, t = 4))
-        val countryOpts = ArrayList<Opt>()
-        countryOpts.add(Opt("all", "Todos os países", Palette.pink, "flag"))
-        for (c in countries) countryOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
-        panel.addView(label("Países", 13.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
-        panel.addView(chipScroller(countryOpts, countryFilter) {
-            countryFilter = it
-            filtersChanged()
-        }, lin(MATCH, WRAP, t = 4))
-        col.addView(panel, lin(MATCH, WRAP))
+        for (k in shelfKeys) {
+            if (k == "all") genreOpts.add(Opt("all", "Todos", Palette.pink, "tag"))
+            else Genres.byKey(k).let { genreOpts.add(Opt(it.key, it.label, it.primary, it.icon)) }
+        }
+        val gchips = chipScroller(genreOpts, genreFilter) { k ->
+            val i = shelfKeys.indexOf(k)
+            if (i >= 0) goToPage(i)
+        }
+        genreChips = gchips
+        col.addView(gchips, lin(MATCH, WRAP, t = 6))
 
-        // faixa com o efeito dos filtros ativos
+        // faixa do gênero aberto
         val eb = LinearLayout(this)
-        eb.orientation = LinearLayout.HORIZONTAL
-        eb.gravity = Gravity.CENTER_VERTICAL
-        eb.setPadding(dp(14), dp(10), dp(14), dp(10))
+        eb.orientation = LinearLayout.VERTICAL
+        eb.setPadding(dp(14), dp(12), dp(14), dp(10))
+        val r1 = LinearLayout(this)
+        r1.orientation = LinearLayout.HORIZONTAL
+        r1.gravity = Gravity.CENTER_VERTICAL
         val eseal = SealView(this)
-        eseal.visibility = View.GONE
-        eb.addView(eseal, lin(dp(48), dp(48)))
+        r1.addView(eseal, lin(dp(52), dp(52)))
         effSeal = eseal
-        val ei = IconView(this, "heart", Palette.pink, 30)
-        eb.addView(ei)
+        val ei = IconView(this, "heart", Palette.pink, 32)
+        r1.addView(ei)
         val etx = LinearLayout(this)
         etx.orientation = LinearLayout.VERTICAL
-        val et = fitLabel("", 16f, Palette.pinkDark, true, true, 9f, true)
+        val et = fitLabel("", 19f, Palette.pinkDark, true, true, 10f, true)
         val es = fitLabel("", 12f, Palette.muted, false, false, 8f)
         etx.addView(et, lin(MATCH, WRAP))
         etx.addView(es, lin(MATCH, WRAP))
-        eb.addView(etx, lin(0, WRAP, 1f, l = 12))
-        eb.visibility = if (anyFilter()) View.VISIBLE else View.GONE
+        r1.addView(etx, lin(0, WRAP, 1f, l = 12))
+        val ec = label("", 12f, Palette.pinkDark, true)
+        ec.setPadding(dp(10), dp(4), dp(10), dp(4))
+        r1.addView(ec, lin(WRAP, WRAP, l = 8))
+        eb.addView(r1, lin(MATCH, WRAP))
+        val est = fitLabel("", 12.5f, Palette.pinkDark, true, false, 8f, true)
+        eb.addView(est, lin(MATCH, WRAP, t = 8))
+        val nav = LinearLayout(this)
+        nav.orientation = LinearLayout.HORIZONTAL
+        val ep = label("", 11.5f, Palette.muted, true)
+        val en = label("", 11.5f, Palette.muted, true)
+        en.gravity = Gravity.END
+        nav.addView(ep, lin(0, WRAP, 1f))
+        nav.addView(en, lin(0, WRAP, 1f))
+        eb.addView(nav, lin(MATCH, WRAP, t = 6))
+        val dots = LinearLayout(this)
+        dots.gravity = Gravity.CENTER_HORIZONTAL
+        effDots.clear()
+        for (i in shelfKeys.indices) {
+            val dv = View(this)
+            effDots.add(dv)
+            dots.addView(dv, lin(dp(if (i == shelfIdx) 18 else 6), dp(6), l = 2, r = 2))
+        }
+        eb.addView(dots, lin(MATCH, WRAP, t = 8))
         effBox = eb
         effIcon = ei
         effTitle = et
         effSub = es
-        col.addView(eb, lin(MATCH, WRAP, t = 8))
+        effStats = est
+        effCount = ec
+        effPrev = ep
+        effNext = en
+        col.addView(eb, lin(MATCH, WRAP, t = 10))
+        updateEffect(false)
 
-        // contagem + filtros + ordenar
+        // contagem + limpar + ordenar
         val info = LinearLayout(this)
         info.orientation = LinearLayout.HORIZONTAL
         info.gravity = Gravity.CENTER_VERTICAL
@@ -914,23 +1033,13 @@ class MainActivity : AppCompatActivity() {
         listInfo = count
         info.addView(count, lin(0, WRAP, 1f))
         val clr = pill("Limpar", Palette.pinkSoft, Palette.pinkDark, 12f, "close")
-        clr.visibility = View.GONE
+        clr.visibility = if (statusFilter != "all") View.VISIBLE else View.GONE
         clr.setOnClickListener {
             statusFilter = "all"
-            genreFilter = "all"
-            otherFilters = emptySet()
-            countryFilter = "all"
             showTab(1, false)
         }
         clearPill = clr
         info.addView(clr, lin(WRAP, WRAP, r = 6))
-        val fb = pill("Filtros", Palette.card, Palette.pink, 12f, "filter")
-        filterPill = fb
-        fb.setOnClickListener {
-            filtersOpen = !filtersOpen
-            if (filtersOpen) panel.expand() else panel.collapse()
-        }
-        info.addView(fb, lin(WRAP, WRAP, r = 6))
         val sb = pill(sortLabel(), Palette.card, Palette.pink, 12f, "sort")
         sb.setOnClickListener {
             sortMode = (sortMode + 1) % 5
@@ -942,41 +1051,17 @@ class MainActivity : AppCompatActivity() {
         info.addView(sb, lin(WRAP, WRAP))
         col.addView(info, lin(MATCH, WRAP, t = 8, b = 2))
 
+        // carrossel: cada página é um gênero principal
         val rv = RecyclerView(this)
-        rv.clipToPadding = false
-        rv.setPadding(0, dp(4), 0, dp(24))
         listRv = rv
-
-        val empty = label("", 15f, Palette.muted, true, true)
-        empty.gravity = Gravity.CENTER
-        listEmpty = empty
-
-        val frame = FrameLayout(this)
-        frame.addView(rv, FrameLayout.LayoutParams(MATCH, MATCH))
-        frame.addView(empty, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        col.addView(frame, lin(MATCH, 0, 1f))
+        col.addView(rv, lin(MATCH, 0, 1f))
 
         lb.setOnClickListener { switchView(false) }
         gb.setOnClickListener { switchView(true) }
 
-        applyView(rv)
-        updateFilterPills()
-        if (anyFilter()) {
-            // preenche a faixa já aberta, sem animar
-            val keep = eb.visibility
-            eb.visibility = View.VISIBLE
-            updateEffectNow()
-            eb.visibility = keep
-        }
+        applyPager(rv)
+        updateClear()
         return col
-    }
-
-    private fun updateEffectNow() {
-        val box = effBox ?: return
-        val saved = box.visibility
-        box.visibility = View.VISIBLE
-        updateEffect()
-        box.visibility = saved
     }
 
     // --------------------------------------------------------------- NÚMEROS
@@ -1385,7 +1470,6 @@ class MainActivity : AppCompatActivity() {
                     .setTitle("Excluir gênero?")
                     .setMessage("\"" + og.label + "\" sai dos doramas que têm essa etiqueta.")
                     .setPositiveButton("Excluir") { _, _ ->
-                        if (otherFilters.contains(og.key)) otherFilters = otherFilters - og.key
                         if (og.custom) Store.removeOtherGenre(og.key) else Store.hideOtherGenre(og.key)
                         refreshOthers()
                     }

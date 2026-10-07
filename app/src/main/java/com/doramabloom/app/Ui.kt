@@ -745,30 +745,6 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
         c.drawPath(wave, p)
     }
 
-    /** Detalhes por cima da capa: uma fitinha adesiva no topo. */
-    override fun dispatchDraw(c: Canvas) {
-        super.dispatchDraw(c)
-        val g = deco ?: return
-        if (!fit || img.visibility != View.VISIBLE || img.width <= 0) return
-        val u = resources.displayMetrics.density
-        val p = decoPaint
-        val cx = (img.left + img.right) / 2f
-        val cy = img.top + 2f * u
-        decoRect.set(cx - 30f * u, cy - 10f * u, cx + 30f * u, cy + 10f * u)
-        c.save()
-        c.rotate(-6f, cx, cy)
-        p.style = Paint.Style.FILL
-        p.color = mixColor(g.primary, Color.WHITE, 0.45f)
-        c.drawRoundRect(decoRect, 4f * u, 4f * u, p)
-        p.color = a(Color.WHITE, 150)
-        var x = decoRect.left + 6f * u
-        while (x < decoRect.right - 6f * u) {
-            c.drawRect(x, decoRect.top + 3f * u, x + 3f * u, decoRect.bottom - 3f * u, p)
-            x += 9f * u
-        }
-        c.restore()
-    }
-
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         if (fit && bw > 0 && bh > 0 && img.visibility == View.VISIBLE &&
             MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY &&

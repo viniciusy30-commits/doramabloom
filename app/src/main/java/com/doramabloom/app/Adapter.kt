@@ -234,7 +234,7 @@ class DramaAdapter(
             val items = ArrayList<Triple<String, String, List<Streaming>>>()
             if (d.year.isNotBlank()) items.add(Triple("calendar", d.year, emptyList()))
             if (total > 0) items.add(Triple("tv", total.toString() + " eps", emptyList()))
-            val sl = Streamings.parse(d.platform)
+            val sl = Streamings.parse(d.platform).take(1)
             if (sl.isNotEmpty()) items.add(Triple("play", sl[0].label, sl))
             else if (d.country.isNotBlank()) items.add(Triple("flag", d.country.substringBefore(" "), emptyList()))
             for (it2 in items.take(3)) statsBox.addView(c.statBubble(it2.first, it2.second, g, it2.third), c.lin(c.dp(54), WRAP, t = 6))
@@ -291,7 +291,7 @@ class DramaAdapter(
         if (mk != null) {
             mk.removeAllViews()
             val sz = (mk.tag as? Int) ?: mk.dp(20)
-            for (sm in Streamings.parse(d.platform).take(3)) {
+            for (sm in Streamings.parse(d.platform).take(1)) {
                 val v = View(mk.context)
                 v.background = StreamMarkDrawable(sm)
                 val lp = LinearLayout.LayoutParams(sz, sz)
@@ -309,9 +309,9 @@ class DramaAdapter(
         }
         val fl = h.flow
         if (fl != null) {
-            val keep = if (mode == 3) 1 else 2
+            val keep = 1
             while (fl.childCount > keep) fl.removeViewAt(keep)
-            // gênero principal + os (até 2) escolhidos na edição, sempre com as cores vivas deles
+            // gênero principal + os (até 3) escolhidos na edição, sempre com as cores vivas deles
             for (tk in shelfPick(d)) {
                 val tp = if (OtherGenres.exists(tk)) {
                     fl.context.otherPill(OtherGenres.byKey(tk), 10.5f)
@@ -325,13 +325,13 @@ class DramaAdapter(
         }
         val plat = h.plat
         if (plat != null) {
-            if (d.platform.isBlank()) {
-                plat.visibility = View.GONE
-            } else {
-                plat.visibility = View.VISIBLE
-                plat.removeAllViews()
-                for (sm in Streamings.parse(d.platform)) plat.addView(plat.context.streamChip(sm, 11f))
-            }
+            // lista: o status vem primeiro, depois as logos de onde assistir (libera espaço para mais um gênero)
+            val statusHere = mode == 0 && h.chip != null
+            plat.removeAllViews()
+            if (statusHere) plat.addView(h.chip)
+            // só o principal (o primeiro marcado); todos aparecem só nas informações do dorama
+            for (sm in Streamings.parse(d.platform).take(1)) plat.addView(plat.context.streamChip(sm, 11f))
+            plat.visibility = if (plat.childCount == 0) View.GONE else View.VISIBLE
         }
         val fr = h.frame
         if (fr != null) {
@@ -416,7 +416,6 @@ class DramaAdapter(
         val gc = smallPill(c, "heart")
         val chip = smallPill(c, "play")
         flow.addView(gc)
-        flow.addView(chip)
         col.addView(flow, c.lin(MATCH, WRAP, t = 7))
 
         val rrow = LinearLayout(c)
