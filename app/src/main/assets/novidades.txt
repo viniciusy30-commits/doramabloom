@@ -1,3 +1,13 @@
+#id 2026-10-07-zi
+#titulo Início: temas de Romance e Comédia refeitos
+- Romance: céu de algodão-doce com lua dorminhoca, nuvenzinhas, fio de luzinhas, galhos de cerejeira com casal de passarinhos (de vez em quando eles se aproximam e sai um coração), lanterna de papel, bolhas de sabão, carta de amor com asinhas e colinas com flores de coração e um coelhinho.
+- Comédia: palco de festa com raios de sol, varal de bandeirinhas, cortinas de teatro, cacho de balões, chapéu de festa pulando, pirulito girando, balde de pipoca com pipocas estourando, balõezinhos de fala e confete.
+- Saíram os emotes: os símbolos que caem na tela agora são pétalas, flores e estrelinhas desenhadas, e o enfeite da saudação também.
+
+#id 2026-10-07-zh
+#titulo Detalhe: fim do piscar
+- Corrigido o bug em que a página do dorama piscava várias vezes por segundo logo ao abrir (a capa ficava alternando entre grande e pequena). Agora o encaixe da capa na tela acontece uma vez só, sem oscilar.
+
 #id 2026-10-07-zg
 #titulo Detalhe: card inteiro no topo da tela
 - O card do dorama agora sobe até o topo e aparece inteiro de uma vez: voltar, editar e favoritar ficaram dentro do card, em cima.

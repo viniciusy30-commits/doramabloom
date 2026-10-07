@@ -84,9 +84,9 @@ object Genres {
 
     private val factory: List<Genre> = listOf(
         Genre("romance", "Romance", "heart", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
-            listOf("heart", "petal", "ring"), "Para suspirar abraçada na almofada"),
+            listOf("petal", "blossom", "sparkle"), "Para suspirar abraçada na almofada"),
         Genre("comedia", "Comédia", "smile", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
-            listOf("smile", "balloon", "star"), "Risadinhas garantidas"),
+            listOf("star", "sparkle"), "Risadinhas garantidas"),
         Genre("acao", "Ação", "bolt", c("#FF7A6B"), c("#FFE5E0"), c("#9C2F22"),
             listOf("bolt", "flame", "shield"), "Coração acelerado e muita adrenalina"),
         Genre("terror", "Terror", "ghost", c("#9B7EDE"), c("#EDE6FA"), c("#4B2E8F"),

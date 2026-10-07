@@ -747,14 +747,24 @@ class DetailActivity : AppCompatActivity() {
         var curCh = ch
         val minCh = dp(150)
         val maxCh = dp(280)
+        // Importante: depois de mudar o tamanho da capa, hero.height ainda é o valor VELHO até o próximo
+        // layout. Se o encaixe rodasse de novo nesse intervalo, corrigiria em dobro e a capa ficaria
+        // pulando entre grande e pequena (o "piscar"). Por isso: um encaixe por vez, esperando o layout
+        // terminar, com limite de tentativas.
+        var fitBusy = false
+        var fitQueued = false
+        var fitTries = 0
         fun fitHero() {
+            if (fitBusy) return
             val vh = sv.height
             val hh = hero.height
             if (vh <= 0 || hh <= 0) return
             val excess = hh - (vh - col.paddingTop - dp(8))
-            if (Math.abs(excess) <= 1) return
+            if (Math.abs(excess) <= dp(2)) return
+            if (fitTries >= 6) return
             val nh = (curCh - excess).coerceIn(minCh, maxCh)
             if (nh == curCh) return
+            fitTries++
             curCh = nh
             val nw = nh * cw / ch
             val k = nw.toFloat() / cw
@@ -769,9 +779,33 @@ class DetailActivity : AppCompatActivity() {
                 gh.layoutParams = glp
                 gh.translationX = (if (i == 0) -1 else 1) * dp(80) * k
             }
+            // só volta a medir depois que o layout novo foi desenhado
+            fitBusy = true
+            val vto = hero.viewTreeObserver
+            vto.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    val o = hero.viewTreeObserver
+                    if (o.isAlive) o.removeOnGlobalLayoutListener(this)
+                    fitBusy = false
+                    hero.post { fitHero() } // confere uma vez com a altura já atualizada
+                }
+            })
+            hero.requestLayout()
         }
-        hero.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> hero.post { fitHero() } }
-        sv.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> hero.post { fitHero() } }
+        fun scheduleFit() {
+            if (fitQueued || fitBusy) return
+            fitQueued = true
+            hero.post {
+                fitQueued = false
+                fitHero()
+            }
+        }
+        // se a tela mudar de tamanho (girar, teclado etc.), libera novas tentativas
+        sv.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, orr, ob ->
+            if (r - l != orr - ol || b - t != ob - ot) fitTries = 0
+            scheduleFit()
+        }
+        hero.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> scheduleFit() }
 
         updaters.add {
             val st = Statuses.byKey(d.status)

@@ -418,7 +418,7 @@ class MainActivity : AppCompatActivity() {
             val c1 = if (g != null) mixColor(g.primary, Color.WHITE, 0.16f) else Color.parseColor("#FF9DBF")
             val c2 = if (g != null) mixColor(g.primary, Color.BLACK, 0.12f) else Color.parseColor("#FF6B9D")
             hiWrap.background = gradient(c1, c2, dp(22).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
-            deco.setIcon(g?.icon ?: "blossom")
+            deco.setIcon(when (g?.key) { "romance" -> "blossom"; "comedia" -> "star"; else -> g?.icon ?: "blossom" })
         }
         paintHi(homeWatching.getOrNull(homePage)?.let { Genres.byKey(it.genre) })
 
@@ -466,7 +466,7 @@ class MainActivity : AppCompatActivity() {
             val ad = DramaAdapter(4, { open(it, homeWatching, "Assistindo") }, { d, btn ->
                 val g = Genres.byKey(d.genre)
                 petals.burstFrom(
-                    btn, listOf(g.icon, "heart", "blossom", "sparkle"),
+                    btn, listOf(when (g.key) { "romance" -> "blossom"; "comedia" -> "star"; else -> g.icon }, "heart", "blossom", "sparkle"),
                     listOf(g.primary, Color.WHITE, g.soft, Palette.pink), 12
                 )
                 openWatch(d)
