@@ -52,6 +52,10 @@ class MainActivity : AppCompatActivity() {
     private var searchBox: LinearLayout? = null
     private var clearPill: TextView? = null
     private var effBox: LinearLayout? = null
+    private var effBanner: ShelfBanner? = null
+    private var filterPanel: LinearLayout? = null
+    private var filterPill: TextView? = null
+    private var filtersOpen = false
     private var effIcon: IconView? = null
     private var effSeal: SealView? = null
     private var effTitle: TextView? = null
@@ -382,41 +386,48 @@ class MainActivity : AppCompatActivity() {
         sv.isVerticalScrollBarEnabled = false
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
-        col.setPadding(dp(16), dp(10), dp(16), dp(24))
+        col.setPadding(dp(16), dp(8), dp(16), dp(14))
         sv.addView(col)
 
-        // cartão de boas-vindas
+        // cartão de boas-vindas: fininho e na cor do tema do dorama em destaque
         val name = Store.userName
         val hiWrap = FrameLayout(this)
-        hiWrap.background = gradient(
-            Color.parseColor("#FF9DBF"), Color.parseColor("#FF6B9D"),
-            dp(28).toFloat(), GradientDrawable.Orientation.TL_BR
-        )
         hiWrap.elevation = 0f
-        val deco = IconView(this, "blossom", Color.parseColor("#44FFFFFF"), 96)
+        val deco = IconView(this, "blossom", Color.parseColor("#33FFFFFF"), 74)
         val dlp = FrameLayout.LayoutParams(WRAP, WRAP)
-        dlp.gravity = Gravity.END or Gravity.TOP
-        dlp.setMargins(0, dp(-14), dp(-10), 0)
+        dlp.gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        dlp.setMargins(0, 0, dp(-8), 0)
         hiWrap.addView(deco, dlp)
-        val deco2 = IconView(this, "petal", Color.parseColor("#55FFFFFF"), 30)
+        val deco2 = IconView(this, "sparkle", Color.parseColor("#88FFFFFF"), 16)
         val dlp2 = FrameLayout.LayoutParams(WRAP, WRAP)
-        dlp2.gravity = Gravity.END or Gravity.BOTTOM
-        dlp2.setMargins(0, 0, dp(70), dp(16))
+        dlp2.gravity = Gravity.END or Gravity.TOP
+        dlp2.setMargins(0, dp(8), dp(70), 0)
         hiWrap.addView(deco2, dlp2)
 
         val hi = LinearLayout(this)
         hi.orientation = LinearLayout.VERTICAL
-        hi.setPadding(dp(22), dp(20), dp(22), dp(20))
-        hi.addView(label(if (name.isBlank()) "Oi, bem-vinda!" else "Oi, $name!", 25f, Color.WHITE, true, true))
-        hi.addView(label("O que vamos assistir hoje?", 13f, Color.WHITE), lin(WRAP, WRAP, t = 2))
+        hi.setPadding(dp(18), dp(9), dp(18), dp(10))
+        val hiTitle = label(if (name.isBlank()) "Oi, bem-vinda!" else "Oi, $name!", 19f, Color.WHITE, true, true)
+        hiTitle.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), Color.argb(70, 0, 0, 0))
+        hi.addView(hiTitle)
+        val hiSub = label("O que vamos assistir hoje?", 12f, Color.parseColor("#F2FFFFFF"))
+        hi.addView(hiSub, lin(WRAP, WRAP, t = 0))
         hiWrap.addView(hi, FrameLayout.LayoutParams(MATCH, WRAP))
+
+        fun paintHi(g: Genre?) {
+            val c1 = if (g != null) mixColor(g.primary, Color.WHITE, 0.16f) else Color.parseColor("#FF9DBF")
+            val c2 = if (g != null) mixColor(g.primary, Color.BLACK, 0.12f) else Color.parseColor("#FF6B9D")
+            hiWrap.background = gradient(c1, c2, dp(22).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
+            deco.setIcon(g?.icon ?: "blossom")
+        }
+        paintHi(homeWatching.getOrNull(homePage)?.let { Genres.byKey(it.genre) })
 
         col.addView(hiWrap, lin(MATCH, WRAP))
 
         // destaque: ocupa todo o espaço entre o cartão e a barra de baixo
         val feat = FrameLayout(this)
         feat.clipChildren = false
-        col.addView(feat, lin(MATCH, dp(460), t = 14))
+        col.addView(feat, lin(MATCH, dp(560), t = 10))
 
         var dotsBox: LinearLayout? = null
         if (watching.isEmpty()) {
@@ -509,6 +520,7 @@ class MainActivity : AppCompatActivity() {
                         if (p >= 0 && p != lastPage) {
                             lastPage = p
                             homePage = p
+                            paintHi(Genres.byKey(watching[p].genre))
                             applyAtmos()
                             setDots(p, true)
                         }
@@ -523,7 +535,7 @@ class MainActivity : AppCompatActivity() {
             val avail = sv.height
             val gh = hiWrap.height
             if (avail > 0 && gh > 0) {
-                val h = maxOf(dp(430), avail - gh - dp(10) - dp(14) - dotsH - dp(24))
+                val h = maxOf(dp(520), avail - gh - dp(8) - dp(10) - dotsH - dp(14))
                 if (feat.layoutParams.height != h) {
                     feat.layoutParams.height = h
                     feat.requestLayout()
@@ -621,7 +633,68 @@ class MainActivity : AppCompatActivity() {
         return if (parts.isEmpty()) "Todos" else parts.joinToString(" · ")
     }
 
+    /** Botão "Filtros": cheio de cor quando o painel está aberto ou tem filtro ligado. */
+    private fun styleFilterPill() {
+        val f = filterPill ?: return
+        val on = filtersOpen || statusFilter != "all"
+        val fg = if (on) Color.WHITE else Palette.pink
+        f.background = roundRect(if (on) Palette.pink else Palette.card, dp(20).toFloat())
+        f.setTextColor(fg)
+        f.setCompoundDrawables(iconDrawable("filter", fg, dp(16)), null, null, null)
+    }
+
+    /** Abre ou fecha o painel de filtros deslizando. */
+    private fun setFiltersOpen(open: Boolean, animate: Boolean) {
+        filtersOpen = open
+        styleFilterPill()
+        val fp = filterPanel ?: return
+        fp.animate().cancel()
+        if (!animate) {
+            fp.layoutParams.height = WRAP
+            fp.alpha = 1f
+            fp.visibility = if (open) View.VISIBLE else View.GONE
+            return
+        }
+        val par = fp.parent as? View ?: return
+        val from: Int
+        val to: Int
+        if (open) {
+            fp.visibility = View.VISIBLE
+            fp.measure(
+                View.MeasureSpec.makeMeasureSpec(maxOf(1, par.width - par.paddingLeft - par.paddingRight), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            from = 0
+            to = fp.measuredHeight
+            fp.alpha = 0f
+            fp.animate().alpha(1f).setDuration(280).start()
+        } else {
+            from = fp.height
+            to = 0
+            fp.animate().alpha(0f).setDuration(170).start()
+        }
+        val a = android.animation.ValueAnimator.ofInt(from, to)
+        a.duration = 280
+        a.interpolator = android.view.animation.DecelerateInterpolator()
+        a.addUpdateListener {
+            fp.layoutParams.height = it.animatedValue as Int
+            fp.requestLayout()
+        }
+        a.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(an: android.animation.Animator) {
+                fp.layoutParams.height = WRAP
+                if (!filtersOpen) {
+                    fp.visibility = View.GONE
+                    fp.alpha = 1f
+                }
+                fp.requestLayout()
+            }
+        })
+        a.start()
+    }
+
     private fun updateClear() {
+        styleFilterPill()
         val cp = clearPill ?: return
         if (statusFilter != "all" && cp.visibility != View.VISIBLE) {
             cp.visibility = View.VISIBLE
@@ -672,17 +745,19 @@ class MainActivity : AppCompatActivity() {
             effIcon?.visibility = View.VISIBLE
         }
         effTitle?.text = title
-        effTitle?.setTextColor(col)
+        effTitle?.setTextColor(Color.WHITE)
         effSub?.text = sub
         effStats?.text = parts.joinToString("  ·  ")
-        effStats?.setTextColor(col)
+        effStats?.setTextColor(Color.WHITE)
+        effBanner?.bob = if (key == "all") effIcon else effSeal
+        effIcon?.tint = Color.WHITE
         effCount?.text = (shelfIdx + 1).toString() + " / " + shelfKeys.size
-        effCount?.setTextColor(col)
-        effCount?.background = roundRect(Color.argb(150, 255, 255, 255), dp(12).toFloat(), lighten(col, 0.55f), dp(1))
+        effCount?.setTextColor(Color.WHITE)
+        effCount?.background = roundRect(Color.argb(110, 0, 0, 0), dp(12).toFloat(), Color.argb(150, 255, 255, 255), dp(1))
         effPrev?.text = if (shelfIdx > 0) "‹  " + keyLabel(shelfKeys[shelfIdx - 1]) else ""
         effNext?.text = if (shelfIdx < shelfKeys.size - 1) keyLabel(shelfKeys[shelfIdx + 1]) + "  ›" else ""
-        effPrev?.setTextColor(lighten(col, 0.1f))
-        effNext?.setTextColor(lighten(col, 0.1f))
+        effPrev?.setTextColor(Color.argb(230, 255, 255, 255))
+        effNext?.setTextColor(Color.argb(230, 255, 255, 255))
         for (i in effDots.indices) {
             val dot = effDots[i]
             val on = i == shelfIdx
@@ -701,12 +776,16 @@ class MainActivity : AppCompatActivity() {
                 dot.layoutParams = lp
             }
             val k = shelfKeys.getOrNull(i) ?: "all"
-            dot.background = roundRect(if (on) keyColor(k) else mixColor(keyColor(k), Color.WHITE, 0.55f), dp(3).toFloat())
+            dot.background = roundRect(if (on) Color.WHITE else Color.argb(110, 255, 255, 255), dp(3).toFloat())
         }
-        box.background = roundRect(soft, dp(22).toFloat(), lighten(col, 0.5f), dp(1))
+        effBanner?.setKey(key, if (key == "all") Palette.pink else Genres.byKey(key).primary, animate)
         if (animate) {
             effTitle?.alpha = 0f
             effTitle?.animate()?.alpha(1f)?.setDuration(240)?.start()
+            effTitle?.translationX = dp(22).toFloat()
+            effTitle?.animate()?.translationX(0f)?.setDuration(320)?.start()
+            effStats?.alpha = 0f
+            effStats?.animate()?.alpha(1f)?.setDuration(380)?.start()
             effSub?.alpha = 0f
             effSub?.animate()?.alpha(1f)?.setDuration(320)?.start()
             effSeal?.pop(1.25f)
@@ -948,16 +1027,23 @@ class MainActivity : AppCompatActivity() {
         top.addView(gb, lin(dp(46), dp(46), l = 6))
         col.addView(top, lin(MATCH, WRAP))
 
+        // painel de filtros (escondido; abre no botão "Filtros")
+        val fp = LinearLayout(this)
+        fp.orientation = LinearLayout.VERTICAL
+        fp.setPadding(0, dp(8), 0, 0)
+        fp.visibility = if (filtersOpen) View.VISIBLE else View.GONE
+        filterPanel = fp
+
         // status
         val statusOpts = ArrayList<Opt>()
         statusOpts.add(Opt("all", "Todos", Palette.pink, "heart"))
         statusOpts.add(Opt("fav", "Favoritos", Palette.pink, "star"))
         for (s in Statuses.all) statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
-        col.addView(chipScroller(statusOpts, statusFilter) {
+        fp.addView(chipScroller(statusOpts, statusFilter) {
             statusFilter = it
             refreshList()
             applyAtmos()
-        }, lin(MATCH, WRAP, t = 10))
+        }, lin(MATCH, WRAP))
 
         // gênero principal: os chips e o deslize para o lado andam juntos
         val genreOpts = ArrayList<Opt>()
@@ -970,41 +1056,52 @@ class MainActivity : AppCompatActivity() {
             if (i >= 0) goToPage(i)
         }
         genreChips = gchips
-        col.addView(gchips, lin(MATCH, WRAP, t = 6))
+        fp.addView(gchips, lin(MATCH, WRAP, t = 6))
 
-        // faixa do gênero aberto
+        // faixa do gênero aberto: a cena animada do tema fica por trás de tudo
+        val ebWrap = FrameLayout(this)
+        val banner = ShelfBanner(this)
+        ebWrap.addView(banner, FrameLayout.LayoutParams(MATCH, MATCH))
+        effBanner = banner
         val eb = LinearLayout(this)
         eb.orientation = LinearLayout.VERTICAL
-        eb.setPadding(dp(14), dp(12), dp(14), dp(10))
+        eb.setPadding(dp(16), dp(13), dp(16), dp(11))
+        eb.clipChildren = false
+        val shadow = Color.argb(150, 0, 0, 0)
         val r1 = LinearLayout(this)
         r1.orientation = LinearLayout.HORIZONTAL
         r1.gravity = Gravity.CENTER_VERTICAL
+        r1.clipChildren = false
         val eseal = SealView(this)
-        r1.addView(eseal, lin(dp(52), dp(52)))
+        r1.addView(eseal, lin(dp(62), dp(62)))
         effSeal = eseal
-        val ei = IconView(this, "heart", Palette.pink, 32)
+        val ei = IconView(this, "heart", Color.WHITE, 40)
         r1.addView(ei)
         val etx = LinearLayout(this)
         etx.orientation = LinearLayout.VERTICAL
-        val et = fitLabel("", 19f, Palette.pinkDark, true, true, 10f, true)
-        val es = fitLabel("", 12f, Palette.muted, false, false, 8f)
+        val et = fitLabel("", 23f, Color.WHITE, true, true, 11f, true)
+        et.setShadowLayer(dp(4).toFloat(), 0f, dp(1).toFloat(), shadow)
+        val es = fitLabel("", 12.5f, Color.argb(240, 255, 255, 255), false, false, 9f, true)
+        es.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), shadow)
         etx.addView(et, lin(MATCH, WRAP))
-        etx.addView(es, lin(MATCH, WRAP))
-        r1.addView(etx, lin(0, WRAP, 1f, l = 12))
-        val ec = label("", 12f, Palette.pinkDark, true)
+        etx.addView(es, lin(MATCH, WRAP, t = 1))
+        r1.addView(etx, lin(0, WRAP, 1f, l = 14))
+        val ec = label("", 12f, Color.WHITE, true)
         ec.setPadding(dp(10), dp(4), dp(10), dp(4))
         r1.addView(ec, lin(WRAP, WRAP, l = 8))
         eb.addView(r1, lin(MATCH, WRAP))
-        val est = fitLabel("", 12.5f, Palette.pinkDark, true, false, 8f, true)
-        eb.addView(est, lin(MATCH, WRAP, t = 8))
+        val est = fitLabel("", 12.5f, Color.WHITE, true, false, 8f, true)
+        est.setPadding(dp(11), dp(5), dp(11), dp(5))
+        est.background = roundRect(Color.argb(105, 0, 0, 0), dp(14).toFloat(), Color.argb(90, 255, 255, 255), dp(1))
+        eb.addView(est, lin(WRAP, WRAP, t = 10))
         val nav = LinearLayout(this)
         nav.orientation = LinearLayout.HORIZONTAL
-        val ep = label("", 11.5f, Palette.muted, true)
-        val en = label("", 11.5f, Palette.muted, true)
+        nav.gravity = Gravity.CENTER_VERTICAL
+        val ep = label("", 11.5f, Color.WHITE, true)
+        val en = label("", 11.5f, Color.WHITE, true)
+        ep.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), shadow)
+        en.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), shadow)
         en.gravity = Gravity.END
-        nav.addView(ep, lin(0, WRAP, 1f))
-        nav.addView(en, lin(0, WRAP, 1f))
-        eb.addView(nav, lin(MATCH, WRAP, t = 6))
         val dots = LinearLayout(this)
         dots.gravity = Gravity.CENTER_HORIZONTAL
         effDots.clear()
@@ -1013,7 +1110,11 @@ class MainActivity : AppCompatActivity() {
             effDots.add(dv)
             dots.addView(dv, lin(dp(if (i == shelfIdx) 18 else 6), dp(6), l = 2, r = 2))
         }
-        eb.addView(dots, lin(MATCH, WRAP, t = 8))
+        nav.addView(ep, lin(0, WRAP, 1f))
+        nav.addView(dots, lin(WRAP, WRAP, l = 6, r = 6))
+        nav.addView(en, lin(0, WRAP, 1f))
+        eb.addView(nav, lin(MATCH, WRAP, t = 10))
+        ebWrap.addView(eb, FrameLayout.LayoutParams(MATCH, WRAP))
         effBox = eb
         effIcon = ei
         effTitle = et
@@ -1022,7 +1123,7 @@ class MainActivity : AppCompatActivity() {
         effCount = ec
         effPrev = ep
         effNext = en
-        col.addView(eb, lin(MATCH, WRAP, t = 10))
+        col.addView(ebWrap, lin(MATCH, WRAP, t = 10))
         updateEffect(false)
 
         // contagem + limpar + ordenar
@@ -1031,7 +1132,15 @@ class MainActivity : AppCompatActivity() {
         info.gravity = Gravity.CENTER_VERTICAL
         val count = label("", 13f, Palette.muted, true)
         listInfo = count
+        count.maxLines = 1
         info.addView(count, lin(0, WRAP, 1f))
+        val fpill = pill("Filtros", Palette.card, Palette.pink, 12f, "filter")
+        filterPill = fpill
+        fpill.setOnClickListener {
+            fpill.pop(1.15f)
+            setFiltersOpen(!filtersOpen, true)
+        }
+        info.addView(fpill, lin(WRAP, WRAP, r = 6))
         val clr = pill("Limpar", Palette.pinkSoft, Palette.pinkDark, 12f, "close")
         clr.visibility = if (statusFilter != "all") View.VISIBLE else View.GONE
         clr.setOnClickListener {
@@ -1049,7 +1158,8 @@ class MainActivity : AppCompatActivity() {
             if (sortMode == 4) softToast("Segure um dorama e arraste para mudar a ordem", Palette.pink, "sort")
         }
         info.addView(sb, lin(WRAP, WRAP))
-        col.addView(info, lin(MATCH, WRAP, t = 8, b = 2))
+        col.addView(info, lin(MATCH, WRAP, t = 10, b = 2))
+        col.addView(fp, lin(MATCH, WRAP))
 
         // carrossel: cada página é um gênero principal
         val rv = RecyclerView(this)
@@ -1060,6 +1170,7 @@ class MainActivity : AppCompatActivity() {
         gb.setOnClickListener { switchView(true) }
 
         applyPager(rv)
+        styleFilterPill()
         updateClear()
         return col
     }

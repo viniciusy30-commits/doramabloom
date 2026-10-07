@@ -234,7 +234,11 @@ class DramaAdapter(
             tg.visibility = if (auto || line.isBlank()) View.GONE else View.VISIBLE
             tg.text = line
             tg.setTextColor(g.dark)
-            tg.setCompoundDrawables(tg.context.iconDrawable("sparkle", g.primary, tg.context.dp(13)), null, null, null)
+            tg.setCompoundDrawables(tg.context.iconDrawable("sparkle", g.primary, tg.context.dp(17)), null, null, null)
+            tg.background = roundRect(
+                mixColor(g.primary, Palette.card, 0.86f), tg.dp(16).toFloat(),
+                mixColor(g.primary, Palette.card, 0.55f), tg.dp(1)
+            )
         }
         val statsBox = h.stats
         if (statsBox != null) {
@@ -574,7 +578,8 @@ class DramaAdapter(
         // ---- informações e botão
         val info = LinearLayout(c)
         info.orientation = LinearLayout.VERTICAL
-        info.setPadding(c.dp(18), c.dp(14), c.dp(18), c.dp(16))
+        info.setPadding(c.dp(18), c.dp(10), c.dp(18), c.dp(14))
+        info.clipChildren = false
 
         // título e subtítulo ficam aqui embaixo, para não taparem a capa
         val title = c.label("", 23f, Palette.text, true, true)
@@ -586,18 +591,19 @@ class DramaAdapter(
         val sub = c.label("", 12.5f, Palette.muted)
         sub.maxLines = 1
         sub.ellipsize = TextUtils.TruncateAt.END
-        textCol.addView(sub, c.lin(MATCH, WRAP, t = 2, b = 4))
+        textCol.addView(sub, c.lin(MATCH, WRAP, t = 0, b = 6))
         // frase fofa do gênero
-        val tag = c.fitLabel("", 12f, Palette.muted, false, false, 8f)
-        tag.setTypeface(tag.typeface, android.graphics.Typeface.ITALIC)
-        tag.compoundDrawablePadding = c.dp(6)
-        textCol.addView(tag, c.lin(MATCH, WRAP))
+        val tag = c.fitLabel("", 16f, Palette.muted, true, true, 11f, true)
+        tag.setTypeface(tag.typeface, android.graphics.Typeface.BOLD_ITALIC)
+        tag.compoundDrawablePadding = c.dp(7)
+        tag.setPadding(c.dp(11), c.dp(6), c.dp(13), c.dp(6))
+        textCol.addView(tag, c.lin(WRAP, WRAP))
         val head = LinearLayout(c)
         head.orientation = LinearLayout.HORIZONTAL
         head.gravity = Gravity.CENTER_VERTICAL
         head.addView(textCol, c.lin(0, WRAP, 1f))
-        head.addView(seal, c.lin(c.dp(64), c.dp(64), l = 10, r = 2))
-        info.addView(head, c.lin(MATCH, WRAP, b = 10))
+        head.addView(seal, c.lin(c.dp(62), c.dp(62), l = 10, r = 0))
+        info.addView(head, c.lin(MATCH, WRAP, b = 8))
 
         val chips = LinearLayout(c)
         chips.orientation = LinearLayout.HORIZONTAL
@@ -624,7 +630,7 @@ class DramaAdapter(
         }
         // nota em corações do lado direito, na mesma linha do status e do streaming
         chips.addView(View(c), c.lin(0, c.dp(1), 1f))
-        val rating = RatingView(c, 17, false)
+        val rating = RatingView(c, 18, false)
         chips.addView(rating, c.lin(WRAP, WRAP))
         info.addView(chips, c.lin(MATCH, WRAP))
 
@@ -638,9 +644,9 @@ class DramaAdapter(
         val percent = c.label("", 12.5f, Color.WHITE, true)
         percent.setPadding(c.dp(10), c.dp(3), c.dp(10), c.dp(3))
         prow.addView(percent, c.lin(WRAP, WRAP))
-        info.addView(prow, c.lin(MATCH, WRAP, t = 14))
+        info.addView(prow, c.lin(MATCH, WRAP, t = 10))
         val bar = SoftBar(c)
-        info.addView(bar, c.lin(MATCH, c.dp(12), t = 7))
+        info.addView(bar, c.lin(MATCH, c.dp(12), t = 5))
 
         val plus = ShineText(c)
         plus.text = "Continuar assistindo"
@@ -650,9 +656,9 @@ class DramaAdapter(
         plus.gravity = Gravity.CENTER
         plus.setCompoundDrawables(c.iconDrawable("play", Color.WHITE, c.dp(19)), null, null, null)
         plus.compoundDrawablePadding = c.dp(8)
-        plus.setPadding(c.dp(18), c.dp(14), c.dp(18), c.dp(14))
+        plus.setPadding(c.dp(18), c.dp(12), c.dp(18), c.dp(12))
         plus.pressable()
-        info.addView(plus, c.lin(MATCH, WRAP, t = 14))
+        info.addView(plus, c.lin(MATCH, WRAP, t = 10))
         root.addView(info, c.lin(MATCH, WRAP))
 
         return VH(

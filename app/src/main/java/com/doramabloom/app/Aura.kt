@@ -366,21 +366,22 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
 
     /** Em volta da capa (nunca por cima dela): halo de luz, moldura dupla, enfeites e cometas correndo. */
     private fun drawSpotlight(c: Canvas, t: Float, gg: Genre) {
+        drawThemeMarks(c, t, gg)
         val pw = poster.width()
         val ph = poster.height()
-        val rad = max(pw, ph) * 0.95f
+        val rad = max(pw, ph) * 0.82f
         if (halo == null || Math.abs(haloR - rad) > 1f) {
             haloR = rad
             halo = RadialGradient(
                 0f, 0f, rad,
-                intArrayOf(al(Color.WHITE, 135f), al(tints[0], 95f), al(tints[0], 0f)),
+                intArrayOf(al(Color.WHITE, 62f), al(tints[0], 70f), al(tints[0], 0f)),
                 floatArrayOf(0.35f, 0.62f, 1f), Shader.TileMode.CLAMP
             )
         }
         val breathe = 0.5f + 0.5f * sin(t * 1.5f)
         p.style = Paint.Style.FILL
         p.shader = halo
-        p.alpha = (190f + 65f * breathe).toInt().coerceIn(0, 255)
+        p.alpha = (200f + 55f * breathe).toInt().coerceIn(0, 255)
         c.save()
         c.translate(poster.centerX(), poster.centerY())
         c.drawCircle(0f, 0f, rad, p)
@@ -390,12 +391,12 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
 
         // moldura dupla: uma borda de pérola e outra na cor do gênero
         p.style = Paint.Style.STROKE
-        grown.set(poster.left - 6f * u, poster.top - 6f * u, poster.right + 6f * u, poster.bottom + 6f * u)
+        grown.set(poster.left - 4f * u, poster.top - 4f * u, poster.right + 4f * u, poster.bottom + 4f * u)
         p.strokeWidth = 2f * u
         p.color = al(Color.WHITE, 150f + 70f * breathe)
-        c.drawRoundRect(grown, 26f * u, 26f * u, p)
-        grown.set(poster.left - 13f * u, poster.top - 13f * u, poster.right + 13f * u, poster.bottom + 13f * u)
-        val r2 = 33f * u
+        c.drawRoundRect(grown, 24f * u, 24f * u, p)
+        grown.set(poster.left - 8f * u, poster.top - 8f * u, poster.right + 8f * u, poster.bottom + 8f * u)
+        val r2 = 28f * u
         p.strokeWidth = 1.3f * u
         p.color = al(tints[0], 170f)
         c.drawRoundRect(grown, r2, r2, p)
@@ -405,7 +406,7 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
         val cxs = floatArrayOf(grown.left + k, grown.right - k, grown.left + k, grown.right - k)
         val cys = floatArrayOf(grown.top + k, grown.top + k, grown.bottom - k, grown.bottom - k)
         for (i in 0 until 4) {
-            val s = (13f + 2.5f * sin(t * 2.2f + i * 1.6f)) * u
+            val s = (14f + 2.5f * sin(t * 2.2f + i * 1.6f)) * u
             drawIcon(c, if (i % 2 == 0) gg.icon else "sparkle", al(Color.WHITE, 235f), cxs[i], cys[i], s, (if (i % 2 == 0) -12f else 12f) + 8f * sin(t * 1.3f + i))
         }
 
@@ -428,11 +429,22 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
                     ringStroke(c, len, head - tail * (f + 1f / parts), head - tail * f)
                 }
                 pmeas.getPosTan(head, ringPos, ringTan)
-                drawStar(c, ringPos[0], ringPos[1], 7.5f * u, t * 70f + kk * 40f, 1f)
+                drawStar(c, ringPos[0], ringPos[1], 6f * u, t * 70f + kk * 40f, 1f)
             }
             p.strokeCap = Paint.Cap.BUTT
         }
         p.style = Paint.Style.FILL
+    }
+
+    /** Símbolo único do tema em tamanho grande, flutuando atrás da capa (a capa fica de fora). */
+    private fun drawThemeMarks(c: Canvas, t: Float, gg: Genre) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val bob = 4f * sin(t * 0.7f)
+        drawIcon(c, gg.icon, al(Color.WHITE, 46f), w * 0.15f, h * 0.20f + bob * u, 170f * u, -14f + bob)
+        drawIcon(c, gg.icon, al(tints[0], 70f), w * 0.88f, h * 0.80f - bob * u, 150f * u, 12f - bob)
+        drawIcon(c, gg.icon, al(Color.WHITE, 70f), w * 0.90f, h * 0.17f, 54f * u, 10f + bob)
+        drawIcon(c, gg.icon, al(Color.WHITE, 60f), w * 0.09f, h * 0.84f, 46f * u, -10f - bob)
     }
 
     /** Por cima da capa: brilho de foto revelada e, de tempos em tempos, um reflexo de luz passando. */

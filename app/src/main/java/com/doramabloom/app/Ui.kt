@@ -727,14 +727,19 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
         ) {
             val w = MeasureSpec.getSize(widthMeasureSpec)
             val h = MeasureSpec.getSize(heightMeasureSpec)
-            val pad = dp(14)
-            val availW = w - 2 * pad - 2 * border
-            val availH = h - 2 * pad - 2 * border
+            // margens pequenas: a capa ocupa quase tudo, mas a moldura e os enfeites dos cantos cabem sem cortar
+            val padX = dp(18)
+            val padTop = dp(18)
+            val padBottom = dp(26)
+            val availW = w - 2 * padX - 2 * border
+            val availH = h - padTop - padBottom - 2 * border
             if (availW > 0 && availH > 0) {
                 val sc = minOf(availW.toFloat() / bw, availH.toFloat() / bh)
                 val lp = img.layoutParams as FrameLayout.LayoutParams
                 lp.width = maxOf(1, (bw * sc).toInt()) + 2 * border
                 lp.height = maxOf(1, (bh * sc).toInt()) + 2 * border
+                lp.gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+                lp.topMargin = padTop + maxOf(0, (availH - (lp.height - 2 * border)) / 2)
             }
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)

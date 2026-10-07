@@ -1,3 +1,18 @@
+#id 2026-10-07-zd
+#titulo Estante: filtros escondidos e faixa do tema animada
+- Filtros: os chips de status e de gênero ficam escondidos. Toque em "Filtros" (ao lado de Ordenar) para abrir e fechar, com animação. O botão fica colorido quando o painel está aberto ou tem filtro ligado.
+- Faixa de cada tema: agora tem a cena animada exclusiva do gênero por trás (cemitério do Terror, castelo, cidade e por aí vai), com o símbolo do tema grande balançando, estrelinhas cintilando, reflexo de luz passando e borda na cor do tema.
+- Ao deslizar de um gênero para outro, a cena antiga some devagar enquanto a nova aparece, o título desliza e o selo balança de leve.
+- Os números do gênero viraram uma etiqueta, e os vizinhos e as bolinhas de página ficaram numa linha só.
+
+#id 2026-10-07-zc
+#titulo Início redesenhado: capa maior e tema com mais destaque
+- Saudação: ficou fininha e agora usa a cor do tema do dorama em destaque (muda junto quando você desliza), com o símbolo do gênero de enfeite.
+- O cartão do dorama subiu e ganhou mais altura, então a capa ficou bem maior.
+- Capa: margens menores e moldura mais juntinha, sem corte nas pontas e nos cantos.
+- Fundo do tema: o halo de luz ficou mais leve para a cena do gênero aparecer, e o símbolo do tema flutua grande atrás da capa.
+- A frase do gênero agora é um balão maior, na cor do tema, em duas linhas se precisar.
+
 #id 2026-10-07-zb
 #titulo Início com a capa em destaque e cartão refeito
 - Capa: agora ela brilha de verdade. Um halo de luz respira em volta, uma moldura dupla (borda de pérola e outra na cor do gênero) com enfeites nos cantos, dois cometas de luz correndo pela moldura, brilho de foto revelada e um reflexo de luz que passa pela capa de tempos em tempos. A sombra da capa agora tem a cor do gênero. Saíram as folhas inclinadas de trás.
