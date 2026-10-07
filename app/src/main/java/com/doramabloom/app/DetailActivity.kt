@@ -1132,13 +1132,11 @@ class DetailActivity : AppCompatActivity() {
         )
         c.addView(head, lin(MATCH, WRAP, l = 18, r = 18))
 
-        val hs = HorizontalScrollView(this)
+        val hs = FadeScrollView(this, dp(30).toFloat())
         hs.isHorizontalScrollBarEnabled = false
         hs.clipToPadding = false
         hs.setPadding(dp(18), dp(16), dp(8), dp(2))
-        // as bordas da fileira somem suavemente (em vez de cortar seco) enquanto você arrasta
-        hs.isHorizontalFadingEdgeEnabled = true
-        hs.setFadingEdgeLength(dp(30))
+        // as pontas da fileira somem suavemente (degradê próprio, sem faixa) enquanto você arrasta
         hs.overScrollMode = View.OVER_SCROLL_NEVER
         swipeBlocks.add(hs)
         val row = LinearLayout(this)

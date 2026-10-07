@@ -765,3 +765,48 @@ private fun coupleNames(raw: String): String {
     }
     return s
 }
+
+
+/**
+ * Fileira que rola para o lado e apaga as pontas com um degradê de verdade (some para transparente,
+ * deixando aparecer o fundo do cartão). O esmaecer nativo do Android desenha uma faixa por cima; este não.
+ */
+class FadeScrollView(ctx: Context, private val fadeW: Float) : android.widget.HorizontalScrollView(ctx) {
+    private val erase = Paint().apply { xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_OUT) }
+    private val leftShader = LinearGradient(0f, 0f, fadeW, 0f, Color.BLACK, Color.TRANSPARENT, Shader.TileMode.CLAMP)
+    private val rightShader = LinearGradient(0f, 0f, fadeW, 0f, Color.TRANSPARENT, Color.BLACK, Shader.TileMode.CLAMP)
+
+    override fun dispatchDraw(c: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (w <= 0f || h <= 0f || childCount == 0) {
+            super.dispatchDraw(c)
+            return
+        }
+        // o canvas já vem deslocado pela rolagem: desenhamos a camada na janela visível
+        val sx = scrollX.toFloat()
+        val layer = c.saveLayer(sx, 0f, sx + w, h, null)
+        super.dispatchDraw(c)
+        val maxScroll = (computeHorizontalScrollRange() - width).coerceAtLeast(0)
+        val left = (sx / fadeW).coerceIn(0f, 1f)
+        val right = ((maxScroll - sx) / fadeW).coerceIn(0f, 1f)
+        if (left > 0f) {
+            c.save()
+            c.translate(sx, 0f)
+            erase.shader = leftShader
+            erase.alpha = (255 * left).toInt()
+            c.drawRect(0f, 0f, fadeW, h, erase)
+            c.restore()
+        }
+        if (right > 0f) {
+            c.save()
+            c.translate(sx + w - fadeW, 0f)
+            erase.shader = rightShader
+            erase.alpha = (255 * right).toInt()
+            c.drawRect(0f, 0f, fadeW, h, erase)
+            c.restore()
+        }
+        erase.shader = null
+        c.restoreToCount(layer)
+    }
+}
