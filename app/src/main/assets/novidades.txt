@@ -1,3 +1,13 @@
+#id 2026-10-07-n
+#titulo Fotos do elenco e do casal
+- Na edição, o elenco virou uma lista: cada ator ou atriz tem nome e uma foto (toque no círculo para escolher). O casal favorito também tem foto.
+- Na tela do dorama aparece o cartão "Elenco", com as fotinhas redondas e o nome embaixo de cada uma, e o cartão "Casal favorito" com a foto grande.
+
+#id 2026-10-07-m
+#titulo Trilha sonora de cada dorama
+- Na edição do dorama tem o cartão "Trilha sonora": escolha o arquivo de áudio que você baixou.
+- Na tela do dorama aparece um player com play e pause e uma barrinha de progresso. A música para sozinha quando você sai da tela.
+
 #id 2026-10-07-l
 #titulo Cores mescladas mais vivas na Estante
 - Os gêneros com cores mescladas (como o LGBTQ+) agora aparecem com as cores vivas também na lista e na grade da Estante.

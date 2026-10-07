@@ -291,6 +291,9 @@ val countries: List<String> = listOf(
     "Coreia do Sul", "Japão", "China", "Tailândia", "Taiwan", "Outro"
 )
 
+/** Ator ou atriz do elenco, com foto opcional (caminho do arquivo no app). */
+data class Person(val name: String, val photo: String)
+
 data class Drama(
     var id: Long,
     var title: String,
@@ -323,7 +326,13 @@ data class Drama(
     /** Até 2 gêneros extras que aparecem no cartão da Estante (vazio = os 2 primeiros). */
     var shelfTags: List<String> = emptyList(),
     /** "serie" ou "filme". */
-    var kind: String = "serie"
+    var kind: String = "serie",
+    /** Arquivo da trilha sonora (copiado para a pasta do app) e o nome para mostrar. */
+    var soundtrack: String = "",
+    var soundtrackName: String = "",
+    /** Elenco com fotos e a foto do casal favorito. */
+    var castPeople: List<Person> = emptyList(),
+    var couplePhoto: String = ""
 )
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
@@ -490,6 +499,17 @@ private fun Drama.toJson(): JSONObject {
     for (t in shelfTags) sa.put(t)
     o.put("shelfTags", sa)
     o.put("kind", kind)
+    o.put("soundtrack", soundtrack)
+    o.put("soundtrackName", soundtrackName)
+    val pa = JSONArray()
+    for (p in castPeople) {
+        val po = JSONObject()
+        po.put("name", p.name)
+        po.put("photo", p.photo)
+        pa.put(po)
+    }
+    o.put("castPeople", pa)
+    o.put("couplePhoto", couplePhoto)
     o.put("status", status)
     o.put("score", score)
     o.put("seasonEps", intsToJson(seasonEps))
@@ -511,6 +531,25 @@ private fun Drama.toJson(): JSONObject {
     o.put("watchSeason", watchSeason)
     o.put("order", order)
     return o
+}
+
+/** Lê o elenco com fotos; se for um dorama antigo (só o texto do elenco), separa os nomes por vírgula. */
+private fun parsePeople(a: JSONArray?, castText: String): List<Person> {
+    val r = ArrayList<Person>()
+    if (a != null) {
+        for (i in 0 until a.length()) {
+            val po = a.optJSONObject(i) ?: continue
+            val n = po.optString("name", "").trim()
+            if (n.isNotEmpty()) r.add(Person(n, po.optString("photo", "")))
+        }
+    }
+    if (r.isEmpty() && castText.isNotBlank()) {
+        for (n in castText.split(",", ";")) {
+            val t = n.trim()
+            if (t.isNotEmpty()) r.add(Person(t, ""))
+        }
+    }
+    return r
 }
 
 private fun dramaFromJson(o: JSONObject): Drama {
@@ -551,7 +590,11 @@ private fun dramaFromJson(o: JSONObject): Drama {
         watchSeason = o.optInt("watchSeason", -1),
         order = o.optLong("order", 0L),
         shelfTags = jsonStrings(o.optJSONArray("shelfTags")),
-        kind = if (o.optString("kind", "serie") == "filme") "filme" else "serie"
+        kind = if (o.optString("kind", "serie") == "filme") "filme" else "serie",
+        soundtrack = o.optString("soundtrack", ""),
+        soundtrackName = o.optString("soundtrackName", ""),
+        castPeople = parsePeople(o.optJSONArray("castPeople"), o.optString("cast", "")),
+        couplePhoto = o.optString("couplePhoto", "")
     )
     normalize(d)
     return d
@@ -944,6 +987,26 @@ object Store {
             }
             Covers.clear()
         }
+        for (p in d.castPeople) {
+            if (p.photo.isNotEmpty()) {
+                try {
+                    File(p.photo).delete()
+                } catch (e: Exception) {
+                }
+            }
+        }
+        if (d.couplePhoto.isNotEmpty()) {
+            try {
+                File(d.couplePhoto).delete()
+            } catch (e: Exception) {
+            }
+        }
+        if (d.soundtrack.isNotEmpty()) {
+            try {
+                File(d.soundtrack).delete()
+            } catch (e: Exception) {
+            }
+        }
         list.removeAll { it.id == id }
         persist()
     }
@@ -1028,6 +1091,17 @@ object Store {
         for (d in list) {
             val o = d.toJson()
             o.put("cover", "")
+            o.put("soundtrack", "")
+            o.put("soundtrackName", "")
+            val pn = JSONArray()
+            for (p in d.castPeople) {
+                val po = JSONObject()
+                po.put("name", p.name)
+                po.put("photo", "")
+                pn.put(po)
+            }
+            o.put("castPeople", pn)
+            o.put("couplePhoto", "")
             arr.put(o)
         }
         val ga = JSONArray()
@@ -1086,6 +1160,10 @@ object Store {
                 if (d.title.isBlank()) continue
                 if (list.any { it.title.equals(d.title, true) && it.year == d.year }) continue
                 d.cover = ""
+                d.soundtrack = ""
+                d.soundtrackName = ""
+                d.castPeople = d.castPeople.map { Person(it.name, "") }
+                d.couplePhoto = ""
                 d.id = System.currentTimeMillis() + i
                 list.add(d)
                 n++
@@ -1126,6 +1204,33 @@ object Store {
             val files = ArrayList<Pair<String, File>>()
             for (d in dramas) {
                 val o = d.toJson()
+                o.put("soundtrack", "")
+                o.put("soundtrackName", "")
+                val pa = JSONArray()
+                var pi = 0
+                for (p in d.castPeople) {
+                    val po = JSONObject()
+                    po.put("name", p.name)
+                    val pf = if (p.photo.isNotEmpty()) File(p.photo) else null
+                    if (pf != null && pf.exists()) {
+                        val pn = "people/" + d.id + "_" + pi + ".jpg"
+                        po.put("photo", pn)
+                        files.add(Pair(pn, pf))
+                    } else {
+                        po.put("photo", "")
+                    }
+                    pa.put(po)
+                    pi++
+                }
+                o.put("castPeople", pa)
+                val cf = if (d.couplePhoto.isNotEmpty()) File(d.couplePhoto) else null
+                if (cf != null && cf.exists()) {
+                    val cn = "people/" + d.id + "_c.jpg"
+                    o.put("couplePhoto", cn)
+                    files.add(Pair(cn, cf))
+                } else {
+                    o.put("couplePhoto", "")
+                }
                 val f = if (d.cover.isNotEmpty()) File(d.cover) else null
                 if (f != null && f.exists()) {
                     val name = "covers/" + d.id + ".jpg"
@@ -1219,7 +1324,7 @@ object Store {
                         val data = z.readBytes()
                         if (e.name == "backup.json") {
                             jsonText = String(data, Charsets.UTF_8)
-                        } else if (e.name.startsWith("covers/")) {
+                        } else if (e.name.startsWith("covers/") || e.name.startsWith("people/")) {
                             covers[e.name] = data
                         }
                     }
@@ -1264,6 +1369,29 @@ object Store {
                 }
                 used.add(d.id)
                 d.cover = ""
+                d.soundtrack = ""
+                d.soundtrackName = ""
+                val pdir = File(appContext.filesDir, "people")
+                pdir.mkdirs()
+                val novasPessoas = ArrayList<Person>()
+                for ((pj, p) in d.castPeople.withIndex()) {
+                    var np = ""
+                    val pd = covers[p.photo]
+                    if (pd != null && pd.isNotEmpty()) {
+                        val pf = File(pdir, "p" + stamp + "_" + i + "_" + pj + ".jpg")
+                        FileOutputStream(pf).use { it.write(pd) }
+                        np = pf.absolutePath
+                    }
+                    novasPessoas.add(Person(p.name, np))
+                }
+                d.castPeople = novasPessoas
+                val cd = covers[d.couplePhoto]
+                d.couplePhoto = ""
+                if (cd != null && cd.isNotEmpty()) {
+                    val cf = File(pdir, "p" + stamp + "_" + i + "_c.jpg")
+                    FileOutputStream(cf).use { it.write(cd) }
+                    d.couplePhoto = cf.absolutePath
+                }
                 val data = covers[keep[i].second]
                 if (data != null && data.isNotEmpty()) {
                     val f = File(dir, "c" + stamp + "_" + i + ".jpg")
@@ -1277,6 +1405,20 @@ object Store {
                 val novas = HashSet<String>()
                 for (p in keep) novas.add(p.first.cover)
                 for (d in list) {
+                    for (p in d.castPeople) {
+                        if (p.photo.isNotEmpty()) {
+                            try {
+                                File(p.photo).delete()
+                            } catch (e: Exception) {
+                            }
+                        }
+                    }
+                    if (d.couplePhoto.isNotEmpty()) {
+                        try {
+                            File(d.couplePhoto).delete()
+                        } catch (e: Exception) {
+                        }
+                    }
                     if (d.cover.isNotEmpty() && !novas.contains(d.cover)) {
                         try {
                             File(d.cover).delete()
@@ -1350,15 +1492,39 @@ object Store {
         }
     }
 
+    /** Copia a trilha sonora escolhida para a pasta do app. Devolve (caminho, nome) ou null se der erro. */
+    fun saveSound(uri: Uri): Pair<String, String>? {
+        return try {
+            val cr = appContext.contentResolver
+            var name = ""
+            try {
+                cr.query(uri, null, null, null, null)?.use { c ->
+                    val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (i >= 0 && c.moveToFirst()) name = c.getString(i) ?: ""
+                }
+            } catch (e: Exception) {
+            }
+            val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }.take(5).ifEmpty { "mp3" }
+            val dir = File(appContext.filesDir, "ost")
+            dir.mkdirs()
+            val f = File(dir, "t" + System.currentTimeMillis() + "." + ext)
+            val input = cr.openInputStream(uri) ?: return null
+            input.use { ins -> FileOutputStream(f).use { out -> ins.copyTo(out) } }
+            Pair(f.absolutePath, name.ifEmpty { "Trilha sonora" })
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /** Copia a imagem escolhida para a pasta do app (reduzida) e devolve o caminho. */
-    fun saveCover(uri: Uri): String? {
+    fun saveCover(uri: Uri, dirName: String = "covers", prefix: String = "c", maxPx: Int = 1400): String? {
         return try {
             val cr = appContext.contentResolver
             val bounds = BitmapFactory.Options()
             bounds.inJustDecodeBounds = true
             cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
             var sample = 1
-            while (bounds.outWidth / sample > 1400 || bounds.outHeight / sample > 1400) sample *= 2
+            while (bounds.outWidth / sample > maxPx || bounds.outHeight / sample > maxPx) sample *= 2
             val opts = BitmapFactory.Options()
             opts.inSampleSize = sample
             var bmp: Bitmap = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return null
@@ -1381,9 +1547,9 @@ object Store {
                 m.postRotate(rot.toFloat())
                 bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
             }
-            val dir = File(appContext.filesDir, "covers")
+            val dir = File(appContext.filesDir, dirName)
             dir.mkdirs()
-            val f = File(dir, "c" + System.currentTimeMillis() + ".jpg")
+            val f = File(dir, prefix + System.currentTimeMillis() + ".jpg")
             FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 88, it) }
             f.absolutePath
         } catch (e: Exception) {

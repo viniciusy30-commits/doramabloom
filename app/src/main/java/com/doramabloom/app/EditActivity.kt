@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
+import android.text.TextUtils
 import android.view.Gravity
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -26,6 +27,10 @@ class EditActivity : AppCompatActivity() {
     private var existing: Drama? = null
     private var coverPath = ""
     private var originalCover = ""
+    private var soundPath = ""
+    private var soundName = ""
+    private var originalSound = ""
+    private lateinit var soundLabel: TextView
     private var genreKey = "romance"
     private var tags = HashSet<String>()
     private val shelfPick = ArrayList<String>() // até 2 gêneros extras que aparecem na Estante
@@ -60,7 +65,15 @@ class EditActivity : AppCompatActivity() {
     private lateinit var platformIn: EditText
     private lateinit var linkIn: EditText
     private lateinit var yearIn: EditText
-    private lateinit var castIn: EditText
+    // elenco com foto: cada pessoa tem nome e (opcional) foto; o casal tem nomes e uma foto
+    private class PS(var name: String, var photo: String)
+    private val peopleState = ArrayList<PS>()
+    private val peopleEdits = ArrayList<EditText>()
+    private lateinit var castBox: LinearLayout
+    private lateinit var coupleBox: LinearLayout
+    private var couplePhoto = ""
+    private val originalPhotos = HashSet<String>()
+    private var pickTarget = -2 // -1 = casal, 0 em diante = posição na lista do elenco
     private lateinit var coupleIn: EditText
     private lateinit var notesIn: EditText
 
@@ -74,6 +87,15 @@ class EditActivity : AppCompatActivity() {
         if (ex != null) {
             coverPath = ex.cover
             originalCover = ex.cover
+            soundPath = ex.soundtrack
+            soundName = ex.soundtrackName
+            originalSound = ex.soundtrack
+            for (p in ex.castPeople) {
+                peopleState.add(PS(p.name, p.photo))
+                if (p.photo.isNotEmpty()) originalPhotos.add(p.photo)
+            }
+            couplePhoto = ex.couplePhoto
+            if (ex.couplePhoto.isNotEmpty()) originalPhotos.add(ex.couplePhoto)
             genreKey = ex.genre
             tags = HashSet(ex.tags)
             shelfPick.addAll(ex.shelfTags)
@@ -315,12 +337,62 @@ class EditActivity : AppCompatActivity() {
         val c6 = card(14, 24)
         c6.addView(sectionTitle("Elenco e casal", "person"))
         c6.addView(fieldLabel("Elenco"))
-        castIn = input("Atores e atrizes favoritos", ex?.cast ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
-        c6.addView(castIn, lin(MATCH, WRAP))
+        c6.addView(
+            label("Coloque o nome de cada ator ou atriz. Toque no círculo para escolher a foto: ela aparece com o nome embaixo na tela do dorama.", 11.5f, Palette.muted),
+            lin(MATCH, WRAP, b = 6)
+        )
+        castBox = LinearLayout(this)
+        castBox.orientation = LinearLayout.VERTICAL
+        c6.addView(castBox, lin(MATCH, WRAP))
+        val addPerson = pill("Adicionar ator ou atriz", Palette.pink, Color.WHITE, 13f, "add")
+        addPerson.setOnClickListener {
+            syncNames()
+            if (peopleState.size < 30) {
+                peopleState.add(PS("", ""))
+                rebuildCast()
+                peopleEdits.lastOrNull()?.requestFocus()
+            }
+        }
+        c6.addView(addPerson, lin(WRAP, WRAP, t = 8))
+        rebuildCast()
+
         c6.addView(fieldLabel("Casal favorito"))
         coupleIn = input("Quem formou o casal que você shippa?", ex?.couple ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         c6.addView(coupleIn, lin(MATCH, WRAP))
+        coupleBox = LinearLayout(this)
+        coupleBox.orientation = LinearLayout.HORIZONTAL
+        coupleBox.gravity = Gravity.CENTER_VERTICAL
+        coupleBox.setPadding(0, dp(10), 0, 0)
+        c6.addView(coupleBox, lin(MATCH, WRAP))
+        refreshCouple()
         col.addView(c6, lin(MATCH, WRAP, t = 12))
+
+        // ---------------- trilha sonora
+        val cm = card(14, 24)
+        cm.addView(sectionTitle("Trilha sonora", "music"))
+        soundLabel = label("", 12.5f, Palette.text, true)
+        soundLabel.maxLines = 2
+        soundLabel.ellipsize = TextUtils.TruncateAt.END
+        cm.addView(soundLabel, lin(MATCH, WRAP, b = 10))
+        val soundBtns = LinearLayout(this)
+        soundBtns.orientation = LinearLayout.HORIZONTAL
+        soundBtns.gravity = Gravity.CENTER_VERTICAL
+        val pickS = pill("Escolher trilha", Palette.pink, Color.WHITE, 13f, "music")
+        pickS.setOnClickListener { pickSound() }
+        val clearS = pill("Remover", Palette.card, Palette.pink, 12f, "close")
+        clearS.background = roundRect(Palette.card, dp(20).toFloat(), Palette.pink, dp(1))
+        clearS.setOnClickListener {
+            if (soundPath.isNotEmpty() && soundPath != originalSound) File(soundPath).delete()
+            soundPath = ""
+            soundName = ""
+            refreshSound()
+        }
+        soundBtns.addView(pickS, lin(WRAP, WRAP))
+        soundBtns.addView(clearS, lin(WRAP, WRAP, l = 8))
+        cm.addView(soundBtns, lin(MATCH, WRAP))
+        cm.addView(label("Escolha o arquivo de áudio que você baixou (mp3, m4a...). Ele toca na tela do dorama e para quando você sai de lá.", 11.5f, Palette.muted), lin(MATCH, WRAP, t = 8))
+        col.addView(cm, lin(MATCH, WRAP, t = 12))
+        refreshSound()
 
         // ---------------- textos
         val c7 = card(14, 24)
@@ -585,6 +657,99 @@ class EditActivity : AppCompatActivity() {
         coverSeal.set(Genres.byKey(genreKey))
     }
 
+    private fun syncNames() {
+        for (i in peopleState.indices) {
+            val et = peopleEdits.getOrNull(i) ?: continue
+            peopleState[i].name = et.text.toString()
+        }
+    }
+
+    private fun dropPhoto(path: String) {
+        if (path.isNotEmpty() && !originalPhotos.contains(path)) {
+            try {
+                File(path).delete()
+            } catch (e: Exception) {
+            }
+        }
+    }
+
+    private fun rebuildCast() {
+        syncNames()
+        if (peopleState.isEmpty()) peopleState.add(PS("", ""))
+        castBox.removeAllViews()
+        peopleEdits.clear()
+        for (i in peopleState.indices) {
+            val ps = peopleState[i]
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.setPadding(0, dp(6), 0, dp(6))
+            val av = avatarView(ps.photo, 58, Palette.pink, Palette.pinkSoft, Palette.pink)
+            av.setOnClickListener {
+                syncNames()
+                pickTarget = i
+                pickPhoto()
+            }
+            av.pressable(0.92f)
+            row.addView(av, lin(dp(58), dp(58), r = 12))
+            val et = input("Nome do ator ou atriz", ps.name, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+            et.setSingleLine(true)
+            peopleEdits.add(et)
+            row.addView(et, lin(0, WRAP, 1f))
+            row.addView(roundBtn("close", Palette.pink, false, 14) {
+                syncNames()
+                dropPhoto(peopleState[i].photo)
+                peopleState.removeAt(i)
+                rebuildCast()
+            }, lin(dp(32), dp(32), l = 8))
+            castBox.addView(row, lin(MATCH, WRAP))
+        }
+    }
+
+    private fun refreshCouple() {
+        coupleBox.removeAllViews()
+        val av = avatarView(couplePhoto, 76, Palette.pink, Palette.pinkSoft, Palette.pink, "heart", true)
+        av.setOnClickListener {
+            pickTarget = -1
+            pickPhoto()
+        }
+        av.pressable(0.94f)
+        coupleBox.addView(av, lin(dp(76), dp(76), r = 14))
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.addView(label("Foto do casal", 13f, Palette.text, true))
+        col.addView(label("Toque na foto para escolher uma da galeria", 11.5f, Palette.muted), lin(MATCH, WRAP, t = 2))
+        if (couplePhoto.isNotEmpty()) {
+            val rm = pill("Remover foto", Palette.card, Palette.pink, 12f, "close")
+            rm.background = roundRect(Palette.card, dp(20).toFloat(), Palette.pink, dp(1))
+            rm.setOnClickListener {
+                dropPhoto(couplePhoto)
+                couplePhoto = ""
+                refreshCouple()
+            }
+            col.addView(rm, lin(WRAP, WRAP, t = 8))
+        }
+        coupleBox.addView(col, lin(0, WRAP, 1f))
+    }
+
+    private fun pickPhoto() {
+        val i = Intent(Intent.ACTION_GET_CONTENT)
+        i.type = "image/*"
+        i.addCategory(Intent.CATEGORY_OPENABLE)
+        startActivityForResult(Intent.createChooser(i, "Escolher foto"), 103)
+    }
+
+    private fun refreshSound() {
+        soundLabel.text = if (soundPath.isEmpty()) "Nenhuma trilha escolhida" else soundName.ifEmpty { "Trilha sonora" }
+    }
+
+    private fun pickSound() {
+        val i = Intent(Intent.ACTION_GET_CONTENT)
+        i.type = "audio/*"
+        i.addCategory(Intent.CATEGORY_OPENABLE)
+        startActivityForResult(Intent.createChooser(i, "Escolher trilha sonora"), 102)
+    }
+
     private fun pickCover() {
         val i = Intent(Intent.ACTION_GET_CONTENT)
         i.type = "image/*"
@@ -594,6 +759,48 @@ class EditActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 103 && resultCode == android.app.Activity.RESULT_OK) {
+            val uri = data?.data
+            if (uri != null) {
+                val p = Store.saveCover(uri, "people", "p", 700)
+                if (p == null) {
+                    Toast.makeText(this, "Não consegui abrir essa imagem.", Toast.LENGTH_SHORT).show()
+                } else if (pickTarget == -1) {
+                    dropPhoto(couplePhoto)
+                    couplePhoto = p
+                    refreshCouple()
+                } else if (pickTarget >= 0 && pickTarget < peopleState.size) {
+                    dropPhoto(peopleState[pickTarget].photo)
+                    peopleState[pickTarget].photo = p
+                    rebuildCast()
+                } else {
+                    File(p).delete()
+                }
+            }
+        }
+        if (requestCode == 102 && resultCode == android.app.Activity.RESULT_OK) {
+            val uri = data?.data
+            if (uri != null) {
+                Toast.makeText(this, "Copiando a trilha...", Toast.LENGTH_SHORT).show()
+                Thread {
+                    val r = Store.saveSound(uri)
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) {
+                            if (r != null) File(r.first).delete()
+                            return@runOnUiThread
+                        }
+                        if (r != null) {
+                            if (soundPath.isNotEmpty() && soundPath != originalSound) File(soundPath).delete()
+                            soundPath = r.first
+                            soundName = r.second
+                            refreshSound()
+                        } else {
+                            Toast.makeText(this, "Não consegui abrir esse arquivo.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }.start()
+            }
+        }
         if (requestCode == 101 && resultCode == android.app.Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
@@ -616,6 +823,12 @@ class EditActivity : AppCompatActivity() {
             titleIn.requestFocus()
             return
         }
+        syncNames()
+        val people = ArrayList<Person>()
+        for (ps in peopleState) {
+            val n = ps.name.trim()
+            if (n.isNotEmpty()) people.add(Person(n, ps.photo)) else dropPhoto(ps.photo)
+        }
         val old = existing
         var newLink = linkIn.text.toString().trim()
         if (newLink.isNotEmpty() && !newLink.startsWith("http://") && !newLink.startsWith("https://")) newLink = "https://$newLink"
@@ -629,14 +842,18 @@ class EditActivity : AppCompatActivity() {
             tags = tags.filter { it != genreKey },
             status = statusKey,
             kind = kindKey,
+            soundtrack = soundPath,
+            soundtrackName = soundName,
             score = score,
             seasonEps = ArrayList(seasonTotals),
             watched = ArrayList(seasonWatched),
             epMinutes = minutesIn.text.toString().toIntOrNull() ?: 0,
             year = yearIn.text.toString().trim(),
             platform = platformIn.text.toString().trim(),
-            cast = castIn.text.toString().trim(),
+            cast = people.joinToString(", ") { it.name },
             couple = coupleIn.text.toString().trim(),
+            castPeople = people,
+            couplePhoto = couplePhoto,
             startDate = startDate,
             endDate = endDate,
             rewatch = rewatch,
@@ -664,6 +881,23 @@ class EditActivity : AppCompatActivity() {
             }
             Covers.clear()
         }
+        if (originalSound.isNotEmpty() && originalSound != soundPath) {
+            try {
+                File(originalSound).delete()
+            } catch (e: Exception) {
+            }
+        }
+        val finalPhotos = HashSet<String>()
+        for (p in people) if (p.photo.isNotEmpty()) finalPhotos.add(p.photo)
+        if (couplePhoto.isNotEmpty()) finalPhotos.add(couplePhoto)
+        for (p in originalPhotos) {
+            if (!finalPhotos.contains(p)) {
+                try {
+                    File(p).delete()
+                } catch (e: Exception) {
+                }
+            }
+        }
         saved = true
         Store.save(d)
         Toast.makeText(this, "Salvo com carinho!", Toast.LENGTH_SHORT).show()
@@ -672,6 +906,16 @@ class EditActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (!saved) {
+            for (ps in peopleState) dropPhoto(ps.photo)
+            dropPhoto(couplePhoto)
+        }
+        if (!saved && soundPath.isNotEmpty() && soundPath != originalSound) {
+            try {
+                File(soundPath).delete()
+            } catch (e: Exception) {
+            }
+        }
         if (!saved && coverPath.isNotEmpty() && coverPath != originalCover) {
             try {
                 File(coverPath).delete()
