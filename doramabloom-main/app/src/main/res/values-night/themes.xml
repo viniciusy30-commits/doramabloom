@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DoramaBloom" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#FF6B9D</item>
+        <item name="colorPrimaryVariant">#E0487F</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#FFB6CF</item>
+        <item name="android:statusBarColor">#1A1219</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#120D14</item>
+        <item name="android:windowBackground">#1A1219</item>
+    </style>
+</resources>
