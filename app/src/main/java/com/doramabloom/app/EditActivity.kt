@@ -56,7 +56,18 @@ class EditActivity : AppCompatActivity() {
     private lateinit var minutesIn: EditText
     private lateinit var platformIn: EditText
     private lateinit var yearIn: EditText
-    private lateinit var castIn: EditText
+    private var kind = "serie"
+    private var soundtrackPath = ""
+    private var couplePhotoPath = ""
+    private val castList = ArrayList<CastPerson>()
+    private var pendingCast = -1
+    private val createdFiles = ArrayList<String>()
+    private val originalFiles = HashSet<String>()
+    private lateinit var castBox: LinearLayout
+    private lateinit var coupleBox: FrameLayout
+    private lateinit var soundtrackTv: TextView
+    private lateinit var serieBtn: TextView
+    private lateinit var filmeBtn: TextView
     private lateinit var coupleIn: EditText
     private lateinit var notesIn: EditText
 
@@ -69,6 +80,13 @@ class EditActivity : AppCompatActivity() {
         val ex = existing
         if (ex != null) {
             coverPath = ex.cover
+            kind = ex.kind
+            soundtrackPath = ex.soundtrack
+            couplePhotoPath = ex.couplePhoto
+            for (p in ex.castPeople) castList.add(CastPerson(p.name, p.photo))
+            if (ex.soundtrack.isNotEmpty()) originalFiles.add(ex.soundtrack)
+            if (ex.couplePhoto.isNotEmpty()) originalFiles.add(ex.couplePhoto)
+            for (p in ex.castPeople) if (p.photo.isNotEmpty()) originalFiles.add(p.photo)
             originalCover = ex.cover
             genreKey = ex.genre
             tags = HashSet(ex.tags)
@@ -293,15 +311,65 @@ class EditActivity : AppCompatActivity() {
         refreshDates()
         col.addView(c5, lin(MATCH, WRAP, t = 12))
 
+        // ---------------- tipo e trilha sonora
+        val c8 = card(14, 24)
+        c8.addView(sectionTitle("Tipo e trilha sonora", "music"))
+        c8.addView(fieldLabel("Tipo"))
+        val kindRow = LinearLayout(this)
+        kindRow.orientation = LinearLayout.HORIZONTAL
+        serieBtn = pill("Série", Palette.pinkSoft, Palette.pinkDark, 13f, "tv")
+        filmeBtn = pill("Filme", Palette.pinkSoft, Palette.pinkDark, 13f, "film")
+        serieBtn.setOnClickListener {
+            kind = "serie"
+            styleKind()
+        }
+        filmeBtn.setOnClickListener {
+            kind = "filme"
+            styleKind()
+        }
+        kindRow.addView(serieBtn, lin(WRAP, WRAP, r = 8))
+        kindRow.addView(filmeBtn, lin(WRAP, WRAP))
+        c8.addView(kindRow, lin(MATCH, WRAP))
+        styleKind()
+        c8.addView(fieldLabel("Trilha sonora"))
+        soundtrackTv = label("", 13f, Palette.muted)
+        c8.addView(soundtrackTv, lin(MATCH, WRAP, b = 8))
+        val sRow = LinearLayout(this)
+        sRow.orientation = LinearLayout.HORIZONTAL
+        val sPick = pill("Escolher áudio", Palette.pinkSoft, Palette.pinkDark, 13f, "music")
+        sPick.setOnClickListener { pickSoundtrack() }
+        val sClear = pill("Tirar", Palette.pinkSoft, Palette.pinkDark, 13f)
+        sClear.setOnClickListener {
+            soundtrackPath = ""
+            refreshSoundtrack()
+        }
+        sRow.addView(sPick, lin(WRAP, WRAP, r = 8))
+        sRow.addView(sClear, lin(WRAP, WRAP))
+        c8.addView(sRow, lin(MATCH, WRAP))
+        refreshSoundtrack()
+        col.addView(c8, lin(MATCH, WRAP, t = 12))
+
         // ---------------- elenco
         val c6 = card(14, 24)
         c6.addView(sectionTitle("Elenco e casal", "person"))
         c6.addView(fieldLabel("Elenco"))
-        castIn = input("Atores e atrizes favoritos", ex?.cast ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
-        c6.addView(castIn, lin(MATCH, WRAP))
+        castBox = LinearLayout(this)
+        castBox.orientation = LinearLayout.VERTICAL
+        c6.addView(castBox, lin(MATCH, WRAP))
+        val addCast = pill("Adicionar ator ou atriz", Palette.pinkSoft, Palette.pinkDark, 13f, "person")
+        addCast.setOnClickListener {
+            castList.add(CastPerson("", ""))
+            rebuildCast()
+        }
+        c6.addView(addCast, lin(WRAP, WRAP, t = 8))
+        rebuildCast()
         c6.addView(fieldLabel("Casal favorito"))
         coupleIn = input("Quem formou o casal que você shippa?", ex?.couple ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         c6.addView(coupleIn, lin(MATCH, WRAP))
+        c6.addView(label("Foto do casal (toque para escolher)", 12f, Palette.muted), lin(MATCH, WRAP, t = 8, b = 6))
+        coupleBox = FrameLayout(this)
+        c6.addView(coupleBox, lin(dp(84), dp(84)))
+        refreshCouplePhoto()
         col.addView(c6, lin(MATCH, WRAP, t = 12))
 
         // ---------------- textos
@@ -488,6 +556,66 @@ class EditActivity : AppCompatActivity() {
         }
     }
 
+    private fun styleKind() {
+        for ((b, k) in listOf(Pair(serieBtn, "serie"), Pair(filmeBtn, "filme"))) {
+            val sel = kind == k
+            b.background = roundRect(if (sel) Palette.pink else Palette.pinkSoft, dp(20).toFloat())
+            b.setTextColor(if (sel) Color.WHITE else Palette.pinkDark)
+            b.compoundDrawables[0]?.setTint(if (sel) Color.WHITE else Palette.pinkDark)
+        }
+    }
+
+    private fun refreshSoundtrack() {
+        soundtrackTv.text = if (soundtrackPath.isEmpty()) "Nenhuma trilha escolhida" else "Trilha escolhida ✓"
+    }
+
+    private fun rebuildCast() {
+        castBox.removeAllViews()
+        for ((i, p) in castList.withIndex()) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            val av = avatarView(p.photo, 52, Palette.pink, Palette.pinkSoft, Palette.pink)
+            av.setOnClickListener {
+                pendingCast = i
+                pickImage(104, "Escolher foto")
+            }
+            row.addView(av, lin(dp(52), dp(52), r = 10))
+            val nm = input("Nome", p.name, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+            nm.doAfterTextChanged { p.name = it?.toString() ?: "" }
+            row.addView(nm, lin(0, WRAP, 1f))
+            val rm = label("✕", 16f, Palette.pinkDark, true)
+            rm.setPadding(dp(12), dp(8), dp(4), dp(8))
+            rm.setOnClickListener {
+                castList.removeAt(i)
+                rebuildCast()
+            }
+            row.addView(rm, lin(WRAP, WRAP))
+            castBox.addView(row, lin(MATCH, WRAP, t = 8))
+        }
+    }
+
+    private fun refreshCouplePhoto() {
+        coupleBox.removeAllViews()
+        val av = avatarView(couplePhotoPath, 84, Palette.pink, Palette.pinkSoft, Palette.pink, "heart", true)
+        av.setOnClickListener { pickImage(103, "Escolher foto do casal") }
+        coupleBox.addView(av, FrameLayout.LayoutParams(MATCH, MATCH))
+    }
+
+    private fun pickImage(code: Int, title: String) {
+        val i = Intent(Intent.ACTION_GET_CONTENT)
+        i.type = "image/*"
+        i.addCategory(Intent.CATEGORY_OPENABLE)
+        startActivityForResult(Intent.createChooser(i, title), code)
+    }
+
+    private fun pickSoundtrack() {
+        val i = Intent(Intent.ACTION_GET_CONTENT)
+        i.type = "audio/*"
+        i.addCategory(Intent.CATEGORY_OPENABLE)
+        startActivityForResult(Intent.createChooser(i, "Escolher a trilha sonora"), 102)
+    }
+
     private fun refreshCover() {
         coverView.bind(coverPath, genreKey, 400)
         coverSeal.set(Genres.byKey(genreKey))
@@ -502,6 +630,32 @@ class EditActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == android.app.Activity.RESULT_OK && (requestCode == 102 || requestCode == 103 || requestCode == 104)) {
+            val uri = data?.data
+            if (uri != null) {
+                val p = if (requestCode == 102) Store.saveAudio(uri) else Store.saveCover(uri)
+                if (p == null) {
+                    Toast.makeText(this, "Não consegui abrir esse arquivo.", Toast.LENGTH_SHORT).show()
+                } else {
+                    createdFiles.add(p)
+                    when (requestCode) {
+                        102 -> {
+                            soundtrackPath = p
+                            refreshSoundtrack()
+                        }
+                        103 -> {
+                            couplePhotoPath = p
+                            refreshCouplePhoto()
+                        }
+                        else -> {
+                            if (pendingCast in castList.indices) castList[pendingCast].photo = p
+                            rebuildCast()
+                        }
+                    }
+                }
+            }
+            return
+        }
         if (requestCode == 101 && resultCode == android.app.Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
@@ -540,7 +694,7 @@ class EditActivity : AppCompatActivity() {
             epMinutes = minutesIn.text.toString().toIntOrNull() ?: 0,
             year = yearIn.text.toString().trim(),
             platform = platformIn.text.toString().trim(),
-            cast = castIn.text.toString().trim(),
+            cast = castList.map { it.name.trim() }.filter { it.isNotEmpty() }.joinToString(", "),
             couple = coupleIn.text.toString().trim(),
             startDate = startDate,
             endDate = endDate,
@@ -552,7 +706,11 @@ class EditActivity : AppCompatActivity() {
             link = old?.link ?: "",
             lastUrl = old?.lastUrl ?: "",
             watchSeason = old?.watchSeason ?: -1,
-            order = old?.order ?: 0L
+            order = old?.order ?: 0L,
+            kind = kind,
+            soundtrack = soundtrackPath,
+            castPeople = castList.filter { it.name.isNotBlank() }.map { CastPerson(it.name.trim(), it.photo) },
+            couplePhoto = couplePhotoPath
         )
         normalize(d)
         val tot = totalEps(d)
@@ -568,6 +726,19 @@ class EditActivity : AppCompatActivity() {
             }
             Covers.clear()
         }
+        val used = HashSet<String>()
+        if (d.soundtrack.isNotEmpty()) used.add(d.soundtrack)
+        if (d.couplePhoto.isNotEmpty()) used.add(d.couplePhoto)
+        for (p in d.castPeople) if (p.photo.isNotEmpty()) used.add(p.photo)
+        for (f in originalFiles + createdFiles) {
+            if (!used.contains(f)) {
+                try {
+                    File(f).delete()
+                } catch (e: Exception) {
+                }
+            }
+        }
+        Covers.clear()
         saved = true
         Store.save(d)
         Toast.makeText(this, "Salvo com carinho!", Toast.LENGTH_SHORT).show()
@@ -576,6 +747,14 @@ class EditActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (!saved) {
+            for (f in createdFiles) {
+                try {
+                    File(f).delete()
+                } catch (e: Exception) {
+                }
+            }
+        }
         if (!saved && coverPath.isNotEmpty() && coverPath != originalCover) {
             try {
                 File(coverPath).delete()

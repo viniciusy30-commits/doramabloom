@@ -274,6 +274,9 @@ val countries: List<String> = listOf(
     "Coreia do Sul", "Japão", "China", "Tailândia", "Taiwan", "Outro"
 )
 
+/** Ator ou atriz do elenco, com foto opcional (caminho do arquivo). */
+class CastPerson(var name: String, var photo: String = "")
+
 data class Drama(
     var id: Long,
     var title: String,
@@ -302,7 +305,13 @@ data class Drama(
     var lastUrl: String = "",
     var watchSeason: Int = -1,
     /** Posição na sua ordem manual (0 = ainda sem posição, aparece no topo). */
-    var order: Long = 0L
+    var order: Long = 0L,
+    /** "serie" ou "filme". */
+    var kind: String = "serie",
+    /** Arquivo de áudio da trilha sonora (cópia dentro do app); vazio = sem trilha. */
+    var soundtrack: String = "",
+    var castPeople: List<CastPerson> = emptyList(),
+    var couplePhoto: String = ""
 )
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
@@ -454,6 +463,24 @@ private fun jsonStrings(a: JSONArray?): List<String> {
     return r
 }
 
+/** Lê o elenco; backups antigos (só texto "A, B, C") viram pessoas sem foto. */
+private fun castFromJson(a: JSONArray?, oldText: String): List<CastPerson> {
+    val r = ArrayList<CastPerson>()
+    if (a != null && a.length() > 0) {
+        for (i in 0 until a.length()) {
+            val po = a.optJSONObject(i) ?: continue
+            val n = po.optString("name", "").trim()
+            if (n.isNotEmpty()) r.add(CastPerson(n, po.optString("photo", "")))
+        }
+    } else {
+        for (n in oldText.split(",", ";", "/")) {
+            val t = n.trim()
+            if (t.isNotEmpty()) r.add(CastPerson(t, ""))
+        }
+    }
+    return r
+}
+
 private fun Drama.toJson(): JSONObject {
     val o = JSONObject()
     o.put("id", id)
@@ -485,6 +512,17 @@ private fun Drama.toJson(): JSONObject {
     o.put("lastUrl", lastUrl)
     o.put("watchSeason", watchSeason)
     o.put("order", order)
+    o.put("kind", kind)
+    o.put("soundtrack", soundtrack)
+    o.put("couplePhoto", couplePhoto)
+    val cp = JSONArray()
+    for (p in castPeople) {
+        val po = JSONObject()
+        po.put("name", p.name)
+        po.put("photo", p.photo)
+        cp.put(po)
+    }
+    o.put("castPeople", cp)
     return o
 }
 
@@ -524,7 +562,11 @@ private fun dramaFromJson(o: JSONObject): Drama {
         link = o.optString("link", ""),
         lastUrl = o.optString("lastUrl", ""),
         watchSeason = o.optInt("watchSeason", -1),
-        order = o.optLong("order", 0L)
+        order = o.optLong("order", 0L),
+        kind = o.optString("kind", "serie"),
+        soundtrack = o.optString("soundtrack", ""),
+        castPeople = castFromJson(o.optJSONArray("castPeople"), o.optString("cast", "")),
+        couplePhoto = o.optString("couplePhoto", "")
     )
     normalize(d)
     return d
@@ -874,6 +916,16 @@ object Store {
 
     fun delete(id: Long) {
         val d = get(id) ?: return
+        val extras = ArrayList<String>()
+        if (d.soundtrack.isNotEmpty()) extras.add(d.soundtrack)
+        if (d.couplePhoto.isNotEmpty()) extras.add(d.couplePhoto)
+        for (p in d.castPeople) if (p.photo.isNotEmpty()) extras.add(p.photo)
+        for (f in extras) {
+            try {
+                File(f).delete()
+            } catch (e: Exception) {
+            }
+        }
         if (d.cover.isNotEmpty()) {
             try {
                 File(d.cover).delete()
@@ -1276,6 +1328,21 @@ object Store {
     }
 
     /** Copia a imagem escolhida para a pasta do app (reduzida) e devolve o caminho. */
+    /** Copia o áudio escolhido para dentro do app (assim ele continua tocando mesmo se o original sumir). */
+    fun saveAudio(uri: Uri): String? {
+        return try {
+            val dir = File(appContext.filesDir, "music")
+            dir.mkdirs()
+            val f = File(dir, "t" + System.currentTimeMillis() + ".audio")
+            appContext.contentResolver.openInputStream(uri)?.use { i ->
+                FileOutputStream(f).use { out -> i.copyTo(out) }
+            } ?: return null
+            f.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun saveCover(uri: Uri): String? {
         return try {
             val cr = appContext.contentResolver
