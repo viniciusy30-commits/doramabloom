@@ -1,3 +1,11 @@
+#id 2026-10-07-q
+#titulo Elenco mais limpinho e trilha sonora mais suave
+- Elenco: sumiu o retângulo escuro em volta da foto de cada ator e também o selo do gênero que ficava atrás da foto. Agora só o círculo com o nome embaixo.
+- Elenco: "Elenco" e a quantidade de pessoas ficam na mesma linha; a frase do gênero saiu do cartão.
+- Trilha sonora: o escurecer ao dar play pela primeira vez agora é uma animação suave e contínua. O áudio carrega em segundo plano, então a tela não trava mais no primeiro toque.
+- Trilha sonora: o botão de play agora fica bem centralizado.
+- Casal favorito: tirei a fita adesiva transparente de cima da polaroid.
+
 #id 2026-10-07-p
 #titulo Cores de verdade nos gêneros e outros gêneros sem limite
 - Estante, edição e filtros: os gêneros agora aparecem com as cores vivas deles, igualzinho na tela do dorama (fundo colorido, texto branco). Os com várias cores, como o LGBTQ+, mostram o degradê.

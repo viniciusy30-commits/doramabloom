@@ -86,6 +86,7 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
     private var armT = 0f
     private var pressT = 0f
     private var dimT = 0f
+    private var dimRaw = 0f
     private var pressing = false
     private var seeking = false
     private var seekFrac = 0f
@@ -174,7 +175,9 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
         val now = System.nanoTime()
-        val dt = if (last == 0L) 0.016f else ((now - last) / 1_000_000_000f).coerceAtMost(0.05f)
+        // se a tela ficou parada (ou o app demorou a desenhar), não "pula" a animação: recomeça de um passo normal
+        val gap = if (last == 0L) 0f else (now - last) / 1_000_000_000f
+        val dt = if (last == 0L || gap > 0.1f) 0.016f else gap.coerceAtMost(0.05f)
         last = now
         t += dt
         if (playing) {
@@ -185,10 +188,12 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         armT += (armTarget - armT) * minOf(1f, dt * 5f)
         val pressTarget = if (pressing) 1f else 0f
         pressT += (pressTarget - pressT) * minOf(1f, dt * 14f)
-        // escurece devagar enquanto toca (para destacar o disco) e clareia devagar ao pausar
+        // escurece devagar enquanto toca (para destacar o disco) e clareia devagar ao pausar:
+        // progresso linear no tempo (~1,3 s) passado por uma curva suave de entrada e saída
         val dimTarget = if (playing) 1f else 0f
-        dimT += (dimTarget - dimT) * minOf(1f, dt * 3.2f)
-        if (abs(dimT - dimTarget) < 0.004f) dimT = dimTarget
+        val dimStep = dt / 1.3f
+        dimRaw = if (dimRaw < dimTarget) minOf(dimTarget, dimRaw + dimStep) else maxOf(dimTarget, dimRaw - dimStep)
+        dimT = dimRaw * dimRaw * (3f - 2f * dimRaw)
 
         val pad = 16f * u
         val R = 48f * u
@@ -392,7 +397,8 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         p.color = mixColor(primary, white, 0.45f)
         p.alpha = 255
         c.drawCircle(bx, by, br - 4f * u, p)
-        val gx = if (playing) bx else bx + 2f * u
+        // o triângulo do play já é desenhado um pouco à direita no seu quadro; centrado no botão fica bem no meio
+        val gx = bx
         drawGlyph(c, p, if (playing) "pause" else "play", gx, by, 26f * u, 0f, primary, 255)
         c.restore()
 
@@ -454,7 +460,7 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
 
         val armBusy = abs(armT - armTarget) > 0.01f
         val pressBusy = abs(pressT - pressTarget) > 0.01f
-        val dimBusy = dimT != dimTarget
+        val dimBusy = dimRaw != dimTarget
         if (playing || pts.isNotEmpty() || armBusy || pressBusy || seeking || dimBusy) postInvalidateOnAnimation()
     }
 }
@@ -709,18 +715,6 @@ fun Context.coupleCard(d: Drama, g: Genre): View? {
     clp.setMargins(dp(14), 0, dp(14), 0)
     cap.gravity = Gravity.CENTER
     paper.addView(cap, clp)
-
-    // fita adesiva no topo
-    val tape = View(this)
-    val tbg = GradientDrawable()
-    tbg.setColor(Color.argb(190, Color.red(mixColor(g.primary, Color.WHITE, 0.45f)), Color.green(mixColor(g.primary, Color.WHITE, 0.45f)), Color.blue(mixColor(g.primary, Color.WHITE, 0.45f))))
-    tbg.cornerRadius = dp(4).toFloat()
-    tbg.setStroke(dp(1), Color.argb(150, 255, 255, 255), dp(5).toFloat(), dp(3).toFloat())
-    tape.background = tbg
-    tape.rotation = 4f
-    val tlp = FrameLayout.LayoutParams(dp(92), dp(26), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
-    tlp.topMargin = -dp(13)
-    paper.addView(tape, tlp)
 
     // adesivo do gênero no canto
     val seal = SealView(this)

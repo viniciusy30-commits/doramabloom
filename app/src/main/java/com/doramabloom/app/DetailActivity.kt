@@ -290,8 +290,10 @@ class DetailActivity : AppCompatActivity() {
     private val ticker = Handler(Looper.getMainLooper())
     private var tick: Runnable? = null
     private var musicReset: (() -> Unit)? = null
+    private var mpPreparing = false
 
     private fun releaseSound() {
+        mpPreparing = false
         tick?.let { ticker.removeCallbacks(it) }
         tick = null
         try {
@@ -365,16 +367,34 @@ class DetailActivity : AppCompatActivity() {
                         sv.progress = 0f
                         sv.posMs = 0
                     }
-                    m.prepare()
-                    m.start()
+                    m.setOnErrorListener { _, _, _ ->
+                        releaseSound()
+                        softToast("Não consegui tocar esse arquivo.", Palette.pink, "music")
+                        true
+                    }
+                    m.setOnPreparedListener { pm ->
+                        if (mp !== pm) return@setOnPreparedListener
+                        mpPreparing = false
+                        try {
+                            pm.start()
+                            sv.durMs = pm.duration
+                            startTick()
+                        } catch (e: Exception) {
+                            releaseSound()
+                        }
+                    }
                     mp = m
-                    sv.durMs = m.duration
+                    mpPreparing = true
+                    // o carregamento do áudio agora é em segundo plano: a tela não trava e o
+                    // escurecer começa já no toque, deslizando de forma suave
                     sv.playing = true
-                    startTick()
+                    m.prepareAsync()
                 } catch (e: Exception) {
                     releaseSound()
                     softToast("Não consegui tocar esse arquivo.", Palette.pink, "music")
                 }
+            } else if (mpPreparing) {
+                return
             } else if (cur.isPlaying) {
                 cur.pause()
                 sv.playing = false
@@ -389,7 +409,7 @@ class DetailActivity : AppCompatActivity() {
         sv.onSeek = { frac ->
             if (mp == null) toggle()
             val m = mp
-            if (m != null) {
+            if (m != null && !mpPreparing) {
                 try {
                     val dur = m.duration
                     if (dur > 0) {
@@ -1083,16 +1103,8 @@ class DetailActivity : AppCompatActivity() {
         dot.background = dbg
         dot.addView(IconView(this, g.icon, Color.WHITE, 18), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         head.addView(dot, lin(dp(38), dp(38), r = 10))
-        val ttl = LinearLayout(this)
-        ttl.orientation = LinearLayout.VERTICAL
-        ttl.addView(label("Elenco", 21f, g.dark, true, true))
-        val auto = g.tagline.startsWith("Seu gênero") || g.tagline.isBlank()
-        val subTxt = (if (auto) "elenco de " + g.label.lowercase() else g.tagline) + (if (people.size > 2) " · deslize" else "")
-        val subTv = label(subTxt, 11.5f, g.primary, true)
-        subTv.maxLines = 1
-        subTv.ellipsize = TextUtils.TruncateAt.END
-        ttl.addView(subTv, lin(WRAP, WRAP, t = 1))
-        head.addView(ttl, lin(0, WRAP, 1f))
+        // "Elenco" e a quantidade de pessoas ficam na MESMA linha; a frase do gênero desce para baixo
+        head.addView(label("Elenco", 21f, g.dark, true, true), lin(0, WRAP, 1f))
         head.addView(
             vividPill(if (people.size == 1) "1 pessoa" else people.size.toString() + " pessoas", "sparkle", listOf(g.primary), 11.5f),
             lin(WRAP, WRAP)
@@ -1111,17 +1123,9 @@ class DetailActivity : AppCompatActivity() {
             item.orientation = LinearLayout.VERTICAL
             item.gravity = Gravity.CENTER_HORIZONTAL
             item.setPadding(dp(10), dp(14), dp(10), dp(12))
-            val ibg = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Palette.card, mixColor(Palette.card, g.primary, 0.16f)))
-            ibg.cornerRadius = dp(24).toFloat()
-            ibg.setStroke(dp(1), mixColor(g.primary, Color.WHITE, 0.45f))
-            item.background = ibg
-
             val ph = FrameLayout(this)
             ph.clipChildren = false
             ph.addView(avatarView(p.photo, 84, g.primary, g.soft, g.primary), FrameLayout.LayoutParams(dp(84), dp(84)))
-            val seal = SealView(this)
-            seal.set(g)
-            ph.addView(seal, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.BOTTOM or Gravity.END))
             item.addView(ph, lin(dp(84), dp(84)))
 
             val nm = label(p.name, 13f, Palette.text, true)
