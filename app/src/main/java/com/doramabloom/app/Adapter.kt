@@ -36,10 +36,13 @@ fun Context.statBubble(icon: String, text: String, g: Genre, marks: List<Streami
         // só o símbolo da marca, centralizado na caixinha
         b.gravity = Gravity.CENTER
         b.minimumHeight = dp(50)
+        // sem a caixinha em volta: só a logo
+        b.background = null
+        b.elevation = 0f
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
         row.gravity = Gravity.CENTER
-        val sz = if (marks.size == 1) 30 else 21
+        val sz = if (marks.size == 1) 34 else 23
         for ((i, m) in marks.take(2).withIndex()) {
             val mv = View(this)
             mv.background = StreamMarkDrawable(m)
@@ -524,7 +527,7 @@ class DramaAdapter(
         val seal = SealView(c, true)
         seal.rotation = -8f
         val slp = FrameLayout.LayoutParams(c.dp(54), c.dp(54), Gravity.BOTTOM or Gravity.END)
-        slp.setMargins(0, 0, c.dp(9), c.dp(26))
+        slp.setMargins(0, 0, c.dp(9), c.dp(38))
         hero.addView(seal, slp)
         // bolinhas de informação (ano, episódios, plataforma) no espaço ao lado da capa
         val stats = LinearLayout(c)

@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private var statusFilter = "all"
     private var genreFilter = "all"
-    private var otherFilter = "all" // "Outros gêneros": só filtra, não muda tema nem símbolos
+    private var otherFilters: Set<String> = emptySet() // "Outros gêneros" (vários): só filtram, não mudam tema nem símbolos
     private var countryFilter = "all"
     private var query = ""
     private var sortMode = 0
@@ -572,7 +572,7 @@ class MainActivity : AppCompatActivity() {
             l = l.filter { it.status == statusFilter }
         }
         if (genreFilter != "all") l = l.filter { it.genre == genreFilter || it.tags.contains(genreFilter) }
-        if (otherFilter != "all") l = l.filter { it.tags.contains(otherFilter) }
+        if (otherFilters.isNotEmpty()) l = l.filter { d -> otherFilters.all { d.tags.contains(it) } }
         if (countryFilter != "all") l = l.filter { it.country == countryFilter }
         if (query.isNotBlank()) {
             l = l.filter {
@@ -604,17 +604,17 @@ class MainActivity : AppCompatActivity() {
         if (statusFilter == "fav") parts.add("Favoritos")
         else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
         if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
-        if (otherFilter != "all" && OtherGenres.exists(otherFilter)) parts.add(OtherGenres.byKey(otherFilter).label)
+        for (k in otherFilters) if (OtherGenres.exists(k)) parts.add(OtherGenres.byKey(k).label)
         if (countryFilter != "all") parts.add(countryFilter)
         if (query.isNotBlank()) parts.add("Busca")
         return if (parts.isEmpty()) "Todos" else parts.joinToString(" · ")
     }
 
-    private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || otherFilter != "all" || countryFilter != "all"
+    private fun anyFilter(): Boolean = statusFilter != "all" || genreFilter != "all" || otherFilters.isNotEmpty() || countryFilter != "all"
 
     private fun filterCount(): Int =
         (if (statusFilter != "all") 1 else 0) + (if (genreFilter != "all") 1 else 0) +
-            (if (otherFilter != "all") 1 else 0) + (if (countryFilter != "all") 1 else 0)
+            (if (otherFilters.isNotEmpty()) 1 else 0) + (if (countryFilter != "all") 1 else 0)
 
     private fun statusTagline(k: String): String = when (k) {
         "fav" -> "Os queridinhos do seu coração"
@@ -649,17 +649,18 @@ class MainActivity : AppCompatActivity() {
                 icon = st.icon; title = st.label; col = st.color; soft = lighten(st.color, 0.82f)
             }
             sub = statusTagline(statusFilter)
-        } else if (otherFilter != "all" && OtherGenres.exists(otherFilter)) {
-            val og = OtherGenres.byKey(otherFilter)
-            icon = og.icon; title = og.label; col = og.dark; soft = og.soft
-            sub = "Doramas marcados como " + og.label
+        } else if (otherFilters.any { OtherGenres.exists(it) }) {
+            val ogs = otherFilters.filter { OtherGenres.exists(it) }.map { OtherGenres.byKey(it) }
+            val og = ogs[0]
+            icon = og.icon; title = ogs.joinToString(" · ") { it.label }; col = og.dark; soft = og.soft
+            sub = "Doramas marcados como " + ogs.joinToString(" e ") { it.label }
         } else {
             val cc = Atmosphere.country(countryFilter)
             icon = "flag"; title = countryFilter; col = cc.second; soft = lighten(cc.second, 0.85f)
             sub = "Doramas direto de " + countryFilter
         }
         if (genreFilter != "all") parts.add(Genres.byKey(genreFilter).label)
-        if (otherFilter != "all" && OtherGenres.exists(otherFilter)) parts.add(OtherGenres.byKey(otherFilter).label)
+        for (k in otherFilters) if (OtherGenres.exists(k)) parts.add(OtherGenres.byKey(k).label)
         if (statusFilter != "all") parts.add(if (statusFilter == "fav") "Favoritos" else Statuses.byKey(statusFilter).label)
         if (countryFilter != "all") parts.add(countryFilter)
         effIcon?.setIcon(icon)
@@ -856,10 +857,7 @@ class MainActivity : AppCompatActivity() {
         val glabRow = LinearLayout(this)
         glabRow.orientation = LinearLayout.HORIZONTAL
         glabRow.gravity = Gravity.CENTER_VERTICAL
-        glabRow.addView(label("Gêneros", 12.5f, Palette.muted, true), lin(0, WRAP, 1f, l = 4))
-        val newG = pill("Novo gênero", Palette.pinkSoft, Palette.pinkDark, 11f, "add")
-        newG.setOnClickListener { showGenreCreator { showTab(1, false) } }
-        glabRow.addView(newG, lin(WRAP, WRAP))
+        glabRow.addView(label("Gêneros", 13.5f, Palette.muted, true), lin(0, WRAP, 1f, l = 4))
         panel.addView(glabRow, lin(MATCH, WRAP, t = 8))
         panel.addView(chipScroller(genreOpts, genreFilter) {
             genreFilter = it
@@ -867,17 +865,16 @@ class MainActivity : AppCompatActivity() {
         }, lin(MATCH, WRAP, t = 4))
         // outros gêneros: só etiquetas para filtrar (não trocam o tema nem os símbolos)
         val otherOpts = ArrayList<Opt>()
-        otherOpts.add(Opt("all", "Todos", Palette.pink, "tag"))
         for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, og.color, og.icon, og.colors))
-        panel.addView(label("Outros gêneros", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
-        panel.addView(chipScroller(otherOpts, otherFilter) {
-            otherFilter = it
+        panel.addView(label("Outros gêneros (pode marcar vários)", 13.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
+        panel.addView(multiChips(otherOpts, otherFilters) {
+            otherFilters = it
             filtersChanged()
         }, lin(MATCH, WRAP, t = 4))
         val countryOpts = ArrayList<Opt>()
         countryOpts.add(Opt("all", "Todos os países", Palette.pink, "flag"))
         for (c in countries) countryOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
-        panel.addView(label("Países", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
+        panel.addView(label("Países", 13.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
         panel.addView(chipScroller(countryOpts, countryFilter) {
             countryFilter = it
             filtersChanged()
@@ -921,7 +918,7 @@ class MainActivity : AppCompatActivity() {
         clr.setOnClickListener {
             statusFilter = "all"
             genreFilter = "all"
-            otherFilter = "all"
+            otherFilters = emptySet()
             countryFilter = "all"
             showTab(1, false)
         }
@@ -1388,7 +1385,7 @@ class MainActivity : AppCompatActivity() {
                     .setTitle("Excluir gênero?")
                     .setMessage("\"" + og.label + "\" sai dos doramas que têm essa etiqueta.")
                     .setPositiveButton("Excluir") { _, _ ->
-                        if (otherFilter == og.key) otherFilter = "all"
+                        if (otherFilters.contains(og.key)) otherFilters = otherFilters - og.key
                         if (og.custom) Store.removeOtherGenre(og.key) else Store.hideOtherGenre(og.key)
                         refreshOthers()
                     }

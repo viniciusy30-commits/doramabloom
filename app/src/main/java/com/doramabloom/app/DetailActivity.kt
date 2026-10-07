@@ -641,7 +641,7 @@ class DetailActivity : AppCompatActivity() {
         infoCard.gravity = Gravity.TOP
         infoCard.setPadding(dp(4), dp(14), dp(4), dp(14))
         infoCard.background = gradient(
-            mixColor(g.primary, Color.WHITE, 0.26f), mixColor(g.primary, Color.WHITE, 0.10f),
+            mixColor(g.primary, g.deep, 0.50f), mixColor(g.primary, g.deep, 0.68f),
             dp(26).toFloat(), GradientDrawable.Orientation.TOP_BOTTOM
         )
         // bolinha de ícone: círculo branco com anel, ícone colorido dentro
@@ -658,13 +658,13 @@ class DetailActivity : AppCompatActivity() {
             return Pair(b, iv)
         }
         val wide4 = d.platform.isNotBlank()
-        val valSp = if (wide4) 12f else 13.5f
+        val valSp = if (wide4) 13f else 14.5f
         fun infoCol(title: String, b: View, valueView: View): LinearLayout {
             val c = LinearLayout(this)
             c.orientation = LinearLayout.VERTICAL
             c.gravity = Gravity.CENTER_HORIZONTAL
             c.addView(b, lin(dp(38), dp(38)))
-            val t = label(title, if (wide4) 8f else 9f, Color.parseColor("#D9FFFFFF"), true)
+            val t = label(title, if (wide4) 9f else 10f, Color.parseColor("#F2FFFFFF"), true)
             t.letterSpacing = if (wide4) 0.06f else 0.14f
             t.gravity = Gravity.CENTER
             c.addView(t, lin(WRAP, WRAP, t = 7))
@@ -708,7 +708,7 @@ class DetailActivity : AppCompatActivity() {
         strip.orientation = LinearLayout.HORIZONTAL
         strip.gravity = Gravity.CENTER_VERTICAL
         strip.setPadding(dp(10), dp(8), dp(16), dp(8))
-        strip.background = roundRect(mixColor(g.primary, Color.WHITE, 0.16f), dp(28).toFloat(), mixColor(g.primary, Color.WHITE, 0.36f), dp(1))
+        strip.background = roundRect(mixColor(g.primary, g.deep, 0.55f), dp(28).toFloat(), mixColor(g.primary, Color.WHITE, 0.45f), dp(1))
         val badge = scoreBadge(46, 19f)
         badge.setTextColor(g.primary)
         val bbg = GradientDrawable()
@@ -722,11 +722,12 @@ class DetailActivity : AppCompatActivity() {
         val rv = RatingView(this, 22, false)
         rv.color = Color.WHITE
         rcol.addView(rv)
-        val rvNote = label("", 11.5f, Color.parseColor("#F2FFFFFF"), true)
+        val rvNote = label("", 13f, Color.WHITE, true)
         rcol.addView(rvNote, lin(WRAP, WRAP, t = 4))
         strip.addView(rcol, lin(0, WRAP, 1f))
         heroCol.addView(strip, lin(MATCH, WRAP, t = 16, l = 14, r = 14, b = 8))
-        val tagLine = label(g.lineFor(d.score), 12.5f, Color.parseColor("#F2FFFFFF"))
+        val tagLine = label(g.lineFor(d.score), 14f, Color.WHITE)
+        tagLine.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(120, 0, 0, 0))
         tagLine.gravity = Gravity.CENTER
         heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 16))
 

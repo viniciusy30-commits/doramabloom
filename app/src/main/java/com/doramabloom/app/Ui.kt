@@ -50,7 +50,7 @@ object Palette {
     val pinkDark: Int get() = p("#E0487F", "#FF8FB8")
     val pinkSoft: Int get() = p("#FFE4EE", "#3B2433")
     val text: Int get() = p("#6B2E48", "#F5DDE8")
-    val muted: Int get() = p("#B98AA0", "#B093A4")
+    val muted: Int get() = p("#8F5F76", "#CDB3C3")
     val line: Int get() = p("#F8D9E6", "#3A2B35")
 
     /** Fundo dos cartões, caixas e botões claros (branco no modo claro). */
@@ -288,9 +288,10 @@ private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int, colors:
         if (dr is IconDrawable) dr.color = fg
     } else {
         tv.background = roundRect(if (sel) col else mixColor(col, Palette.card, 0.84f), dpPx * 20f, col, dpPx)
-        val fg = if (sel) Color.WHITE else col
+        // sem seleção: tom mais forte da cor (mais escuro no claro, mais claro no escuro) para ler bem
+        val fg = if (sel) Color.WHITE else if (Palette.dark) mixColor(col, Color.WHITE, 0.45f) else mixColor(col, Color.BLACK, 0.30f)
         tv.setTextColor(fg)
-        tv.setShadowLayer(0f, 0f, 0f, 0)
+        if (sel) tv.setShadowLayer(dpPx * 2f, 0f, dpPx.toFloat(), Color.argb(120, 0, 0, 0)) else tv.setShadowLayer(0f, 0f, 0f, 0)
         val dr = tv.compoundDrawables[0]
         if (dr is IconDrawable) dr.color = fg
     }
