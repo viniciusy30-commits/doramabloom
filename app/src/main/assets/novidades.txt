@@ -1,3 +1,9 @@
+#id 2026-10-07-s
+#titulo Início com fundo animado e logo do streaming ao lado do status
+- Início: a parte colorida em volta da capa agora só tem a capa. Saíram a nota, o coração de favorito, o ano, os episódios e a logo daí.
+- Em volta da capa, uma animação bem caprichada nas cores do gênero: auroras de luz à deriva, raios de luz girando, ondas de luz saindo da capa, bolhas brilhantes subindo, símbolos do gênero caindo como pétalas, estrelinhas cintilando, vagalumes com rastro e, de vez em quando, uma estrela cadente.
+- Início: o gênero que ficava do lado do status saiu (o selo já mostra o gênero). No lugar entram as logos de onde assistir, do mesmo tamanho do status.
+
 #id 2026-10-07-r
 #titulo Streamings com a cara de cada um e frases que mudam com a nota
 - Onde assistir: em vez de escrever, agora você toca nos streamings (Netflix, Viki, Disney+, Prime Video, HBO Max, Apple TV+, Paramount+, Globoplay, YouTube, Crunchyroll, iQIYI e WeTV), cada um com o símbolo e a cor da marca. Dá para marcar mais de um.

@@ -623,6 +623,13 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
         c.restore()
     }
 
+    /** Retângulo da capa (em coordenadas deste view); false se não tem capa à mostra. */
+    fun posterRect(out: RectF): Boolean {
+        if (!fit || img.visibility != View.VISIBLE || img.width <= 0) return false
+        out.set(img.left.toFloat(), img.top.toFloat(), img.right.toFloat(), img.bottom.toFloat())
+        return true
+    }
+
     /** Onde começa (da esquerda) a capa; serve para saber se sobra espaço nas laterais. */
     fun posterLeft(): Int = if (fit && img.visibility == View.VISIBLE && img.width > 0) img.left else Int.MAX_VALUE
 

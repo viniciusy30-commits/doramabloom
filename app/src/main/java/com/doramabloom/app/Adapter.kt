@@ -162,6 +162,8 @@ class DramaAdapter(
         val rating: RatingView? = null,
         val chip: TextView? = null,
         val genreChip: TextView? = null,
+        val marks: LinearLayout? = null,
+        val aura: AuraView? = null,
         val badge: TextView? = null,
         val plus: TextView? = null,
         val fav: View? = null,
@@ -283,6 +285,19 @@ class DramaAdapter(
         if (note != null) {
             note.text = if (d.score > 0) d.score.toString() + "/10" else "Sem nota"
             note.setTextColor(if (d.score > 0) g.dark else Palette.muted)
+        }
+        h.aura?.setGenre(g)
+        val mk = h.marks
+        if (mk != null) {
+            mk.removeAllViews()
+            val sz = (mk.tag as? Int) ?: mk.dp(20)
+            for (sm in Streamings.parse(d.platform).take(3)) {
+                val v = View(mk.context)
+                v.background = StreamMarkDrawable(sm)
+                val lp = LinearLayout.LayoutParams(sz, sz)
+                lp.leftMargin = mk.dp(6)
+                mk.addView(v, lp)
+            }
         }
         val gc = h.genreChip
         if (gc != null) {
@@ -511,33 +526,13 @@ class DramaAdapter(
         val cover = CoverView(c, 0, true)
         hero.addView(cover, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        val badge = c.scoreBadge(40, 17f)
-        val blp = FrameLayout.LayoutParams(c.dp(40), c.dp(40))
-        blp.gravity = Gravity.TOP or Gravity.START
-        blp.setMargins(c.dp(14), c.dp(14), 0, 0)
-        hero.addView(badge, blp)
-
-        val fav = c.favBadge(40)
-        val flp = FrameLayout.LayoutParams(c.dp(52), c.dp(52))
-        flp.gravity = Gravity.TOP or Gravity.END
-        flp.setMargins(0, c.dp(12), c.dp(12), 0)
-        hero.addView(fav, flp)
+        // fundo em volta da capa: animação bem caprichada (a capa fica de fora)
+        val aura = AuraView(c, cover)
+        hero.addView(aura, FrameLayout.LayoutParams(MATCH, MATCH))
 
         // selo do gênero: adesivo ao lado do título, na parte de baixo do cartão
         val seal = SealView(c, true)
         seal.rotation = -8f
-        // bolinhas de informação (ano, episódios, plataforma) no espaço ao lado da capa
-        val stats = LinearLayout(c)
-        stats.orientation = LinearLayout.VERTICAL
-        stats.gravity = Gravity.CENTER_HORIZONTAL
-        val stlp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START)
-        stlp.setMargins(c.dp(7), 0, 0, c.dp(46))
-        hero.addView(stats, stlp)
-        hero.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            val ok = cover.posterLeft() >= c.dp(66)
-            val want = if (ok) View.VISIBLE else View.INVISIBLE
-            if (stats.visibility != want) stats.visibility = want
-        }
         root.addView(hero, c.lin(MATCH, 0, 1f))
 
         // ---- informações e botão
@@ -571,10 +566,26 @@ class DramaAdapter(
         val chips = LinearLayout(c)
         chips.orientation = LinearLayout.HORIZONTAL
         chips.gravity = Gravity.CENTER_VERTICAL
-        val gc = smallPill(c, "heart")
         val chip = smallPill(c, "play")
-        chips.addView(gc, c.lin(WRAP, WRAP, r = 6))
         chips.addView(chip, c.lin(WRAP, WRAP))
+        // logo de onde assistir ao lado do status, do mesmo tamanho dele
+        val marks = LinearLayout(c)
+        marks.orientation = LinearLayout.HORIZONTAL
+        marks.gravity = Gravity.CENTER_VERTICAL
+        chips.addView(marks, c.lin(WRAP, WRAP))
+        chip.addOnLayoutChangeListener { _, _, t, _, b, _, _, _, _ ->
+            val hh = b - t
+            if (hh > 0 && marks.tag != hh) {
+                marks.tag = hh
+                for (i in 0 until marks.childCount) {
+                    val v = marks.getChildAt(i)
+                    val lp = v.layoutParams
+                    lp.width = hh
+                    lp.height = hh
+                    v.layoutParams = lp
+                }
+            }
+        }
         info.addView(chips, c.lin(MATCH, WRAP))
 
         val prow = LinearLayout(c)
@@ -597,8 +608,8 @@ class DramaAdapter(
 
         return VH(
             root, cover, title, sub = sub, prog = prog, bar = bar, rating = rating,
-            chip = chip, genreChip = gc, badge = badge, plus = plus, fav = fav,
-            stats = stats, tagline = tag, seal = seal
+            chip = chip, marks = marks, plus = plus,
+            tagline = tag, seal = seal, aura = aura
         )
     }
 
