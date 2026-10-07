@@ -212,6 +212,7 @@ fun SceneKit.soft(c: Canvas, x: Float, y: Float, r: Float, color: Int, a: Float)
     c.drawCircle(0f, 0f, 100f, p)
     c.restore()
     p.shader = null
+    p.alpha = 255
 }
 
 /** Brilho achatado (neblina, faixas de luz). */
@@ -237,6 +238,7 @@ fun SceneKit.softOval(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, color
     c.drawCircle(0f, 0f, 100f, p)
     c.restore()
     p.shader = null
+    p.alpha = 255
 }
 
 fun SceneKit.circ(c: Canvas, x: Float, y: Float, r: Float, color: Int, a: Float) {

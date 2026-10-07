@@ -100,6 +100,7 @@ class ShelfBanner(ctx: Context) : View(ctx) {
     }
 
     private fun base(c: Canvas, w: Float, h: Float, t: Float, k: String, col: Int) {
+        kit.tidy()
         val scene = AuraScenes.forKey(k)
         if (scene != null) {
             try {

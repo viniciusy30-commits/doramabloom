@@ -110,6 +110,7 @@ class SceneKit(val u: Float) {
             grads[key] = sh
         }
         p.style = Paint.Style.FILL
+        p.alpha = 255 // o pincel é compartilhado: sem isso o fundo herdava o alpha do último desenho e piscava
         p.shader = sh
         c.drawRect(0f, 0f, w, h, p)
         p.shader = null

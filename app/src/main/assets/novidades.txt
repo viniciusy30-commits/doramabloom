@@ -1,7 +1,7 @@
 #id 2026-10-07-ze
 #titulo Estante: faixa do tema sem piscar
-- A cena animada da faixa do gênero não escurece e clareia mais. Saíram os batimentos de luz, o raio do Terror, o clarão do Ação, as sirenes rápidas do Crime e a batida do Musical.
-- Cada tema mantém a própria animação (morcegos, pétalas, notas, cidade etc.), só com a luz de fundo estável.
+- Corrigido o bug que fazia o fundo da faixa do gênero escurecer e clarear sem parar (Todos, Escolar e outros). Agora o fundo fica sempre inteiro e só a animação do tema se mexe.
+- Na faixa, os clarões e batidas de luz fortes (raio do Terror, impacto do Ação, sirenes do Crime, batida do Musical) ficaram mais calmos.
 
 #id 2026-10-07-zd
 #titulo Estante: filtros escondidos e faixa do tema animada
