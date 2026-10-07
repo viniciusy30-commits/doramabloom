@@ -469,6 +469,7 @@ fun SceneKit.crescent(c: Canvas, x: Float, y: Float, s: Float, rot: Float, color
 
 /** Pulso (0..1) de um batimento: dois toques suaves e uma pausa. */
 fun SceneKit.pulse(t: Float, period: Float): Float {
+    if (calm) return 0.2f // Estante: sem batimento de luz, o brilho fica estável
     val ph = frac(t / period)
     return min(1f, bump(ph, 0.12f, 0.07f) + 0.6f * bump(ph, 0.3f, 0.08f))
 }

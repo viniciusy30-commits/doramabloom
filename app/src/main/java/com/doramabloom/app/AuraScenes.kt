@@ -212,7 +212,7 @@ private class TerrorScene : AuraScene {
         val per = 9f
         val idx = floor(t / per).toInt()
         val lt = t - idx * per
-        val flash = k.bump(lt, 0.10f, 0.035f) + 0.7f * k.bump(lt, 0.30f, 0.05f)
+        val flash = if (k.calm) 0f else k.bump(lt, 0.10f, 0.035f) + 0.7f * k.bump(lt, 0.30f, 0.05f)
 
         // lua cheia com halo e crateras
         val mx = w * 0.82f
@@ -403,7 +403,7 @@ private class AcaoScene : AuraScene {
 
         // clarão central pulsando
         val ph = k.frac(t / 1.2f)
-        val hit = k.bump(ph, 0.05f, 0.06f)
+        val hit = if (k.calm) 0f else k.bump(ph, 0.05f, 0.06f)
         k.glow(c, cx, cy, max(w, h) * (0.5f + 0.1f * hit), hot, 110f + 120f * hit)
 
         // linhas de velocidade (estilo mangá) saindo do centro

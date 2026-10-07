@@ -315,7 +315,7 @@ class MusicalScene : AuraScene {
         val cyan = Color.parseColor("#5BE7FF")
         val gold = Color.parseColor("#FFD86B")
         val beatPh = k.frac(t / 0.5f)
-        val beat = k.bump(beatPh, 0.05f, 0.15f)
+        val beat = if (k.calm) 0f else k.bump(beatPh, 0.05f, 0.15f)
 
         k.vgrad(c, w, h, Color.parseColor("#14041F"), Color.parseColor("#5A1766"), Color.parseColor("#B4399A"))
 
@@ -611,7 +611,7 @@ class RealezaScene : AuraScene {
             p.color = k.al(gold, if (i % 2 == 0) 46f else 24f)
             c.drawPath(k.path, p)
         }
-        k.glow(c, cx, cy, min(w, h) * 0.55f, gold, 110f + 20f * sin(t * 1.2f))
+        k.glow(c, cx, cy, min(w, h) * 0.55f, gold, 110f + (if (k.calm) 5f else 20f) * sin(t * (if (k.calm) 0.4f else 1.2f)))
 
         // castelo ao fundo, em silhueta dourada
         k.icon(c, "castle", k.al(Color.parseColor("#2A0F3F"), 245f), w * 0.5f, h * 0.9f, 80f * u, 0f)

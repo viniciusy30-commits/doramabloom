@@ -335,7 +335,7 @@ class SuspenseScene : AuraScene {
 
         // contagem regressiva piscando
         val secs = 9 - (floor(t) % 10f).toInt()
-        val blink = if (k.frac(t) < 0.6f) 1f else 0.3f
+        val blink = if (k.calm) 0.85f else if (k.frac(t) < 0.6f) 1f else 0.3f
         txt(c, k, "00:0" + secs, w * 0.14f, h * 0.55f, 15f * u, k.al(red, 230f * blink * k.edge(h * 0.55f, h)), 0f)
 
         // poeira no feixe de luz

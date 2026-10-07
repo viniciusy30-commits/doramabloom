@@ -501,9 +501,11 @@ class CrimeScene : AuraScene {
         k.vgrad(c, w, h, Color.parseColor("#080B18"), Color.parseColor("#131A33"), Color.parseColor("#262244"))
 
         // sirenes: vermelho e azul trocando de lugar, sempre suave
-        val s1 = 0.5f + 0.5f * sin(t * 2.2f)
-        k.soft(c, 0f, 0f, max(w, h) * 0.85f, red, 40f + 120f * s1)
-        k.soft(c, w, 0f, max(w, h) * 0.85f, blue, 40f + 120f * (1f - s1))
+        val s1 = 0.5f + 0.5f * sin(t * (if (k.calm) 0.3f else 2.2f))
+        val sirAmp = if (k.calm) 40f else 120f
+        val sirBase = if (k.calm) 85f else 40f
+        k.soft(c, 0f, 0f, max(w, h) * 0.85f, red, sirBase + sirAmp * s1)
+        k.soft(c, w, 0f, max(w, h) * 0.85f, blue, sirBase + sirAmp * (1f - s1))
         k.soft(c, w * 0.5f, h * 1.05f, max(w, h) * 0.7f, mixB(red, blue, s1, k), 50f)
 
         // holofote do helicóptero varrendo
