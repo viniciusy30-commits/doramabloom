@@ -467,13 +467,15 @@ class DetailActivity : AppCompatActivity() {
             b.addView(iv, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
             return Pair(b, iv)
         }
+        val wide4 = d.platform.isNotBlank()
+        val valSp = if (wide4) 12f else 13.5f
         fun infoCol(title: String, b: View, valueView: TextView): LinearLayout {
             val c = LinearLayout(this)
             c.orientation = LinearLayout.VERTICAL
             c.gravity = Gravity.CENTER_HORIZONTAL
             c.addView(b, lin(dp(38), dp(38)))
-            val t = label(title, 9f, Color.parseColor("#D9FFFFFF"), true)
-            t.letterSpacing = 0.14f
+            val t = label(title, if (wide4) 8f else 9f, Color.parseColor("#D9FFFFFF"), true)
+            t.letterSpacing = if (wide4) 0.06f else 0.14f
             t.gravity = Gravity.CENTER
             c.addView(t, lin(WRAP, WRAP, t = 7))
             valueView.maxLines = 2
@@ -487,16 +489,20 @@ class DetailActivity : AppCompatActivity() {
             v.setBackgroundColor(mixColor(g.primary, Color.WHITE, 0.45f))
             return v
         }
+        val isFilm = d.kind == "filme"
+        val (kBubble, _) = bubble(if (isFilm) "film" else "tv", g.primary, Color.WHITE)
+        infoCard.addView(infoCol("TIPO", kBubble, label(if (isFilm) "Filme" else "Série", valSp, Color.WHITE, true, true)), lin(0, WRAP, 1f))
+        infoCard.addView(divider(), lin(dp(1), dp(46)))
         val (stBubble, stIcon) = bubble("play", g.primary, Palette.pink)
-        val statusText = label("", 13.5f, Color.WHITE, true, true)
+        val statusText = label("", valSp, Color.WHITE, true, true)
         infoCard.addView(infoCol("STATUS", stBubble, statusText), lin(0, WRAP, 1f))
         infoCard.addView(divider(), lin(dp(1), dp(46)))
         val (coBubble, _) = bubble("flag", g.primary, Color.WHITE)
-        infoCard.addView(infoCol("PAÍS", coBubble, label(d.country, 13.5f, Color.WHITE, true, true)), lin(0, WRAP, 1f))
+        infoCard.addView(infoCol("PAÍS", coBubble, label(d.country, valSp, Color.WHITE, true, true)), lin(0, WRAP, 1f))
         if (d.platform.isNotBlank()) {
             infoCard.addView(divider(), lin(dp(1), dp(46)))
             val (plBubble, _) = bubble("tv", g.primary, Color.WHITE)
-            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, label(d.platform, 13.5f, Color.WHITE, true, true)), lin(0, WRAP, 1f))
+            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, label(d.platform, valSp, Color.WHITE, true, true)), lin(0, WRAP, 1f))
         }
         heroCol.addView(infoCard, lin(MATCH, WRAP, t = 14, l = 14, r = 14))
 

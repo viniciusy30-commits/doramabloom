@@ -275,11 +275,15 @@ fun multiColorBg(colors: List<Int>, sel: Boolean, radius: Float, strokeW: Int, f
     return ld
 }
 
-/** Pílula de "outro gênero" (suave); se tiver várias cores, o fundo é o degradê delas bem clarinho. */
+/** Pílula de "outro gênero" (suave); se tiver várias cores, o fundo é o degradê delas, vivo. */
 fun Context.otherPill(g: OtherGenre, textSp: Float): TextView {
     val t = pill(g.label, g.soft, g.dark, textSp, g.icon)
     if (g.colors.size > 1) {
-        t.background = multiColorBg(g.colors.map { mixColor(it, Color.WHITE, 0.62f) }, true, dp(20).toFloat(), 0)
+        // cores vivas (igual à tela do dorama), texto branco com sombrinha para ler sobre qualquer cor
+        t.background = multiColorBg(g.colors, true, dp(20).toFloat(), 0)
+        t.setTextColor(Color.WHITE)
+        (t.compoundDrawables[0] as? IconDrawable)?.color = Color.WHITE
+        t.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(150, 0, 0, 0))
     }
     return t
 }

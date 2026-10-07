@@ -1,3 +1,12 @@
+#id 2026-10-07-l
+#titulo Cores mescladas mais vivas na Estante
+- Os gêneros com cores mescladas (como o LGBTQ+) agora aparecem com as cores vivas também na lista e na grade da Estante.
+
+#id 2026-10-07-k
+#titulo Série ou filme
+- Na edição do dorama tem o campo "Tipo": Série ou Filme.
+- Na tela do dorama, o cartão de informações ganhou a coluna TIPO.
+
 #id 2026-10-06-j
 #titulo Arco-íris no LGBTQ+ e cores mescladas nos outros gêneros
 - O gênero LGBTQ+ agora tem as cores da bandeira (arco-íris) nos filtros, na edição e na tela do dorama.

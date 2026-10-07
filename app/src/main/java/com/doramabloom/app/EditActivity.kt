@@ -31,6 +31,7 @@ class EditActivity : AppCompatActivity() {
     private val shelfPick = ArrayList<String>() // até 2 gêneros extras que aparecem na Estante
     private var shelfBox: LinearLayout? = null
     private var statusKey = "quero"
+    private var kindKey = "serie"
     private var country = countries[0]
     private var score = 0
     private var favorite = false
@@ -77,6 +78,7 @@ class EditActivity : AppCompatActivity() {
             tags = HashSet(ex.tags)
             shelfPick.addAll(ex.shelfTags)
             statusKey = ex.status
+            kindKey = ex.kind
             country = ex.country
             score = ex.score
             favorite = ex.favorite
@@ -167,6 +169,11 @@ class EditActivity : AppCompatActivity() {
         genreBox.orientation = LinearLayout.VERTICAL
         c2.addView(genreBox, lin(MATCH, WRAP))
         buildGenreArea()
+        c2.addView(fieldLabel("Tipo"))
+        val kOpts = ArrayList<Opt>()
+        kOpts.add(Opt("serie", "Série", Color.parseColor("#6FA8FF"), "tv"))
+        kOpts.add(Opt("filme", "Filme", Color.parseColor("#E0A93B"), "film"))
+        c2.addView(chipFlow(kOpts, kindKey) { kindKey = it }, lin(MATCH, WRAP))
         c2.addView(fieldLabel("Status"))
         val sOpts = ArrayList<Opt>()
         for (s in Statuses.all) sOpts.add(Opt(s.key, s.label, s.color, s.icon))
@@ -621,6 +628,7 @@ class EditActivity : AppCompatActivity() {
             genre = genreKey,
             tags = tags.filter { it != genreKey },
             status = statusKey,
+            kind = kindKey,
             score = score,
             seasonEps = ArrayList(seasonTotals),
             watched = ArrayList(seasonWatched),
