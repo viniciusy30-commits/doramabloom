@@ -4,10 +4,6 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.os.Looper
-import android.os.Handler
-import android.media.MediaPlayer
-import android.media.AudioAttributes
 import android.text.InputType
 import android.text.TextUtils
 import android.view.GestureDetector
@@ -28,7 +24,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -271,131 +266,6 @@ class DetailActivity : AppCompatActivity() {
         if (seen != -1 && seen != Store.version) build(false)
     }
 
-    // ---------------- trilha sonora: toca, pausa e para sozinha quando você sai da tela
-    private var mp: MediaPlayer? = null
-    private val ticker = Handler(Looper.getMainLooper())
-    private var tick: Runnable? = null
-    private var musicReset: (() -> Unit)? = null
-
-    private fun releaseSound() {
-        tick?.let { ticker.removeCallbacks(it) }
-        tick = null
-        try {
-            mp?.release()
-        } catch (e: Exception) {
-        }
-        mp = null
-        musicReset?.invoke()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        releaseSound()
-    }
-
-    override fun onDestroy() {
-        releaseSound()
-        musicReset = null
-        super.onDestroy()
-    }
-
-    private fun buildMusicBar(d: Drama, g: Genre): View {
-        val row = LinearLayout(this)
-        row.orientation = LinearLayout.HORIZONTAL
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.setPadding(dp(10), dp(10), dp(16), dp(10))
-        row.background = gradient(
-            mixColor(g.primary, Color.WHITE, 0.26f), mixColor(g.primary, Color.WHITE, 0.10f),
-            dp(26).toFloat(), GradientDrawable.Orientation.TOP_BOTTOM
-        )
-
-        val bubble = FrameLayout(this)
-        val bbg = GradientDrawable()
-        bbg.shape = GradientDrawable.OVAL
-        bbg.setColor(Color.WHITE)
-        bubble.background = bbg
-        bubble.elevation = dp(2).toFloat()
-        val icon = IconView(this, "play", g.primary, 20)
-        bubble.addView(icon, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        row.addView(bubble, lin(dp(46), dp(46), r = 12))
-
-        val col = LinearLayout(this)
-        col.orientation = LinearLayout.VERTICAL
-        val cap = label("TRILHA SONORA", 9f, Color.parseColor("#D9FFFFFF"), true)
-        cap.letterSpacing = 0.12f
-        col.addView(cap, lin(WRAP, WRAP))
-        val nm = label(d.soundtrackName.ifEmpty { "Trilha sonora" }, 13f, Color.WHITE, true, true)
-        nm.maxLines = 1
-        nm.ellipsize = TextUtils.TruncateAt.END
-        col.addView(nm, lin(MATCH, WRAP, t = 2))
-        val bar = SoftBar(this)
-        bar.barColor = Color.WHITE
-        bar.trackColor = Color.argb(70, 255, 255, 255)
-        col.addView(bar, lin(MATCH, dp(5), t = 7))
-        row.addView(col, lin(0, WRAP, 1f))
-
-        musicReset = {
-            icon.setIcon("play")
-            bar.progress = 0f
-        }
-
-        fun startTick() {
-            tick?.let { ticker.removeCallbacks(it) }
-            val r = object : Runnable {
-                override fun run() {
-                    val m = mp ?: return
-                    try {
-                        val dur = m.duration
-                        if (dur > 0) bar.progress = m.currentPosition.toFloat() / dur
-                        if (m.isPlaying) ticker.postDelayed(this, 400)
-                    } catch (e: Exception) {
-                    }
-                }
-            }
-            tick = r
-            ticker.post(r)
-        }
-
-        row.setOnClickListener {
-            val cur = mp
-            if (cur == null) {
-                try {
-                    val m = MediaPlayer()
-                    m.setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .build()
-                    )
-                    m.setDataSource(d.soundtrack)
-                    m.setOnCompletionListener {
-                        it.seekTo(0)
-                        icon.setIcon("play")
-                        bar.progress = 0f
-                    }
-                    m.prepare()
-                    m.start()
-                    mp = m
-                    icon.setIcon("pause")
-                    bubble.pop(1.12f)
-                    startTick()
-                } catch (e: Exception) {
-                    releaseSound()
-                    softToast("Não consegui tocar esse arquivo.", Palette.pink, "music")
-                }
-            } else if (cur.isPlaying) {
-                cur.pause()
-                icon.setIcon("play")
-            } else {
-                cur.start()
-                icon.setIcon("pause")
-                startTick()
-            }
-        }
-        row.pressable(0.98f)
-        return row
-    }
-
     override fun finish() {
         super.finish()
         overridePendingTransition(R.anim.screen_back_in, R.anim.screen_back_out)
@@ -413,7 +283,6 @@ class DetailActivity : AppCompatActivity() {
     }
 
     private fun build(entrance: Boolean) {
-        releaseSound()
         val d = Store.get(id)
         if (d == null) {
             finish()
@@ -562,85 +431,17 @@ class DetailActivity : AppCompatActivity() {
         flow.center = true
         flow.hGap = dp(6)
         flow.vGap = dp(6)
-        flow.addView(genrePill(g.label, g.icon, g.primary))
+        flow.addView(pill(g.label, glass, Color.WHITE, 11.5f, g.icon))
         for (tk in d.tags) {
-            if (tk == d.genre) continue
-            if (Genres.exists(tk)) {
-                val tg = Genres.byKey(tk)
-                flow.addView(genrePill(tg.label, tg.icon, tg.primary))
-            } else if (OtherGenres.exists(tk)) {
-                // "outros gêneros" também aparecem, com a própria cor e o próprio símbolo
-                val og = OtherGenres.byKey(tk)
-                flow.addView(genrePill(og.label, og.icon, og.color, og.colors))
-            }
+            if (tk == d.genre || !Genres.exists(tk)) continue
+            val tg = Genres.byKey(tk)
+            flow.addView(pill(tg.label, glass, Color.WHITE, 11.5f, tg.icon))
         }
+        val statusPill = pill("", Palette.pink, Color.WHITE, 11.5f, "play")
+        flow.addView(statusPill)
+        flow.addView(pill(d.country, glass, Color.WHITE, 11.5f, "flag"))
+        if (d.platform.isNotBlank()) flow.addView(pill(d.platform, glass, Color.WHITE, 11.5f, "tv"))
         heroCol.addView(flow, lin(MATCH, WRAP, t = 12, l = 16, r = 16))
-
-        // status, país e onde assistir: um cartãozinho à parte, em colunas, separado dos gêneros
-        val infoCard = LinearLayout(this)
-        infoCard.orientation = LinearLayout.HORIZONTAL
-        infoCard.gravity = Gravity.CENTER_VERTICAL
-        infoCard.setPadding(dp(4), dp(14), dp(4), dp(14))
-        infoCard.background = gradient(
-            mixColor(g.primary, Color.WHITE, 0.26f), mixColor(g.primary, Color.WHITE, 0.10f),
-            dp(26).toFloat(), GradientDrawable.Orientation.TOP_BOTTOM
-        )
-        // bolinha de ícone: círculo branco com anel, ícone colorido dentro
-        fun bubble(icon: String, tint: Int, fill: Int): Pair<FrameLayout, IconView> {
-            val b = FrameLayout(this)
-            val bg = GradientDrawable()
-            bg.shape = GradientDrawable.OVAL
-            bg.setColor(fill)
-            bg.setStroke(dp(2), Color.WHITE)
-            b.background = bg
-            b.elevation = dp(2).toFloat()
-            val iv = IconView(this, icon, tint, 18)
-            b.addView(iv, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-            return Pair(b, iv)
-        }
-        val wide4 = d.platform.isNotBlank()
-        val valSp = if (wide4) 12f else 13.5f
-        fun infoCol(title: String, b: View, valueView: TextView): LinearLayout {
-            val c = LinearLayout(this)
-            c.orientation = LinearLayout.VERTICAL
-            c.gravity = Gravity.CENTER_HORIZONTAL
-            c.addView(b, lin(dp(38), dp(38)))
-            val t = label(title, if (wide4) 8f else 9f, Color.parseColor("#D9FFFFFF"), true)
-            t.letterSpacing = if (wide4) 0.06f else 0.14f
-            t.gravity = Gravity.CENTER
-            c.addView(t, lin(WRAP, WRAP, t = 7))
-            valueView.maxLines = 2
-            valueView.gravity = Gravity.CENTER
-            valueView.setPadding(dp(4), 0, dp(4), 0)
-            c.addView(valueView, lin(WRAP, WRAP, t = 2))
-            return c
-        }
-        fun divider(): View {
-            val v = View(this)
-            v.setBackgroundColor(mixColor(g.primary, Color.WHITE, 0.45f))
-            return v
-        }
-        val isFilm = d.kind == "filme"
-        val (kBubble, _) = bubble(if (isFilm) "film" else "tv", g.primary, Color.WHITE)
-        infoCard.addView(infoCol("TIPO", kBubble, label(if (isFilm) "Filme" else "Série", valSp, Color.WHITE, true, true)), lin(0, WRAP, 1f))
-        infoCard.addView(divider(), lin(dp(1), dp(46)))
-        val (stBubble, stIcon) = bubble("play", g.primary, Palette.pink)
-        val statusText = label("", valSp, Color.WHITE, true, true)
-        infoCard.addView(infoCol("STATUS", stBubble, statusText), lin(0, WRAP, 1f))
-        infoCard.addView(divider(), lin(dp(1), dp(46)))
-        val (coBubble, _) = bubble("flag", g.primary, Color.WHITE)
-        infoCard.addView(infoCol("PAÍS", coBubble, label(d.country, valSp, Color.WHITE, true, true)), lin(0, WRAP, 1f))
-        if (d.platform.isNotBlank()) {
-            infoCard.addView(divider(), lin(dp(1), dp(46)))
-            val (plBubble, _) = bubble("tv", g.primary, Color.WHITE)
-            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, label(d.platform, valSp, Color.WHITE, true, true)), lin(0, WRAP, 1f))
-        }
-        heroCol.addView(infoCard, lin(MATCH, WRAP, t = 14, l = 14, r = 14))
-
-        // trilha sonora do dorama (só aparece se você escolheu um arquivo na edição)
-        if (d.soundtrack.isNotEmpty() && File(d.soundtrack).exists()) {
-            heroCol.addView(buildMusicBar(d, g), lin(MATCH, WRAP, t = 10, l = 14, r = 14))
-        }
 
         // faixa da nota
         val strip = LinearLayout(this)
@@ -657,12 +458,10 @@ class DetailActivity : AppCompatActivity() {
         strip.addView(badge, lin(dp(46), dp(46), r = 12))
         val rcol = LinearLayout(this)
         rcol.orientation = LinearLayout.VERTICAL
-        // sempre 5 corações à mostra: cheios, meio-cheios ou só o contorno
-        val rv = RatingView(this, 22, false)
+        val rv = RatingView(this, 20, false)
         rv.color = Color.WHITE
         rcol.addView(rv)
-        val rvNote = label("", 11.5f, Color.parseColor("#F2FFFFFF"), true)
-        rcol.addView(rvNote, lin(WRAP, WRAP, t = 4))
+        rcol.addView(label("nota de 10", 11f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 3))
         strip.addView(rcol, lin(0, WRAP, 1f))
         heroCol.addView(strip, lin(MATCH, WRAP, t = 16, l = 14, r = 14, b = 8))
         val tagLine = label(g.tagline, 12.5f, Color.parseColor("#F2FFFFFF"))
@@ -674,27 +473,24 @@ class DetailActivity : AppCompatActivity() {
 
         updaters.add {
             val st = Statuses.byKey(d.status)
-            statusText.text = st.label
-            val sbg = GradientDrawable()
-            sbg.shape = GradientDrawable.OVAL
-            sbg.setColor(st.color)
-            sbg.setStroke(dp(2), Color.WHITE)
-            stBubble.background = sbg
-            stIcon.tint = Color.WHITE
-            stIcon.setIcon(st.icon)
+            statusPill.text = st.label
+            statusPill.background = roundRect(st.color, dp(20).toFloat(), Color.WHITE, dp(1))
+            (statusPill.compoundDrawables[0] as? IconDrawable)?.let {
+                it.name = st.icon
+                it.color = Color.WHITE
+            }
             val newText = if (d.score <= 0) "-" else d.score.toString()
             if (badge.text.toString() != newText) {
                 badge.text = newText
                 badge.pop(1.6f)
             }
             rv.score = d.score
-            rvNote.text = if (d.score <= 0) "ainda sem nota" else "nota " + d.score + " de 10"
         }
 
         // ---- assistir: abre a aba só deste dorama
         val watchRow = LinearLayout(this)
         watchRow.orientation = LinearLayout.HORIZONTAL
-        watchRow.gravity = Gravity.CENTER
+        watchRow.gravity = Gravity.CENTER_VERTICAL
         watchRow.clipChildren = false
         val wcard = LinearLayout(this)
         wcard.orientation = LinearLayout.HORIZONTAL
@@ -718,6 +514,7 @@ class DetailActivity : AppCompatActivity() {
         wcard.pressable(0.97f)
         wcard.setOnClickListener { openWatch(d) }
         watchRow.addView(wcard, lin(0, WRAP, 1f))
+        watchRow.addView(roundBtn("link", g.primary, false, 20) { askLink(d, g) }, lin(dp(52), dp(52), l = 10))
         col.addView(watchRow, lin(MATCH, WRAP, t = 14))
         updaters.add {
             if (d.lastUrl.isBlank() && watchedEps(d) == 0) {
@@ -922,16 +719,14 @@ class DetailActivity : AppCompatActivity() {
         // ---- informações
         val ic = card(14, 22)
         col.addView(ic, lin(MATCH, WRAP, t = 12))
-
-        // ---- elenco (fotos com nome) e casal favorito
-        buildCastCard(d, g)?.let { col.addView(it, lin(MATCH, WRAP, t = 12)) }
-        buildCoupleCard(d, g)?.let { col.addView(it, lin(MATCH, WRAP, t = 12)) }
         var firstInfo = true
         updaters.add {
             while (ic.childCount > 0) ic.removeViewAt(0)
             ic.addView(sectionTitle("Informações", "tag", g.primary))
             if (d.platform.isNotBlank()) ic.addView(infoRow("tv", "Onde assistir", d.platform, g.primary))
             if (d.year.isNotBlank()) ic.addView(infoRow("calendar", "Ano de lançamento", d.year, g.primary))
+            if (d.cast.isNotBlank()) ic.addView(infoRow("person", "Elenco", d.cast, g.primary))
+            if (d.couple.isNotBlank()) ic.addView(infoRow("heart", "Casal favorito", d.couple, g.primary))
             if (d.startDate > 0L) ic.addView(infoRow("play", "Comecei em", fmt(d.startDate), g.primary))
             if (d.endDate > 0L) ic.addView(infoRow("check", "Terminei em", fmt(d.endDate), g.primary))
             ic.addView(infoRow("calendar", "Adicionado em", fmt(d.addedAt), g.primary))
@@ -975,16 +770,9 @@ class DetailActivity : AppCompatActivity() {
         refreshAll()
         updatePetals(d)
         val oldRoot = rootView
+        if (oldRoot != null) host.removeView(oldRoot)
         rootView = root
         host.addView(root, FrameLayout.LayoutParams(MATCH, MATCH))
-        if (oldRoot != null && !entrance) {
-            // troca suave: a tela nova aparece por cima e a antiga some, sem corte nem piscada
-            root.alpha = 0f
-            root.animate().alpha(1f).setDuration(240).start()
-            oldRoot.animate().alpha(0f).setDuration(240).withEndAction { host.removeView(oldRoot) }.start()
-        } else if (oldRoot != null) {
-            host.removeView(oldRoot)
-        }
         if (host.parent == null) setContentView(host)
         ThemeMode.refresh(this)
         window.statusBarColor = g.soft
@@ -998,26 +786,47 @@ class DetailActivity : AppCompatActivity() {
         }
     }
 
-    /** Etiqueta de gênero na cor dele (principal ou outro gênero), com borda branca para destacar sobre o fundo. */
-    private fun genrePill(label: String, icon: String, color: Int, colors: List<Int> = emptyList()): TextView {
-        val t = pill(label, color, Color.WHITE, 11.5f, icon)
-        if (colors.size > 1) {
-            // várias cores: degradê com borda branca fininha e texto com sombrinha para ler sobre qualquer cor
-            val bg = multiColorBg(colors, true, dp(20).toFloat(), 0) as GradientDrawable
-            bg.setStroke(dp(1), Color.WHITE)
-            t.background = bg
-            t.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(150, 0, 0, 0))
-        } else {
-            t.background = roundRect(color, dp(20).toFloat(), Color.WHITE, dp(1))
-        }
-        return t
-    }
-
     private fun openWatch(d: Drama) {
         val i = Intent(this, WatchActivity::class.java)
         i.putExtra("id", d.id)
         startActivity(i)
         overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
+    }
+
+    private fun askLink(d: Drama, g: Genre) {
+        val et = EditText(this)
+        et.hint = "https://..."
+        et.setSingleLine(true)
+        et.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+        et.setText(d.link)
+        val box = FrameLayout(this)
+        box.setPadding(dp(22), dp(8), dp(22), 0)
+        box.addView(et, FrameLayout.LayoutParams(MATCH, WRAP))
+        val b = AlertDialog.Builder(this)
+            .setTitle("Link de início")
+            .setMessage("Opcional: a página onde você assiste. Sem link, a aba abre no Google. Depois, ela sempre volta de onde você parou.")
+            .setView(box)
+            .setPositiveButton("Salvar") { _, _ ->
+                var v = et.text.toString().trim()
+                if (v.isNotEmpty() && !v.startsWith("http://") && !v.startsWith("https://")) v = "https://$v"
+                if (v != d.link) d.lastUrl = ""
+                d.link = v
+                Store.save(d)
+                sync()
+                refreshAll()
+                if (v.isNotEmpty()) softToast("Link salvo!", g.primary, "link")
+            }
+            .setNegativeButton("Cancelar", null)
+        if (d.link.isNotBlank()) {
+            b.setNeutralButton("Remover") { _, _ ->
+                d.link = ""
+                d.lastUrl = ""
+                Store.save(d)
+                sync()
+                refreshAll()
+            }
+        }
+        b.show()
     }
 
     private fun updatePetals(d: Drama) {
@@ -1044,78 +853,6 @@ class DetailActivity : AppCompatActivity() {
         b.addView(n, lin(WRAP, WRAP, t = 1))
         b.pressable(0.94f)
         return Pair(b, v)
-    }
-
-    /** Elenco: fotinhas redondas em fila, cada uma com o nome embaixo. */
-    private fun buildCastCard(d: Drama, g: Genre): View? {
-        val people = d.castPeople.filter { it.name.isNotBlank() }
-        if (people.isEmpty()) return null
-        val c = card(14, 22)
-        c.addView(sectionTitle("Elenco", "person", g.primary))
-        val hs = HorizontalScrollView(this)
-        hs.isHorizontalScrollBarEnabled = false
-        val row = LinearLayout(this)
-        row.orientation = LinearLayout.HORIZONTAL
-        row.setPadding(0, dp(14), 0, dp(2))
-        for ((i, p) in people.withIndex()) {
-            val item = LinearLayout(this)
-            item.orientation = LinearLayout.VERTICAL
-            item.gravity = Gravity.CENTER_HORIZONTAL
-            item.addView(avatarView(p.photo, 76, g.primary, g.soft, g.primary), lin(dp(76), dp(76)))
-            val nm = label(p.name, 12f, Palette.text, true)
-            nm.gravity = Gravity.CENTER
-            nm.maxLines = 2
-            nm.ellipsize = TextUtils.TruncateAt.END
-            item.addView(nm, lin(dp(84), WRAP, t = 7))
-            item.fadeScaleIn(minOf(i, 6) * 60L, 300L)
-            row.addView(item, lin(dp(88), WRAP, r = 6))
-        }
-        hs.addView(row)
-        c.addView(hs, lin(MATCH, WRAP))
-        return c
-    }
-
-    /** Casal favorito: foto grande arredondada com um coraçãozinho e os nomes ao lado. */
-    private fun buildCoupleCard(d: Drama, g: Genre): View? {
-        val hasPhoto = d.couplePhoto.isNotEmpty() && File(d.couplePhoto).exists()
-        if (d.couple.isBlank() && !hasPhoto) return null
-        val c = card(14, 22)
-        c.addView(sectionTitle("Casal favorito", "heart", g.primary))
-        val row = LinearLayout(this)
-        row.orientation = LinearLayout.HORIZONTAL
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.setPadding(0, dp(14), 0, dp(2))
-
-        val photoBox = FrameLayout(this)
-        photoBox.addView(
-            avatarView(d.couplePhoto, 112, g.primary, g.soft, g.primary, "heart", true),
-            FrameLayout.LayoutParams(dp(112), dp(112))
-        )
-        val heart = FrameLayout(this)
-        val hbg = GradientDrawable()
-        hbg.shape = GradientDrawable.OVAL
-        hbg.setColor(g.primary)
-        hbg.setStroke(dp(2), Color.WHITE)
-        heart.background = hbg
-        heart.elevation = dp(3).toFloat()
-        heart.addView(IconView(this, "heart", Color.WHITE, 14), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        val hlp = FrameLayout.LayoutParams(dp(30), dp(30), Gravity.BOTTOM or Gravity.END)
-        hlp.setMargins(0, 0, dp(2), dp(2))
-        photoBox.addView(heart, hlp)
-        row.addView(photoBox, lin(dp(112), dp(112), r = 16))
-
-        val txt = LinearLayout(this)
-        txt.orientation = LinearLayout.VERTICAL
-        val cap = label("MEU SHIPP", 9.5f, g.primary, true)
-        cap.letterSpacing = 0.12f
-        txt.addView(cap, lin(WRAP, WRAP))
-        val nm = label(d.couple.ifBlank { "Meu casal" }, 17f, Palette.text, true, true)
-        nm.maxLines = 4
-        nm.ellipsize = TextUtils.TruncateAt.END
-        txt.addView(nm, lin(MATCH, WRAP, t = 4))
-        row.addView(txt, lin(0, WRAP, 1f))
-        c.addView(row, lin(MATCH, WRAP))
-        return c
     }
 
     private fun infoRow(icon: String, name: String, value: String, color: Int): View {

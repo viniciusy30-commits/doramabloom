@@ -169,35 +169,16 @@ object Genres {
  * então escolher um deles nunca muda a atmosfera das telas.
  * Ficam guardados no mesmo campo "tags" do dorama, com chave começando em "x_".
  */
-class OtherGenre(
-    val key: String,
-    val label: String,
-    val icon: String,
-    val color: Int,
-    /** true = criado por você; false = veio com o app (pode ser editado ou excluído também). */
-    val custom: Boolean = false,
-    /** Outras cores para mesclar com [color] (a mesma cor repetida não conta). */
-    more: List<Int> = emptyList()
-) {
-    /** Cores do gênero, sem repetir: 1 = cor lisa, 2 ou mais = degradê mesclado. */
-    val colors: List<Int> = (listOf(color) + more).distinct()
-
-    /** Cor média (igual a [color] quando só tem uma). */
-    private val avg: Int
-        get() {
-            val n = colors.size
-            return Color.rgb(colors.sumOf { Color.red(it) } / n, colors.sumOf { Color.green(it) } / n, colors.sumOf { Color.blue(it) } / n)
-        }
-
-    val soft: Int get() = mixColor(avg, Color.WHITE, 0.84f)
-    val dark: Int get() = mixColor(avg, Color.BLACK, 0.42f)
+class OtherGenre(val key: String, val label: String, val icon: String, val color: Int) {
+    val soft: Int get() = mixColor(color, Color.WHITE, 0.84f)
+    val dark: Int get() = mixColor(color, Color.BLACK, 0.42f)
 }
 
 object OtherGenres {
     private fun c(s: String): Int = Color.parseColor(s)
 
     /** Cada um tem cor e símbolo só dele (nenhum repete os símbolos dos gêneros com tema). */
-    private val factory: List<OtherGenre> = listOf(
+    val all: List<OtherGenre> = listOf(
         OtherGenre("x_policial", "Policial", "shield", c("#5B7FD9")),
         OtherGenre("x_juridico", "Jurídico", "scale", c("#8A6D5A")),
         OtherGenre("x_politico", "Político", "flag", c("#E8505B")),
@@ -213,8 +194,7 @@ object OtherGenres {
         OtherGenre("x_chaebol", "Chaebol", "gem", c("#D45FA0")),
         OtherGenre("x_casamento", "Casamento por contrato", "ring", c("#FF8FB7")),
         OtherGenre("x_amizade", "Amizade", "person", c("#F29B5C")),
-        OtherGenre("x_lgbt", "LGBTQ+", "rainbow", c("#E40303"), false,
-            listOf(c("#FF8C00"), c("#FFED00"), c("#008026"), c("#24408E"), c("#732982"))),
+        OtherGenre("x_lgbt", "LGBTQ+", "rainbow", c("#A068E0")),
         OtherGenre("x_slice", "Slice of life", "leaf", c("#6FBF4A")),
         OtherGenre("x_culinario", "Culinário", "cake", c("#D98B5F")),
         OtherGenre("x_moda", "Moda", "butterfly", c("#E36BC4")),
@@ -222,48 +202,9 @@ object OtherGenres {
         OtherGenre("x_superacao", "Superação", "sun", c("#F2A93B"))
     )
 
-    private var edits: Map<String, OtherGenre> = emptyMap()
-    private var hidden: Set<String> = emptySet()
-    private var extra: List<OtherGenre> = emptyList()
-
-    /** Os de fábrica que você não excluiu (com as suas edições) e depois os que você criou. */
-    val all: List<OtherGenre>
-        get() = factory.filter { !hidden.contains(it.key) }.map { edits[it.key] ?: it } + extra
-
-    fun setEdits(m: Map<String, OtherGenre>) {
-        edits = m
-    }
-
-    fun edited(): Map<String, OtherGenre> = edits
-
-    fun isEdited(k: String): Boolean = edits.containsKey(k)
-
-    fun setHidden(s: Set<String>) {
-        hidden = s
-    }
-
-    /** Chaves dos de fábrica que você excluiu. */
-    fun hiddenKeys(): Set<String> = hidden
-
-    fun factoryOf(k: String): OtherGenre? = factory.firstOrNull { it.key == k }
-
-    fun custom(): List<OtherGenre> = extra
-
-    fun setCustom(l: List<OtherGenre>) {
-        extra = l
-    }
-
     fun exists(k: String): Boolean = all.any { it.key == k }
 
-    fun byKey(k: String): OtherGenre =
-        all.firstOrNull { it.key == k } ?: OtherGenre(k, "Outro", "tag", c("#B98AA0"))
-
-    fun makeCustom(key: String, label: String, icon: String, color: Int, more: List<Int> = emptyList()): OtherGenre =
-        OtherGenre(key, label, icon, color, true, more)
-
-    /** Versão editada de um de fábrica (mesma chave, então os doramas continuam marcados). */
-    fun editBuiltin(base: OtherGenre, label: String, icon: String, color: Int, more: List<Int> = emptyList()): OtherGenre =
-        OtherGenre(base.key, label, icon, color, false, more)
+    fun byKey(k: String): OtherGenre = all.first { it.key == k }
 }
 
 /** Três tons do gênero para as pétalas: uma mistura rica em vez de uma cor só. */
@@ -290,9 +231,6 @@ object Statuses {
 val countries: List<String> = listOf(
     "Coreia do Sul", "Japão", "China", "Tailândia", "Taiwan", "Outro"
 )
-
-/** Ator ou atriz do elenco, com foto opcional (caminho do arquivo no app). */
-data class Person(val name: String, val photo: String)
 
 data class Drama(
     var id: Long,
@@ -322,17 +260,7 @@ data class Drama(
     var lastUrl: String = "",
     var watchSeason: Int = -1,
     /** Posição na sua ordem manual (0 = ainda sem posição, aparece no topo). */
-    var order: Long = 0L,
-    /** Até 2 gêneros extras que aparecem no cartão da Estante (vazio = os 2 primeiros). */
-    var shelfTags: List<String> = emptyList(),
-    /** "serie" ou "filme". */
-    var kind: String = "serie",
-    /** Arquivo da trilha sonora (copiado para a pasta do app) e o nome para mostrar. */
-    var soundtrack: String = "",
-    var soundtrackName: String = "",
-    /** Elenco com fotos e a foto do casal favorito. */
-    var castPeople: List<Person> = emptyList(),
-    var couplePhoto: String = ""
+    var order: Long = 0L
 )
 
 fun totalEps(d: Drama): Int = d.seasonEps.sum()
@@ -495,21 +423,6 @@ private fun Drama.toJson(): JSONObject {
     val ta = JSONArray()
     for (t in tags) ta.put(t)
     o.put("tags", ta)
-    val sa = JSONArray()
-    for (t in shelfTags) sa.put(t)
-    o.put("shelfTags", sa)
-    o.put("kind", kind)
-    o.put("soundtrack", soundtrack)
-    o.put("soundtrackName", soundtrackName)
-    val pa = JSONArray()
-    for (p in castPeople) {
-        val po = JSONObject()
-        po.put("name", p.name)
-        po.put("photo", p.photo)
-        pa.put(po)
-    }
-    o.put("castPeople", pa)
-    o.put("couplePhoto", couplePhoto)
     o.put("status", status)
     o.put("score", score)
     o.put("seasonEps", intsToJson(seasonEps))
@@ -531,25 +444,6 @@ private fun Drama.toJson(): JSONObject {
     o.put("watchSeason", watchSeason)
     o.put("order", order)
     return o
-}
-
-/** Lê o elenco com fotos; se for um dorama antigo (só o texto do elenco), separa os nomes por vírgula. */
-private fun parsePeople(a: JSONArray?, castText: String): List<Person> {
-    val r = ArrayList<Person>()
-    if (a != null) {
-        for (i in 0 until a.length()) {
-            val po = a.optJSONObject(i) ?: continue
-            val n = po.optString("name", "").trim()
-            if (n.isNotEmpty()) r.add(Person(n, po.optString("photo", "")))
-        }
-    }
-    if (r.isEmpty() && castText.isNotBlank()) {
-        for (n in castText.split(",", ";")) {
-            val t = n.trim()
-            if (t.isNotEmpty()) r.add(Person(t, ""))
-        }
-    }
-    return r
 }
 
 private fun dramaFromJson(o: JSONObject): Drama {
@@ -588,13 +482,7 @@ private fun dramaFromJson(o: JSONObject): Drama {
         link = o.optString("link", ""),
         lastUrl = o.optString("lastUrl", ""),
         watchSeason = o.optInt("watchSeason", -1),
-        order = o.optLong("order", 0L),
-        shelfTags = jsonStrings(o.optJSONArray("shelfTags")),
-        kind = if (o.optString("kind", "serie") == "filme") "filme" else "serie",
-        soundtrack = o.optString("soundtrack", ""),
-        soundtrackName = o.optString("soundtrackName", ""),
-        castPeople = parsePeople(o.optJSONArray("castPeople"), o.optString("cast", "")),
-        couplePhoto = o.optString("couplePhoto", "")
+        order = o.optLong("order", 0L)
     )
     normalize(d)
     return d
@@ -619,7 +507,6 @@ object Store {
         prefs = appContext.getSharedPreferences(PREF, Context.MODE_PRIVATE)
         loadGenres()
         loadGenreEdits()
-        loadOthers()
         load()
         loaded = true
     }
@@ -778,171 +665,6 @@ object Store {
         if (changed) persist()
     }
 
-    // ------------------------------------------------------------------ OUTROS GÊNEROS
-
-    private const val OCKEY = "otherCustom"
-    private const val OEKEY = "otherEdits"
-    private const val OHKEY = "otherHidden"
-
-    private fun otherToJson(g: OtherGenre): JSONObject {
-        val o = JSONObject()
-        o.put("key", g.key)
-        o.put("label", g.label)
-        o.put("icon", g.icon)
-        o.put("color", g.color)
-        if (g.colors.size > 1) {
-            val ca = JSONArray()
-            for (cc in g.colors) ca.put(cc)
-            o.put("colors", ca)
-        }
-        return o
-    }
-
-    /** Lê um "outro gênero"; custom = false só aceita chaves de fábrica (é uma edição). */
-    private fun otherFromJson(o: JSONObject, custom: Boolean): OtherGenre? {
-        val k = o.optString("key", "")
-        val l = o.optString("label", "").trim()
-        if (k.isBlank() || l.isEmpty()) return null
-        val icon = o.optString("icon", "tag")
-        val color = o.optInt("color", Palette.pink)
-        val more = ArrayList<Int>()
-        val ca = o.optJSONArray("colors")
-        if (ca != null) for (i in 0 until minOf(ca.length(), 6)) more.add(ca.optInt(i, color))
-        if (!custom) {
-            val base = OtherGenres.factoryOf(k) ?: return null
-            return OtherGenres.editBuiltin(base, l, icon, color, more)
-        }
-        return OtherGenres.makeCustom(k, l, icon, color, more)
-    }
-
-    private fun parseOtherCustom(a: JSONArray?, taken: (String) -> Boolean): List<OtherGenre> {
-        val r = ArrayList<OtherGenre>()
-        if (a == null) return r
-        for (i in 0 until a.length()) {
-            val g = otherFromJson(a.getJSONObject(i), true) ?: continue
-            if (taken(g.key) || r.any { it.key == g.key }) continue
-            r.add(g)
-        }
-        return r
-    }
-
-    private fun parseOtherEdits(a: JSONArray?): Map<String, OtherGenre> {
-        val m = HashMap<String, OtherGenre>()
-        if (a == null) return m
-        for (i in 0 until a.length()) {
-            val g = otherFromJson(a.getJSONObject(i), false) ?: continue
-            m[g.key] = g
-        }
-        return m
-    }
-
-    private fun parseOtherHidden(a: JSONArray?): Set<String> {
-        val r = HashSet<String>()
-        if (a == null) return r
-        for (i in 0 until a.length()) {
-            val k = a.optString(i, "")
-            if (OtherGenres.factoryOf(k) != null) r.add(k)
-        }
-        return r
-    }
-
-    private fun loadOthers() {
-        try {
-            OtherGenres.setCustom(parseOtherCustom(JSONArray(prefs.getString(OCKEY, "[]") ?: "[]")) { false })
-            OtherGenres.setEdits(parseOtherEdits(JSONArray(prefs.getString(OEKEY, "[]") ?: "[]")))
-            OtherGenres.setHidden(parseOtherHidden(JSONArray(prefs.getString(OHKEY, "[]") ?: "[]")))
-        } catch (e: Exception) {
-            // dados corrompidos: volta ao padrão
-            OtherGenres.setCustom(emptyList())
-            OtherGenres.setEdits(emptyMap())
-            OtherGenres.setHidden(emptySet())
-        }
-    }
-
-    private fun otherState(): JSONObject {
-        val ca = JSONArray()
-        for (g in OtherGenres.custom()) ca.put(otherToJson(g))
-        val ea = JSONArray()
-        for (g in OtherGenres.edited().values) ea.put(otherToJson(g))
-        val ha = JSONArray()
-        for (k in OtherGenres.hiddenKeys()) ha.put(k)
-        val o = JSONObject()
-        o.put("custom", ca)
-        o.put("edits", ea)
-        o.put("hidden", ha)
-        return o
-    }
-
-    private fun persistOthers() {
-        version++
-        val st = otherState()
-        prefs.edit()
-            .putString(OCKEY, st.getJSONArray("custom").toString())
-            .putString(OEKEY, st.getJSONArray("edits").toString())
-            .putString(OHKEY, st.getJSONArray("hidden").toString())
-            .apply()
-    }
-
-    /** Salva a edição de um "outro gênero" (criado por você ou de fábrica). */
-    fun updateOtherGenre(g: OtherGenre) {
-        if (g.custom) {
-            OtherGenres.setCustom(OtherGenres.custom().map { if (it.key == g.key) g else it })
-        } else {
-            val m = HashMap(OtherGenres.edited())
-            m[g.key] = g
-            OtherGenres.setEdits(m)
-        }
-        persistOthers()
-    }
-
-    fun addOtherGenre(g: OtherGenre) {
-        val l = ArrayList(OtherGenres.custom())
-        l.removeAll { it.key == g.key }
-        l.add(g)
-        OtherGenres.setCustom(l)
-        persistOthers()
-    }
-
-    /** Volta um "outro gênero" de fábrica ao nome, símbolo e cor originais. */
-    fun resetOtherGenre(key: String) {
-        val m = HashMap(OtherGenres.edited())
-        m.remove(key)
-        OtherGenres.setEdits(m)
-        persistOthers()
-    }
-
-    /**
-     * Exclui um "outro gênero". Se foi você que criou, ele some de vez e sai dos doramas.
-     * Se veio com o app, só fica escondido (dá para trazer de volta em Restaurar padrões).
-     */
-    fun removeOtherGenre(key: String) {
-        val g = OtherGenres.all.firstOrNull { it.key == key } ?: return
-        if (g.custom) {
-            OtherGenres.setCustom(OtherGenres.custom().filter { it.key != key })
-            var changed = false
-            for (d in list) {
-                if (d.tags.contains(key)) {
-                    d.tags = d.tags.filter { it != key }
-                    changed = true
-                }
-            }
-            persistOthers()
-            if (changed) persist()
-        } else {
-            val m = HashMap(OtherGenres.edited())
-            m.remove(key)
-            OtherGenres.setEdits(m)
-            OtherGenres.setHidden(OtherGenres.hiddenKeys() + key)
-            persistOthers()
-        }
-    }
-
-    /** Traz de volta os "outros gêneros" de fábrica que você tinha excluído. */
-    fun restoreOtherDefaults() {
-        OtherGenres.setHidden(emptySet())
-        persistOthers()
-    }
-
     fun setWatchSeason(d: Drama, s: Int) {
         d.watchSeason = s
         persist()
@@ -986,26 +708,6 @@ object Store {
             } catch (e: Exception) {
             }
             Covers.clear()
-        }
-        for (p in d.castPeople) {
-            if (p.photo.isNotEmpty()) {
-                try {
-                    File(p.photo).delete()
-                } catch (e: Exception) {
-                }
-            }
-        }
-        if (d.couplePhoto.isNotEmpty()) {
-            try {
-                File(d.couplePhoto).delete()
-            } catch (e: Exception) {
-            }
-        }
-        if (d.soundtrack.isNotEmpty()) {
-            try {
-                File(d.soundtrack).delete()
-            } catch (e: Exception) {
-            }
         }
         list.removeAll { it.id == id }
         persist()
@@ -1091,17 +793,6 @@ object Store {
         for (d in list) {
             val o = d.toJson()
             o.put("cover", "")
-            o.put("soundtrack", "")
-            o.put("soundtrackName", "")
-            val pn = JSONArray()
-            for (p in d.castPeople) {
-                val po = JSONObject()
-                po.put("name", p.name)
-                po.put("photo", "")
-                pn.put(po)
-            }
-            o.put("castPeople", pn)
-            o.put("couplePhoto", "")
             arr.put(o)
         }
         val ga = JSONArray()
@@ -1160,10 +851,6 @@ object Store {
                 if (d.title.isBlank()) continue
                 if (list.any { it.title.equals(d.title, true) && it.year == d.year }) continue
                 d.cover = ""
-                d.soundtrack = ""
-                d.soundtrackName = ""
-                d.castPeople = d.castPeople.map { Person(it.name, "") }
-                d.couplePhoto = ""
                 d.id = System.currentTimeMillis() + i
                 list.add(d)
                 n++
@@ -1204,33 +891,6 @@ object Store {
             val files = ArrayList<Pair<String, File>>()
             for (d in dramas) {
                 val o = d.toJson()
-                o.put("soundtrack", "")
-                o.put("soundtrackName", "")
-                val pa = JSONArray()
-                var pi = 0
-                for (p in d.castPeople) {
-                    val po = JSONObject()
-                    po.put("name", p.name)
-                    val pf = if (p.photo.isNotEmpty()) File(p.photo) else null
-                    if (pf != null && pf.exists()) {
-                        val pn = "people/" + d.id + "_" + pi + ".jpg"
-                        po.put("photo", pn)
-                        files.add(Pair(pn, pf))
-                    } else {
-                        po.put("photo", "")
-                    }
-                    pa.put(po)
-                    pi++
-                }
-                o.put("castPeople", pa)
-                val cf = if (d.couplePhoto.isNotEmpty()) File(d.couplePhoto) else null
-                if (cf != null && cf.exists()) {
-                    val cn = "people/" + d.id + "_c.jpg"
-                    o.put("couplePhoto", cn)
-                    files.add(Pair(cn, cf))
-                } else {
-                    o.put("couplePhoto", "")
-                }
                 val f = if (d.cover.isNotEmpty()) File(d.cover) else null
                 if (f != null && f.exists()) {
                     val name = "covers/" + d.id + ".jpg"
@@ -1252,7 +912,6 @@ object Store {
             root.put("settings", settingsJson())
             root.put("genres", ga)
             root.put("genreEdits", ea)
-            root.put("otherGenres", otherState())
             root.put("dramas", arr)
             zip.putNextEntry(ZipEntry("backup.json"))
             zip.write(root.toString().toByteArray(Charsets.UTF_8))
@@ -1324,7 +983,7 @@ object Store {
                         val data = z.readBytes()
                         if (e.name == "backup.json") {
                             jsonText = String(data, Charsets.UTF_8)
-                        } else if (e.name.startsWith("covers/") || e.name.startsWith("people/")) {
+                        } else if (e.name.startsWith("covers/")) {
                             covers[e.name] = data
                         }
                     }
@@ -1369,29 +1028,6 @@ object Store {
                 }
                 used.add(d.id)
                 d.cover = ""
-                d.soundtrack = ""
-                d.soundtrackName = ""
-                val pdir = File(appContext.filesDir, "people")
-                pdir.mkdirs()
-                val novasPessoas = ArrayList<Person>()
-                for ((pj, p) in d.castPeople.withIndex()) {
-                    var np = ""
-                    val pd = covers[p.photo]
-                    if (pd != null && pd.isNotEmpty()) {
-                        val pf = File(pdir, "p" + stamp + "_" + i + "_" + pj + ".jpg")
-                        FileOutputStream(pf).use { it.write(pd) }
-                        np = pf.absolutePath
-                    }
-                    novasPessoas.add(Person(p.name, np))
-                }
-                d.castPeople = novasPessoas
-                val cd = covers[d.couplePhoto]
-                d.couplePhoto = ""
-                if (cd != null && cd.isNotEmpty()) {
-                    val cf = File(pdir, "p" + stamp + "_" + i + "_c.jpg")
-                    FileOutputStream(cf).use { it.write(cd) }
-                    d.couplePhoto = cf.absolutePath
-                }
                 val data = covers[keep[i].second]
                 if (data != null && data.isNotEmpty()) {
                     val f = File(dir, "c" + stamp + "_" + i + ".jpg")
@@ -1405,20 +1041,6 @@ object Store {
                 val novas = HashSet<String>()
                 for (p in keep) novas.add(p.first.cover)
                 for (d in list) {
-                    for (p in d.castPeople) {
-                        if (p.photo.isNotEmpty()) {
-                            try {
-                                File(p.photo).delete()
-                            } catch (e: Exception) {
-                            }
-                        }
-                    }
-                    if (d.couplePhoto.isNotEmpty()) {
-                        try {
-                            File(d.couplePhoto).delete()
-                        } catch (e: Exception) {
-                        }
-                    }
                     if (d.cover.isNotEmpty() && !novas.contains(d.cover)) {
                         try {
                             File(d.cover).delete()
@@ -1444,13 +1066,6 @@ object Store {
                         Genres.setEdits(m)
                     }
                     persistGenres()
-                    val og = root.optJSONObject("otherGenres")
-                    if (og != null) {
-                        OtherGenres.setCustom(parseOtherCustom(og.optJSONArray("custom")) { false })
-                        OtherGenres.setEdits(parseOtherEdits(og.optJSONArray("edits")))
-                        OtherGenres.setHidden(parseOtherHidden(og.optJSONArray("hidden")))
-                        persistOthers()
-                    }
                     applySettings(root.optJSONObject("settings"), true)
                 }
             } else {
@@ -1470,17 +1085,6 @@ object Store {
                         Genres.setEdits(m)
                     }
                     persistGenres()
-                    val og = root.optJSONObject("otherGenres")
-                    if (og != null) {
-                        val novosO = parseOtherCustom(og.optJSONArray("custom")) { k -> OtherGenres.exists(k) || OtherGenres.hiddenKeys().contains(k) }
-                        if (novosO.isNotEmpty()) OtherGenres.setCustom(OtherGenres.custom() + novosO)
-                        val me = HashMap(OtherGenres.edited())
-                        for ((k, v) in parseOtherEdits(og.optJSONArray("edits"))) {
-                            if (!me.containsKey(k)) me[k] = v
-                        }
-                        OtherGenres.setEdits(me)
-                        persistOthers()
-                    }
                     applySettings(root.optJSONObject("settings"), false)
                 }
             }
@@ -1492,39 +1096,15 @@ object Store {
         }
     }
 
-    /** Copia a trilha sonora escolhida para a pasta do app. Devolve (caminho, nome) ou null se der erro. */
-    fun saveSound(uri: Uri): Pair<String, String>? {
-        return try {
-            val cr = appContext.contentResolver
-            var name = ""
-            try {
-                cr.query(uri, null, null, null, null)?.use { c ->
-                    val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (i >= 0 && c.moveToFirst()) name = c.getString(i) ?: ""
-                }
-            } catch (e: Exception) {
-            }
-            val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }.take(5).ifEmpty { "mp3" }
-            val dir = File(appContext.filesDir, "ost")
-            dir.mkdirs()
-            val f = File(dir, "t" + System.currentTimeMillis() + "." + ext)
-            val input = cr.openInputStream(uri) ?: return null
-            input.use { ins -> FileOutputStream(f).use { out -> ins.copyTo(out) } }
-            Pair(f.absolutePath, name.ifEmpty { "Trilha sonora" })
-        } catch (e: Exception) {
-            null
-        }
-    }
-
     /** Copia a imagem escolhida para a pasta do app (reduzida) e devolve o caminho. */
-    fun saveCover(uri: Uri, dirName: String = "covers", prefix: String = "c", maxPx: Int = 1400): String? {
+    fun saveCover(uri: Uri): String? {
         return try {
             val cr = appContext.contentResolver
             val bounds = BitmapFactory.Options()
             bounds.inJustDecodeBounds = true
             cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
             var sample = 1
-            while (bounds.outWidth / sample > maxPx || bounds.outHeight / sample > maxPx) sample *= 2
+            while (bounds.outWidth / sample > 1400 || bounds.outHeight / sample > 1400) sample *= 2
             val opts = BitmapFactory.Options()
             opts.inSampleSize = sample
             var bmp: Bitmap = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return null
@@ -1547,9 +1127,9 @@ object Store {
                 m.postRotate(rot.toFloat())
                 bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
             }
-            val dir = File(appContext.filesDir, dirName)
+            val dir = File(appContext.filesDir, "covers")
             dir.mkdirs()
-            val f = File(dir, prefix + System.currentTimeMillis() + ".jpg")
+            val f = File(dir, "c" + System.currentTimeMillis() + ".jpg")
             FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 88, it) }
             f.absolutePath
         } catch (e: Exception) {
