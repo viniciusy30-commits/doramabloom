@@ -87,6 +87,9 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
     private var pressT = 0f
     private var dimT = 0f
     private var dimRaw = 0f
+    private var dimFrom = 0f
+    private var dimTo = 0f
+    private var dimStartNs = 0L
     private var pressing = false
     private var seeking = false
     private var seekFrac = 0f
@@ -191,8 +194,16 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         // escurece devagar enquanto toca (para destacar o disco) e clareia devagar ao pausar:
         // progresso linear no tempo (~1,3 s) passado por uma curva suave de entrada e saída
         val dimTarget = if (playing) 1f else 0f
-        val dimStep = dt / 1.3f
-        dimRaw = if (dimRaw < dimTarget) minOf(dimTarget, dimRaw + dimStep) else maxOf(dimTarget, dimRaw - dimStep)
+        // relógio de parede: se algum quadro atrasar (ex.: o áudio começando), a animação não congela
+        // nem "pula" de repente; ela continua na posição certa da curva
+        if (dimTarget != dimTo) {
+            dimFrom = dimRaw
+            dimTo = dimTarget
+            dimStartNs = now
+        }
+        val dimLen = 1.3f * abs(dimTo - dimFrom).coerceAtLeast(0.05f)
+        val dimK = if (dimRaw == dimTo) 1f else ((now - dimStartNs) / 1_000_000_000f / dimLen).coerceIn(0f, 1f)
+        dimRaw = dimFrom + (dimTo - dimFrom) * dimK
         dimT = dimRaw * dimRaw * (3f - 2f * dimRaw)
 
         val pad = 16f * u

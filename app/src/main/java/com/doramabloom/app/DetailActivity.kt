@@ -290,7 +290,7 @@ class DetailActivity : AppCompatActivity() {
     private val ticker = Handler(Looper.getMainLooper())
     private var tick: Runnable? = null
     private var musicReset: (() -> Unit)? = null
-    private var mpPreparing = false
+    @Volatile private var mpPreparing = false
 
     private fun releaseSound() {
         mpPreparing = false
@@ -352,47 +352,67 @@ class DetailActivity : AppCompatActivity() {
         fun toggle() {
             val cur = mp
             if (cur == null) {
-                try {
-                    val m = MediaPlayer()
-                    m.setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .build()
-                    )
-                    m.setDataSource(d.soundtrack)
-                    m.setOnCompletionListener {
-                        it.seekTo(0)
-                        sv.playing = false
-                        sv.progress = 0f
-                        sv.posMs = 0
-                    }
-                    m.setOnErrorListener { _, _, _ ->
-                        releaseSound()
-                        softToast("Não consegui tocar esse arquivo.", Palette.pink, "music")
-                        true
-                    }
-                    m.setOnPreparedListener { pm ->
-                        if (mp !== pm) return@setOnPreparedListener
-                        mpPreparing = false
-                        try {
-                            pm.start()
-                            sv.durMs = pm.duration
+                if (mpPreparing) return
+                mpPreparing = true
+                // o escurecer começa já no toque. Tudo que é pesado (criar o player, abrir o arquivo,
+                // carregar e dar o start) roda em segundo plano, para a tela não travar no meio da animação
+                sv.playing = true
+                val path = d.soundtrack
+                Thread {
+                    var m: MediaPlayer? = null
+                    try {
+                        m = MediaPlayer()
+                        m.setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .build()
+                        )
+                        m.setDataSource(path)
+                        m.prepare()
+                        if (!mpPreparing) {
+                            m.release()
+                            return@Thread
+                        }
+                        m.start()
+                        val ready = m
+                        runOnUiThread {
+                            if (!mpPreparing || isFinishing || isDestroyed) {
+                                try {
+                                    ready.release()
+                                } catch (e: Exception) {
+                                }
+                                return@runOnUiThread
+                            }
+                            ready.setOnCompletionListener {
+                                it.seekTo(0)
+                                sv.playing = false
+                                sv.progress = 0f
+                                sv.posMs = 0
+                            }
+                            ready.setOnErrorListener { _, _, _ ->
+                                releaseSound()
+                                softToast("Não consegui tocar esse arquivo.", Palette.pink, "music")
+                                true
+                            }
+                            mp = ready
+                            mpPreparing = false
+                            sv.durMs = ready.duration
                             startTick()
-                        } catch (e: Exception) {
-                            releaseSound()
+                        }
+                    } catch (e: Exception) {
+                        try {
+                            m?.release()
+                        } catch (e2: Exception) {
+                        }
+                        runOnUiThread {
+                            if (mpPreparing) {
+                                releaseSound()
+                                softToast("Não consegui tocar esse arquivo.", Palette.pink, "music")
+                            }
                         }
                     }
-                    mp = m
-                    mpPreparing = true
-                    // o carregamento do áudio agora é em segundo plano: a tela não trava e o
-                    // escurecer começa já no toque, deslizando de forma suave
-                    sv.playing = true
-                    m.prepareAsync()
-                } catch (e: Exception) {
-                    releaseSound()
-                    softToast("Não consegui tocar esse arquivo.", Palette.pink, "music")
-                }
+                }.start()
             } else if (mpPreparing) {
                 return
             } else if (cur.isPlaying) {
@@ -1116,6 +1136,10 @@ class DetailActivity : AppCompatActivity() {
         hs.isHorizontalScrollBarEnabled = false
         hs.clipToPadding = false
         hs.setPadding(dp(18), dp(16), dp(8), dp(2))
+        // as bordas da fileira somem suavemente (em vez de cortar seco) enquanto você arrasta
+        hs.isHorizontalFadingEdgeEnabled = true
+        hs.setFadingEdgeLength(dp(30))
+        hs.overScrollMode = View.OVER_SCROLL_NEVER
         swipeBlocks.add(hs)
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
