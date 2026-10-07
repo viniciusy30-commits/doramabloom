@@ -440,7 +440,7 @@ class DetailActivity : AppCompatActivity() {
             } else if (OtherGenres.exists(tk)) {
                 // "outros gêneros" também aparecem, com a própria cor e o próprio símbolo
                 val og = OtherGenres.byKey(tk)
-                flow.addView(genrePill(og.label, og.icon, og.color))
+                flow.addView(genrePill(og.label, og.icon, og.color, og.colors))
             }
         }
         heroCol.addView(flow, lin(MATCH, WRAP, t = 12, l = 16, r = 16))
@@ -855,9 +855,17 @@ class DetailActivity : AppCompatActivity() {
     }
 
     /** Etiqueta de gênero na cor dele (principal ou outro gênero), com borda branca para destacar sobre o fundo. */
-    private fun genrePill(label: String, icon: String, color: Int): TextView {
+    private fun genrePill(label: String, icon: String, color: Int, colors: List<Int> = emptyList()): TextView {
         val t = pill(label, color, Color.WHITE, 11.5f, icon)
-        t.background = roundRect(color, dp(20).toFloat(), Color.WHITE, dp(1))
+        if (colors.size > 1) {
+            // várias cores: degradê com borda branca fininha e texto com sombrinha para ler sobre qualquer cor
+            val bg = multiColorBg(colors, true, dp(20).toFloat(), 0) as GradientDrawable
+            bg.setStroke(dp(1), Color.WHITE)
+            t.background = bg
+            t.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(150, 0, 0, 0))
+        } else {
+            t.background = roundRect(color, dp(20).toFloat(), Color.WHITE, dp(1))
+        }
         return t
     }
 

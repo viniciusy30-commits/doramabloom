@@ -262,11 +262,33 @@ fun Context.scoreBadge(sizeDp: Int, textSp: Float): TextView {
     return t
 }
 
-class Opt(val key: String, val label: String, val color: Int, val icon: String? = null)
+class Opt(val key: String, val label: String, val color: Int, val icon: String? = null, val colors: List<Int> = emptyList())
 
-private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int) {
-    tv.background = roundRect(if (sel) col else Palette.card, dpPx * 20f, col, dpPx)
-    val fg = if (sel) Color.WHITE else col
+/** Fundo em degradê (mescla de cores). Selecionado: cheio. Senão: só a borda colorida e miolo liso. */
+fun multiColorBg(colors: List<Int>, sel: Boolean, radius: Float, strokeW: Int, fill: Int = Palette.card): android.graphics.drawable.Drawable {
+    val g = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, colors.toIntArray())
+    g.cornerRadius = radius
+    if (sel) return g
+    val inner = roundRect(fill, maxOf(0f, radius - strokeW))
+    val ld = android.graphics.drawable.LayerDrawable(arrayOf<android.graphics.drawable.Drawable>(g, inner))
+    ld.setLayerInset(1, strokeW, strokeW, strokeW, strokeW)
+    return ld
+}
+
+/** Pílula de "outro gênero" (suave); se tiver várias cores, o fundo é o degradê delas bem clarinho. */
+fun Context.otherPill(g: OtherGenre, textSp: Float): TextView {
+    val t = pill(g.label, g.soft, g.dark, textSp, g.icon)
+    if (g.colors.size > 1) {
+        t.background = multiColorBg(g.colors.map { mixColor(it, Color.WHITE, 0.62f) }, true, dp(20).toFloat(), 0)
+    }
+    return t
+}
+
+private fun restyleChip(tv: TextView, col: Int, sel: Boolean, dpPx: Int, cols: List<Int> = emptyList()) {
+    val multi = cols.size > 1
+    tv.background = if (multi) multiColorBg(cols, sel, dpPx * 20f, dpPx * 2) else roundRect(if (sel) col else Palette.card, dpPx * 20f, col, dpPx)
+    if (multi && sel) tv.setShadowLayer(dpPx * 2f, 0f, dpPx.toFloat(), Color.argb(150, 0, 0, 0)) else tv.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
+    val fg = if (sel) Color.WHITE else if (multi) Palette.text else col
     tv.setTextColor(fg)
     val dr = tv.compoundDrawables[0]
     if (dr is IconDrawable) dr.color = fg
@@ -288,7 +310,7 @@ fun Context.chipScroller(options: List<Opt>, initial: String, onSelect: (String)
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, options[i].key == current, one)
+            restyleChip(views[i], options[i].color, options[i].key == current, one, options[i].colors)
         }
     }
 
@@ -331,7 +353,7 @@ fun Context.multiChips(options: List<Opt>, initial: Set<String>, onChange: (Set<
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one)
+            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one, options[i].colors)
         }
     }
 
@@ -366,7 +388,7 @@ fun Context.multiChipsAll(options: List<Opt>, initial: Set<String>, onChange: (S
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, isOn(options[i].key), one)
+            restyleChip(views[i], options[i].color, isOn(options[i].key), one, options[i].colors)
         }
     }
 
@@ -407,7 +429,7 @@ fun Context.chipFlow(options: List<Opt>, initial: String, onSelect: (String) -> 
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, options[i].key == current, one)
+            restyleChip(views[i], options[i].color, options[i].key == current, one, options[i].colors)
         }
     }
 
@@ -448,7 +470,7 @@ fun Context.multiFlow(options: List<Opt>, initial: Set<String>, onChange: (Set<S
 
     fun restyle() {
         for (i in options.indices) {
-            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one)
+            restyleChip(views[i], options[i].color, chosen.contains(options[i].key), one, options[i].colors)
         }
     }
 

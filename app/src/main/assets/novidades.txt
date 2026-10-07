@@ -1,3 +1,8 @@
+#id 2026-10-06-j
+#titulo Arco-íris no LGBTQ+ e cores mescladas nos outros gêneros
+- O gênero LGBTQ+ agora tem as cores da bandeira (arco-íris) nos filtros, na edição e na tela do dorama.
+- Ao criar ou editar um "outro gênero", dá para escolher até 3 cores e elas se mesclam num degradê. Se repetir a mesma cor, não mescla.
+
 #id 2026-10-06-i
 #titulo Grade da Estante bem mais caprichada
 - Na visualização em grade, cada dorama virou um cartão: capa grande de pôster com cantos arredondados, selo do gênero, coração, nota e status em cima de um degradê.

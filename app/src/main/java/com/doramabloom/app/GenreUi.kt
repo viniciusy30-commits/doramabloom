@@ -15,6 +15,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.doAfterTextChanged
 
@@ -441,7 +442,19 @@ fun Activity.showOtherGenreEditor(existing: OtherGenre?, onDone: (OtherGenre) ->
         softToast("Você já criou muitos outros gêneros!", Palette.pink, "tag")
         return
     }
-    var color = existing?.color ?: genreColorChoices[0]
+    // até 3 cores para mesclar; a mesma cor repetida não conta (não mescla)
+    val slots = arrayOfNulls<Int>(3)
+    val startCols = existing?.colors ?: listOf(genreColorChoices[0])
+    for (i in 0 until minOf(3, startCols.size)) slots[i] = startCols[i]
+    var activeSlot = 0
+    // o arco-íris de fábrica tem 6 cores: se você não mexer nas 3 primeiras, as outras ficam
+    val tailCols = startCols.drop(3)
+    fun effective(): List<Int> {
+        val base = slots.filterNotNull().distinct()
+        val untouched = slots.toList() == startCols.take(3).let { l -> List(3) { l.getOrNull(it) } }
+        return if (tailCols.isNotEmpty() && untouched) (base + tailCols).distinct() else base
+    }
+    var color = slots[0] ?: genreColorChoices[0]
     var icon = existing?.icon ?: "tag"
     val icons: List<String> = if (genreIconChoices.contains(icon)) genreIconChoices else listOf(icon) + genreIconChoices
 
@@ -469,9 +482,11 @@ fun Activity.showOtherGenreEditor(existing: OtherGenre?, onDone: (OtherGenre) ->
 
     fun restyle() {
         val nm = nameIn.text.toString().trim()
-        val g = OtherGenre(existing?.key ?: "preview", if (nm.isEmpty()) "Seu gênero" else nm, icon, color)
+        val eff = effective()
+        color = eff[0]
+        val g = OtherGenre(existing?.key ?: "preview", if (nm.isEmpty()) "Seu gênero" else nm, icon, eff[0], false, eff.drop(1))
         prevBox.removeAllViews()
-        prevBox.addView(pill(g.label, g.soft, g.dark, 14f, g.icon))
+        prevBox.addView(otherPill(g, 14f))
         prevBox.background = roundRect(Palette.card, dp(20).toFloat(), Palette.line, dp(1))
         for (i in iconCells.indices) {
             val sel = icons[i] == icon
@@ -480,13 +495,66 @@ fun Activity.showOtherGenreEditor(existing: OtherGenre?, onDone: (OtherGenre) ->
         }
     }
 
-    col.addView(label("Cor", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
-    val picker = ColorPicker(this, color) {
-        color = it
+    col.addView(label("Cores (até 3)", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 2))
+    col.addView(
+        label("Escolha uma, duas ou três para mesclar. Se repetir a mesma cor, ela não mescla.", 11.5f, Palette.muted),
+        lin(MATCH, WRAP, b = 8)
+    )
+    val slotRow = LinearLayout(this)
+    slotRow.orientation = LinearLayout.HORIZONTAL
+    slotRow.gravity = Gravity.CENTER_VERTICAL
+    col.addView(slotRow, lin(MATCH, WRAP))
+    val slotViews = ArrayList<TextView>()
+    val pickers = ArrayList<ColorPicker>()
+    val pickerBox = FrameLayout(this)
+    val removeBtn = label("Tirar esta cor", 12.5f, Palette.pinkDark, true)
+    removeBtn.setPadding(dp(4), dp(8), dp(4), dp(8))
+
+    fun styleSlots() {
+        for (i in 0 until 3) {
+            val tv = slotViews[i]
+            val c = slots[i]
+            val bg = GradientDrawable()
+            bg.shape = GradientDrawable.OVAL
+            bg.setColor(c ?: Palette.card)
+            bg.setStroke(if (i == activeSlot) dp(3) else dp(2), if (i == activeSlot) Palette.pink else Palette.line)
+            tv.background = bg
+            tv.text = if (c == null) "+" else ""
+            pickers[i].visibility = if (i == activeSlot) View.VISIBLE else View.GONE
+        }
+        removeBtn.visibility = if (activeSlot > 0 && slots[activeSlot] != null) View.VISIBLE else View.GONE
+    }
+
+    for (i in 0 until 3) {
+        val tv = label("", 18f, Palette.muted, true)
+        tv.gravity = Gravity.CENTER
+        tv.setOnClickListener {
+            activeSlot = i
+            styleSlots()
+        }
+        tv.pressable(0.9f)
+        slotViews.add(tv)
+        slotRow.addView(tv, lin(dp(44), dp(44), r = 12))
+        val pk = ColorPicker(this, slots[i] ?: genreColorChoices[i * 9 % genreColorChoices.size]) {
+            slots[i] = it
+            styleSlots()
+            restyle()
+            prevBox.pop(1.1f)
+        }
+        pickers.add(pk)
+        pickerBox.addView(pk, FrameLayout.LayoutParams(MATCH, WRAP))
+    }
+    slotRow.addView(label("Toque numa bolinha para escolher", 11.5f, Palette.muted), lin(WRAP, WRAP, l = 4))
+    col.addView(pickerBox, lin(MATCH, WRAP, t = 10))
+    removeBtn.setOnClickListener {
+        slots[activeSlot] = null
+        activeSlot = 0
+        styleSlots()
         restyle()
         prevBox.pop(1.1f)
     }
-    col.addView(picker, lin(MATCH, WRAP))
+    col.addView(removeBtn, lin(WRAP, WRAP, t = 4))
+    styleSlots()
 
     col.addView(label("Símbolo", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
     val icFlow = FlowLayout(this)
@@ -541,15 +609,17 @@ fun Activity.showOtherGenreEditor(existing: OtherGenre?, onDone: (OtherGenre) ->
             return@setOnClickListener
         }
         if (existing == null) {
-            val g = OtherGenres.makeCustom("x_c" + System.currentTimeMillis(), nm, icon, color)
+            val eff = effective()
+            val g = OtherGenres.makeCustom("x_c" + System.currentTimeMillis(), nm, icon, eff[0], eff.drop(1))
             Store.addOtherGenre(g)
             dlg.dismiss()
             onDone(g)
         } else {
+            val eff = effective()
             val g = if (existing.custom) {
-                OtherGenres.makeCustom(existing.key, nm, icon, color)
+                OtherGenres.makeCustom(existing.key, nm, icon, eff[0], eff.drop(1))
             } else {
-                OtherGenres.editBuiltin(existing, nm, icon, color)
+                OtherGenres.editBuiltin(existing, nm, icon, eff[0], eff.drop(1))
             }
             Store.updateOtherGenre(g)
             dlg.dismiss()

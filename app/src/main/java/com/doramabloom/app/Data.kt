@@ -175,10 +175,22 @@ class OtherGenre(
     val icon: String,
     val color: Int,
     /** true = criado por você; false = veio com o app (pode ser editado ou excluído também). */
-    val custom: Boolean = false
+    val custom: Boolean = false,
+    /** Outras cores para mesclar com [color] (a mesma cor repetida não conta). */
+    more: List<Int> = emptyList()
 ) {
-    val soft: Int get() = mixColor(color, Color.WHITE, 0.84f)
-    val dark: Int get() = mixColor(color, Color.BLACK, 0.42f)
+    /** Cores do gênero, sem repetir: 1 = cor lisa, 2 ou mais = degradê mesclado. */
+    val colors: List<Int> = (listOf(color) + more).distinct()
+
+    /** Cor média (igual a [color] quando só tem uma). */
+    private val avg: Int
+        get() {
+            val n = colors.size
+            return Color.rgb(colors.sumOf { Color.red(it) } / n, colors.sumOf { Color.green(it) } / n, colors.sumOf { Color.blue(it) } / n)
+        }
+
+    val soft: Int get() = mixColor(avg, Color.WHITE, 0.84f)
+    val dark: Int get() = mixColor(avg, Color.BLACK, 0.42f)
 }
 
 object OtherGenres {
@@ -201,7 +213,8 @@ object OtherGenres {
         OtherGenre("x_chaebol", "Chaebol", "gem", c("#D45FA0")),
         OtherGenre("x_casamento", "Casamento por contrato", "ring", c("#FF8FB7")),
         OtherGenre("x_amizade", "Amizade", "person", c("#F29B5C")),
-        OtherGenre("x_lgbt", "LGBTQ+", "rainbow", c("#A068E0")),
+        OtherGenre("x_lgbt", "LGBTQ+", "rainbow", c("#E40303"), false,
+            listOf(c("#FF8C00"), c("#FFED00"), c("#008026"), c("#24408E"), c("#732982"))),
         OtherGenre("x_slice", "Slice of life", "leaf", c("#6FBF4A")),
         OtherGenre("x_culinario", "Culinário", "cake", c("#D98B5F")),
         OtherGenre("x_moda", "Moda", "butterfly", c("#E36BC4")),
@@ -245,12 +258,12 @@ object OtherGenres {
     fun byKey(k: String): OtherGenre =
         all.firstOrNull { it.key == k } ?: OtherGenre(k, "Outro", "tag", c("#B98AA0"))
 
-    fun makeCustom(key: String, label: String, icon: String, color: Int): OtherGenre =
-        OtherGenre(key, label, icon, color, true)
+    fun makeCustom(key: String, label: String, icon: String, color: Int, more: List<Int> = emptyList()): OtherGenre =
+        OtherGenre(key, label, icon, color, true, more)
 
     /** Versão editada de um de fábrica (mesma chave, então os doramas continuam marcados). */
-    fun editBuiltin(base: OtherGenre, label: String, icon: String, color: Int): OtherGenre =
-        OtherGenre(base.key, label, icon, color, false)
+    fun editBuiltin(base: OtherGenre, label: String, icon: String, color: Int, more: List<Int> = emptyList()): OtherGenre =
+        OtherGenre(base.key, label, icon, color, false, more)
 }
 
 /** Três tons do gênero para as pétalas: uma mistura rica em vez de uma cor só. */
@@ -730,6 +743,11 @@ object Store {
         o.put("label", g.label)
         o.put("icon", g.icon)
         o.put("color", g.color)
+        if (g.colors.size > 1) {
+            val ca = JSONArray()
+            for (cc in g.colors) ca.put(cc)
+            o.put("colors", ca)
+        }
         return o
     }
 
@@ -740,11 +758,14 @@ object Store {
         if (k.isBlank() || l.isEmpty()) return null
         val icon = o.optString("icon", "tag")
         val color = o.optInt("color", Palette.pink)
+        val more = ArrayList<Int>()
+        val ca = o.optJSONArray("colors")
+        if (ca != null) for (i in 0 until minOf(ca.length(), 6)) more.add(ca.optInt(i, color))
         if (!custom) {
             val base = OtherGenres.factoryOf(k) ?: return null
-            return OtherGenres.editBuiltin(base, l, icon, color)
+            return OtherGenres.editBuiltin(base, l, icon, color, more)
         }
-        return OtherGenres.makeCustom(k, l, icon, color)
+        return OtherGenres.makeCustom(k, l, icon, color, more)
     }
 
     private fun parseOtherCustom(a: JSONArray?, taken: (String) -> Boolean): List<OtherGenre> {

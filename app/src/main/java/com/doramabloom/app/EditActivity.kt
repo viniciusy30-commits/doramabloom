@@ -414,7 +414,7 @@ class EditActivity : AppCompatActivity() {
             lin(MATCH, WRAP, b = 8)
         )
         val allOpts = ArrayList<Opt>(gOpts)
-        for (og in OtherGenres.all) allOpts.add(Opt(og.key, og.label, og.color, og.icon))
+        for (og in OtherGenres.all) allOpts.add(Opt(og.key, og.label, og.color, og.icon, og.colors))
         genreBox.addView(multiFlow(allOpts, tags) {
             tags = HashSet(it)
             refreshShelfPicks()
@@ -458,8 +458,10 @@ class EditActivity : AppCompatActivity() {
             for ((k, tv) in views) {
                 val c = colorOf(k)
                 val on = shelfPick.contains(k)
-                val fg = if (on) Color.WHITE else c
-                tv.background = roundRect(if (on) c else Palette.card, dp(20).toFloat(), c, dp(1))
+                val cols = if (OtherGenres.exists(k)) OtherGenres.byKey(k).colors else emptyList()
+                val multi = cols.size > 1
+                val fg = if (on) Color.WHITE else if (multi) Palette.text else c
+                tv.background = if (multi) multiColorBg(cols, on, dp(20).toFloat(), dp(2)) else roundRect(if (on) c else Palette.card, dp(20).toFloat(), c, dp(1))
                 tv.setTextColor(fg)
                 (tv.compoundDrawables[0] as? IconDrawable)?.color = fg
             }

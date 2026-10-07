@@ -864,7 +864,7 @@ class MainActivity : AppCompatActivity() {
         // outros gêneros: só etiquetas para filtrar (não trocam o tema nem os símbolos)
         val otherOpts = ArrayList<Opt>()
         otherOpts.add(Opt("all", "Todos", Palette.pink, "tag"))
-        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, og.color, og.icon))
+        for (og in OtherGenres.all) otherOpts.add(Opt(og.key, og.label, og.color, og.icon, og.colors))
         panel.addView(label("Outros gêneros", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 8, l = 4))
         panel.addView(multiChipsAll(otherOpts, otherFilters) {
             otherFilters = HashSet(it)
