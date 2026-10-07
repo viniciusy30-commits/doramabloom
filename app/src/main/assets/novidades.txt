@@ -4,6 +4,9 @@
 - Elenco: "Elenco" e a quantidade de pessoas ficam na mesma linha; a frase do gênero saiu do cartão.
 - Trilha sonora: o escurecer ao dar play pela primeira vez agora é uma animação suave e contínua. O áudio carrega em segundo plano, então a tela não trava mais no primeiro toque.
 - Trilha sonora: o botão de play agora fica bem centralizado.
+- Trilha sonora: só o botão de play liga e desliga a música (tocar no disco ou nas ondas não toca mais; as ondas só pulam depois que a música já está tocando).
+- Trilha sonora: refiz do zero o escurecer ao dar play. Agora é uma transição única e suave, e a música só começa quando ela termina.
+- Elenco: os 3 primeiros atores ficam centralizados no cartão.
 - Elenco: ao arrastar a fileira de atores, as bordas agora somem suavemente em vez de cortar seco.
 - Trilha sonora: o primeiro play, toda vez que você entra no dorama, agora escurece suave também (o player carrega em segundo plano e a animação acompanha o relógio, sem travar).
 - Tipo, status, país e onde assistir: quando um nome quebra em 2 linhas (ex.: Coreia do Sul), os ícones e títulos continuam alinhados na mesma altura.

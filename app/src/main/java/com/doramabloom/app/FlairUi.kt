@@ -66,9 +66,58 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         set(v) {
             if (field != v) {
                 field = v
+                animateGlow(if (v) 1f else 0f)
                 invalidate()
             }
         }
+
+    private fun animateGlow(to: Float) {
+        glowAnim?.cancel()
+        val from = glow
+        if (from == to) return
+        val a = ValueAnimator.ofFloat(from, to)
+        a.duration = (FADE_MS * abs(to - from)).toLong().coerceAtLeast(120L)
+        a.interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+        a.addUpdateListener {
+            glow = it.animatedValue as Float
+            invalidate()
+        }
+        glowAnim = a
+        a.start()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val wf = w.toFloat()
+        val hf = h.toFloat()
+        val primary = g.primary
+        val deep = g.deep
+        val l0 = mixColor(primary, Color.WHITE, 0.34f)
+        val l1 = mixColor(primary, deep, 0.30f)
+        lightShader = LinearGradient(0f, 0f, wf, hf, l0, l1, Shader.TileMode.CLAMP)
+        darkShader = LinearGradient(
+            0f, 0f, wf, hf,
+            mixColor(l0, mixColor(deep, Color.BLACK, 0.55f), 0.88f),
+            mixColor(l1, mixColor(deep, Color.BLACK, 0.80f), 0.92f),
+            Shader.TileMode.CLAMP
+        )
+        val R = 48f * u
+        spotShader = RadialGradient(
+            vx(), vy(), R * 2.3f,
+            intArrayOf(mixColor(primary, Color.WHITE, 0.25f), mixColor(primary, deep, 0.2f), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP
+        )
+    }
+
+    override fun onDetachedFromWindow() {
+        glowAnim?.cancel()
+        super.onDetachedFromWindow()
+    }
+
+    companion object {
+        /** Duração do escurecer ao dar play (o áudio só começa depois dela). */
+        const val FADE_MS = 900L
+    }
     var progress = 0f
         set(v) {
             field = v
@@ -85,11 +134,12 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
     private var orbit = 0f
     private var armT = 0f
     private var pressT = 0f
-    private var dimT = 0f
-    private var dimRaw = 0f
-    private var dimFrom = 0f
-    private var dimTo = 0f
-    private var dimStartNs = 0L
+    // escurecer ao tocar: um único número (0 = claro, 1 = escuro) animado por um ValueAnimator
+    private var glow = 0f
+    private var glowAnim: ValueAnimator? = null
+    private var lightShader: Shader? = null
+    private var darkShader: Shader? = null
+    private var spotShader: Shader? = null
     private var pressing = false
     private var seeking = false
     private var seekFrac = 0f
@@ -118,23 +168,20 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        val R = 48f * u
         val br = 27f * u
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val bdx = e.x - bx()
                 val bdy = e.y - vy()
-                val vdx = e.x - vx()
-                val vdy = e.y - vy()
                 if (bdx * bdx + bdy * bdy <= (br + 10f * u) * (br + 10f * u)) {
+                    // só o botão de play/pausa liga e desliga a música
                     zone = 1
                     pressing = true
-                } else if (e.y > 122f * u) {
+                } else if (e.y > 122f * u && durMs > 0) {
+                    // as ondas só pulam para outro pedaço quando a música já está carregada
                     zone = 2
                     seeking = true
                     seekFrac = fracOf(e.x)
-                } else if (vdx * vdx + vdy * vdy <= R * R) {
-                    zone = 3
                 } else {
                     zone = 0
                     return false
@@ -151,7 +198,7 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                if (zone == 1 || zone == 3) onToggle?.invoke()
+                if (zone == 1) onToggle?.invoke()
                 if (zone == 2) {
                     progress = seekFrac
                     onSeek?.invoke(seekFrac)
@@ -191,20 +238,6 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         armT += (armTarget - armT) * minOf(1f, dt * 5f)
         val pressTarget = if (pressing) 1f else 0f
         pressT += (pressTarget - pressT) * minOf(1f, dt * 14f)
-        // escurece devagar enquanto toca (para destacar o disco) e clareia devagar ao pausar:
-        // progresso linear no tempo (~1,3 s) passado por uma curva suave de entrada e saída
-        val dimTarget = if (playing) 1f else 0f
-        // relógio de parede: se algum quadro atrasar (ex.: o áudio começando), a animação não congela
-        // nem "pula" de repente; ela continua na posição certa da curva
-        if (dimTarget != dimTo) {
-            dimFrom = dimRaw
-            dimTo = dimTarget
-            dimStartNs = now
-        }
-        val dimLen = 1.3f * abs(dimTo - dimFrom).coerceAtLeast(0.05f)
-        val dimK = if (dimRaw == dimTo) 1f else ((now - dimStartNs) / 1_000_000_000f / dimLen).coerceIn(0f, 1f)
-        dimRaw = dimFrom + (dimTo - dimFrom) * dimK
-        dimT = dimRaw * dimRaw * (3f - 2f * dimRaw)
 
         val pad = 16f * u
         val R = 48f * u
@@ -221,28 +254,27 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         rect.set(0f, 0f, w, h)
         val rad = 28f * u
         p.style = Paint.Style.FILL
-        p.shader = LinearGradient(
-            0f, 0f, w, h,
-            mixColor(mixColor(primary, white, 0.34f), mixColor(deep, Color.BLACK, 0.55f), dimT * 0.88f),
-            mixColor(mixColor(primary, deep, 0.30f), mixColor(deep, Color.BLACK, 0.80f), dimT * 0.92f),
-            Shader.TileMode.CLAMP
-        )
+        p.shader = lightShader
+        p.alpha = 255
         c.drawRoundRect(rect, rad, rad, p)
+        if (glow > 0.003f) {
+            // o degradê escuro entra por cima do claro, só mudando a transparência
+            p.shader = darkShader
+            p.alpha = (255 * glow).toInt()
+            c.drawRoundRect(rect, rad, rad, p)
+        }
         p.shader = null
+        p.alpha = 255
         clip.reset()
         clip.addRoundRect(rect, rad, rad, Path.Direction.CW)
         c.save()
         c.clipPath(clip)
 
         // foco de luz no disco enquanto toca
-        if (dimT > 0.01f) {
+        if (glow > 0.003f) {
             p.style = Paint.Style.FILL
-            p.shader = RadialGradient(
-                cx, cy, R * 2.3f,
-                intArrayOf(mixColor(primary, white, 0.25f), mixColor(primary, deep, 0.2f), Color.TRANSPARENT),
-                floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP
-            )
-            p.alpha = (110 * dimT).toInt()
+            p.shader = spotShader
+            p.alpha = (110 * glow).toInt()
             c.drawCircle(cx, cy, R * 2.3f, p)
             p.shader = null
             p.alpha = 255
@@ -471,8 +503,7 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
 
         val armBusy = abs(armT - armTarget) > 0.01f
         val pressBusy = abs(pressT - pressTarget) > 0.01f
-        val dimBusy = dimRaw != dimTarget
-        if (playing || pts.isNotEmpty() || armBusy || pressBusy || seeking || dimBusy) postInvalidateOnAnimation()
+        if (playing || pts.isNotEmpty() || armBusy || pressBusy || seeking) postInvalidateOnAnimation()
     }
 }
 

@@ -328,6 +328,7 @@ class DetailActivity : AppCompatActivity() {
             sv.playing = false
             sv.progress = 0f
             sv.posMs = 0
+            sv.durMs = 0
         }
 
         fun startTick() {
@@ -358,6 +359,7 @@ class DetailActivity : AppCompatActivity() {
                 // carregar e dar o start) roda em segundo plano, para a tela não travar no meio da animação
                 sv.playing = true
                 val path = d.soundtrack
+                val tapAt = android.os.SystemClock.uptimeMillis()
                 Thread {
                     var m: MediaPlayer? = null
                     try {
@@ -370,6 +372,13 @@ class DetailActivity : AppCompatActivity() {
                         )
                         m.setDataSource(path)
                         m.prepare()
+                        if (!mpPreparing) {
+                            m.release()
+                            return@Thread
+                        }
+                        // espera o escurecer terminar: o início do áudio pesa e não pode travar a animação
+                        val wait = tapAt + SoundtrackView.FADE_MS + 50L - android.os.SystemClock.uptimeMillis()
+                        if (wait > 0L) Thread.sleep(wait)
                         if (!mpPreparing) {
                             m.release()
                             return@Thread
@@ -427,7 +436,6 @@ class DetailActivity : AppCompatActivity() {
 
         sv.onToggle = { toggle() }
         sv.onSeek = { frac ->
-            if (mp == null) toggle()
             val m = mp
             if (m != null && !mpPreparing) {
                 try {
@@ -1140,12 +1148,13 @@ class DetailActivity : AppCompatActivity() {
         hs.overScrollMode = View.OVER_SCROLL_NEVER
         swipeBlocks.add(hs)
         val row = LinearLayout(this)
+        val castItems = ArrayList<View>()
         row.orientation = LinearLayout.HORIZONTAL
         for ((i, p) in people.withIndex()) {
             val item = LinearLayout(this)
             item.orientation = LinearLayout.VERTICAL
             item.gravity = Gravity.CENTER_HORIZONTAL
-            item.setPadding(dp(10), dp(14), dp(10), dp(12))
+            item.setPadding(dp(4), dp(14), dp(4), dp(12))
             val ph = FrameLayout(this)
             ph.clipChildren = false
             ph.addView(avatarView(p.photo, 84, g.primary, g.soft, g.primary), FrameLayout.LayoutParams(dp(84), dp(84)))
@@ -1155,16 +1164,35 @@ class DetailActivity : AppCompatActivity() {
             nm.gravity = Gravity.CENTER
             nm.maxLines = 2
             nm.ellipsize = TextUtils.TruncateAt.END
-            item.addView(nm, lin(dp(92), WRAP, t = 9))
+            item.addView(nm, lin(MATCH, WRAP, t = 9))
             val line = LinearLayout(this)
             line.orientation = LinearLayout.HORIZONTAL
             line.gravity = Gravity.CENTER
             for (k in 0 until 3) line.addView(IconView(this, if (k == 1) g.icon else "sparkle", g.primary, if (k == 1) 12 else 9), lin(WRAP, WRAP, l = 2, r = 2))
             item.addView(line, lin(WRAP, WRAP, t = 6))
             item.fadeScaleIn(minOf(i, 6) * 60L, 300L)
-            row.addView(item, lin(dp(116), WRAP, r = 10))
+            castItems.add(item)
+            row.addView(item, lin(dp(116), WRAP, r = 8))
         }
         hs.addView(row)
+        // os 3 primeiros atores ficam centralizados no cartão (cada cartinha se ajusta à largura da tela)
+        var laidW = -1
+        hs.addOnLayoutChangeListener { v, l, _, r, _, _, _, _, _ ->
+            val w = r - l
+            if (w <= 0 || w == laidW) return@addOnLayoutChangeListener
+            laidW = w
+            val gap = dp(8)
+            val k = minOf(castItems.size, 3)
+            val itemW = minOf(dp(116), (w - dp(2 * 14) - (k - 1) * gap) / k)
+            for (it in castItems) {
+                val lp = it.layoutParams as LinearLayout.LayoutParams
+                lp.width = itemW
+                lp.rightMargin = gap
+                it.layoutParams = lp
+            }
+            val side = ((w - k * itemW - (k - 1) * gap) / 2).coerceAtLeast(dp(8))
+            v.setPadding(side, v.paddingTop, side, v.paddingBottom)
+        }
         c.addView(hs, lin(MATCH, WRAP))
         return root
     }
