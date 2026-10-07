@@ -20,7 +20,7 @@ import kotlin.math.sin
 class ShelfBanner(ctx: Context) : View(ctx) {
 
     private val u = ctx.resources.displayMetrics.density
-    private val kit = SceneKit(u)
+    private val kit = SceneKit(u).also { it.calm = true }
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
     private val empty = RectF()
     private val rect = RectF()
@@ -41,7 +41,7 @@ class ShelfBanner(ctx: Context) : View(ctx) {
     private var bottomScrim: LinearGradient? = null
     private val sheen = LinearGradient(
         0f, 0f, 1f, 0f,
-        intArrayOf(Color.argb(0, 255, 255, 255), Color.argb(110, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+        intArrayOf(Color.argb(0, 255, 255, 255), Color.argb(60, 255, 255, 255), Color.argb(0, 255, 255, 255)),
         null, Shader.TileMode.CLAMP
     )
 
@@ -80,12 +80,8 @@ class ShelfBanner(ctx: Context) : View(ctx) {
 
     /** Cena padrão (gêneros sem cena própria e o "Todos"): degradê na cor do tema com símbolos subindo. */
     private fun generic(c: Canvas, w: Float, h: Float, t: Float, k: String, col: Int) {
-        kit.vgrad(c, w, h, mixColor(col, Color.BLACK, 0.5f), mixColor(col, Color.BLACK, 0.18f), col)
-        for (i in 0 until 3) {
-            val cx = w * (0.18f + 0.32f * i + 0.07f * sin(t * 0.4f + i))
-            val cy = h * (0.5f + 0.3f * kotlin.math.cos(t * 0.33f + i * 2f))
-            kit.glow(c, cx, cy, 95f * u, lite(col, 0.4f), 150f)
-        }
+        // fundo parado (sem manchas passeando, que faziam a faixa clarear e escurecer)
+        kit.vgrad(c, w, h, mixColor(col, Color.BLACK, 0.42f), mixColor(col, Color.BLACK, 0.16f), col)
         val icons: List<String> = if (k == "all") {
             listOf("heart", "blossom", "sparkle", "petal")
         } else {

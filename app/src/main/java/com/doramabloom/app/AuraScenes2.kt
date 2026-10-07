@@ -284,7 +284,7 @@ class DramaScene : AuraScene {
         val per = 11f
         val lt = t - floor(t / per) * per
         val fl = k.bump(lt, 0.2f, 0.05f)
-        if (fl > 0.03f) {
+        if (fl > 0.03f && !k.calm) {
             p.style = Paint.Style.FILL
             p.color = k.al(lilac, 60f * fl)
             c.drawRect(0f, 0f, w, h, p)

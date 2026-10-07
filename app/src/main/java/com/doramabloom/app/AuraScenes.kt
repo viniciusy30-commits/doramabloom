@@ -31,6 +31,9 @@ class SceneKit(val u: Float) {
     private val grads = HashMap<Int, LinearGradient>()
     val mono: Typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
 
+    /** Calmo: sem clarões na tela inteira (usado nas faixas pequenas da Estante, onde piscar incomoda). */
+    var calm = false
+
     class Mote(val x: Float, val y: Float, val ph: Float, val sp: Float, val sz: Float, val sw: Float)
 
     fun motes(n: Int, seed: Long, spLo: Float, spHi: Float, szLo: Float, szHi: Float, swHi: Float): List<Mote> {
@@ -357,7 +360,7 @@ private class TerrorScene : AuraScene {
         }
 
         // clarão do relâmpago por cima de tudo
-        if (flash > 0.02f) {
+        if (flash > 0.02f && !k.calm) {
             p.style = Paint.Style.FILL
             p.color = k.al(Color.parseColor("#E9E4FF"), 120f * min(1f, flash))
             c.drawRect(0f, 0f, w, h, p)
@@ -509,7 +512,7 @@ private class AcaoScene : AuraScene {
         }
 
         // flash branco rápido no "impacto"
-        if (hit > 0.05f) {
+        if (hit > 0.05f && !k.calm) {
             p.style = Paint.Style.FILL
             p.color = k.al(Color.WHITE, 70f * hit)
             c.drawRect(0f, 0f, w, h, p)
