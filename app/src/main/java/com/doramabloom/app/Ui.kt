@@ -1179,3 +1179,19 @@ fun Context.otherPill(g: OtherGenre, size: Float = 12f): TextView {
     }
     return t
 }
+
+/**
+ * Fundo em degradê para gêneros com 2 ou mais cores (ex.: arco-íris do LGBTQ+).
+ * vivid = true usa as cores puras; false usa tons suaves. strokePx > 0 põe uma borda fininha.
+ */
+fun multiColorBg(colors: List<Int>, vivid: Boolean, radiusPx: Float, strokePx: Int = 0): android.graphics.drawable.Drawable {
+    val cs = if (colors.isEmpty()) listOf(Color.GRAY) else colors.take(6)
+    val arr = IntArray(maxOf(2, cs.size)) { i ->
+        val c = cs[minOf(i, cs.size - 1)]
+        if (vivid) c else mixColor(c, Color.WHITE, 0.80f)
+    }
+    val bg = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, arr)
+    bg.cornerRadius = radiusPx
+    if (strokePx > 0) bg.setStroke(strokePx, Color.WHITE)
+    return bg
+}
