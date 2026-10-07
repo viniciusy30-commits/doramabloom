@@ -57,7 +57,8 @@ class EditActivity : AppCompatActivity() {
     private lateinit var originalIn: EditText
     private lateinit var synopsisIn: EditText
     private lateinit var minutesIn: EditText
-    private lateinit var platformIn: EditText
+    private var streams: MutableList<Streaming> = ArrayList()
+    private lateinit var streamFlow: FlowLayout
     private lateinit var yearIn: EditText
     private var kind = "serie"
     private var soundtrackPath = ""
@@ -274,14 +275,16 @@ class EditActivity : AppCompatActivity() {
         // ---------------- detalhes
         val c5 = card(14, 24)
         c5.addView(sectionTitle("Detalhes", "calendar"))
-        c5.addView(fieldLabel("Onde assistir e ano"))
-        val pyRow = LinearLayout(this)
-        pyRow.orientation = LinearLayout.HORIZONTAL
-        platformIn = input("Netflix, Viki...", ex?.platform ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+        c5.addView(fieldLabel("Onde assistir (toque para marcar)"))
+        streams = ArrayList(Streamings.parse(ex?.platform ?: ""))
+        streamFlow = FlowLayout(this)
+        streamFlow.hGap = dp(8)
+        streamFlow.vGap = dp(8)
+        c5.addView(streamFlow, lin(MATCH, WRAP))
+        refreshStreams()
+        c5.addView(fieldLabel("Ano"))
         yearIn = input("Ano", ex?.year ?: "", InputType.TYPE_CLASS_NUMBER)
-        pyRow.addView(platformIn, lin(0, WRAP, 2f, r = 8))
-        pyRow.addView(yearIn, lin(0, WRAP, 1f))
-        c5.addView(pyRow, lin(MATCH, WRAP))
+        c5.addView(yearIn, lin(MATCH, WRAP))
         c5.addView(fieldLabel("Datas (segure para limpar)"))
         val dRow = LinearLayout(this)
         dRow.orientation = LinearLayout.HORIZONTAL
@@ -552,6 +555,31 @@ class EditActivity : AppCompatActivity() {
         overridePendingTransition(R.anim.screen_back_in, R.anim.screen_back_out)
     }
 
+    /** Desenha todos os streamings: os marcados com a cor cheia, os outros apagadinhos. */
+    private fun refreshStreams() {
+        streamFlow.removeAllViews()
+        val shown = Streamings.all + streams.filter { s -> Streamings.all.none { it.key == s.key } }
+        for (s in shown) {
+            val on = streams.any { it.key == s.key }
+            val chip = streamChip(s, 12f)
+            chip.alpha = if (on) 1f else 0.35f
+            chip.setOnClickListener {
+                if (on) streams.removeAll { it.key == s.key } else streams.add(s)
+                refreshStreams()
+            }
+            streamFlow.addView(chip)
+        }
+        val plus = pill("Outro", Palette.pinkSoft, Palette.pink, 12f, "add")
+        plus.setOnClickListener {
+            showStreamingCreator { s ->
+                streams.removeAll { it.key == s.key }
+                streams.add(s)
+                refreshStreams()
+            }
+        }
+        streamFlow.addView(plus)
+    }
+
     private fun fieldLabel(t: String): TextView {
         val v = label(t, 12.5f, Palette.muted, true)
         v.setPadding(dp(2), dp(14), 0, dp(6))
@@ -745,7 +773,7 @@ class EditActivity : AppCompatActivity() {
             watched = ArrayList(seasonWatched),
             epMinutes = minutesIn.text.toString().toIntOrNull() ?: 0,
             year = yearIn.text.toString().trim(),
-            platform = platformIn.text.toString().trim(),
+            platform = Streamings.encode(streams),
             cast = castList.map { it.name.trim() }.filter { it.isNotEmpty() }.joinToString(", "),
             couple = coupleIn.text.toString().trim(),
             startDate = startDate,

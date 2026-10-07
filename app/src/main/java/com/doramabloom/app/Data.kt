@@ -32,8 +32,13 @@ data class Genre(
     val softL: Int,
     val darkL: Int,
     val petals: List<String>,
+    /** Frase das notas 8 a 10 (a única de cada gênero). */
     val tagline: String,
-    val custom: Boolean = false
+    val custom: Boolean = false,
+    /** Frase das notas 1 a 4. */
+    val lowLine: String = DEFAULT_LOW_LINE,
+    /** Frase das notas 5 a 7. */
+    val midLine: String = DEFAULT_MID_LINE
 ) {
     /** Cor principal; no modo escuro as muito escuras (preto, cinza) são clareadas para aparecer. */
     val primary: Int
@@ -53,6 +58,17 @@ data class Genre(
 
     /** Tom escuro de verdade (para fundos com texto branco por cima), igual nos dois modos. */
     val deep: Int get() = darkL
+}
+
+const val DEFAULT_LOW_LINE = "Terminei por educação"
+const val DEFAULT_MID_LINE = "Tá ok, mas cadê o plot? \uD83D\uDDFF"
+
+/** Frase do gênero de acordo com a nota do dorama: sem nota nenhuma, 1-4 educação, 5-7 meme, 8-10 a frase do gênero. */
+fun Genre.lineFor(score: Int): String = when {
+    score <= 0 -> ""
+    score <= 4 -> lowLine.ifBlank { DEFAULT_LOW_LINE }
+    score <= 7 -> midLine.ifBlank { DEFAULT_MID_LINE }
+    else -> tagline
 }
 
 /** Mistura duas cores (f = 0 fica em a, f = 1 fica em b). */
@@ -122,18 +138,20 @@ object Genres {
     fun factoryOf(k: String): Genre? = factory.firstOrNull { it.key == k }
 
     /** Gênero de fábrica com nome, ícone, cor e frase novos (mantém o resto se a cor não mudou). */
-    fun editBuiltin(base: Genre, label: String, icon: String, primary: Int, tagline: String): Genre {
+    fun editBuiltin(base: Genre, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = ""): Genre {
         val orig = factoryOf(base.key) ?: base
         val tag = if (tagline.isBlank()) orig.tagline else tagline
+        val lo = if (low.isBlank()) DEFAULT_LOW_LINE else low
+        val mi = if (mid.isBlank()) DEFAULT_MID_LINE else mid
         val pet = if (icon == orig.icon) orig.petals else (listOf(icon) + orig.petals.drop(1)).distinct()
         return if (primary == orig.base) {
-            orig.copy(label = label, icon = icon, tagline = tag, petals = pet)
+            orig.copy(label = label, icon = icon, tagline = tag, petals = pet, lowLine = lo, midLine = mi)
         } else {
             orig.copy(
                 label = label, icon = icon, base = primary,
                 softL = mixColor(primary, Color.WHITE, 0.84f),
                 darkL = mixColor(primary, Color.BLACK, 0.42f),
-                tagline = tag, petals = pet
+                tagline = tag, petals = pet, lowLine = lo, midLine = mi
             )
         }
     }
@@ -152,14 +170,16 @@ object Genres {
     fun byKey(k: String): Genre = all.firstOrNull { it.key == k } ?: builtin[0]
 
     /** Monta um gênero novo a partir de nome, ícone e cor; o resto (tons claro e escuro) sai da cor. */
-    fun makeCustom(key: String, label: String, icon: String, primary: Int, tagline: String): Genre =
+    fun makeCustom(key: String, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = ""): Genre =
         Genre(
             key, label, icon, primary,
             mixColor(primary, Color.WHITE, 0.84f),
             mixColor(primary, Color.BLACK, 0.42f),
             listOf(icon, "sparkle", "petal").distinct(),
             if (tagline.isBlank()) "Seu gênero $label" else tagline,
-            true
+            true,
+            if (low.isBlank()) DEFAULT_LOW_LINE else low,
+            if (mid.isBlank()) DEFAULT_MID_LINE else mid
         )
 }
 
@@ -660,6 +680,8 @@ object Store {
         o.put("icon", g.icon)
         o.put("color", g.base)
         o.put("tagline", g.tagline)
+        o.put("low", g.lowLine)
+        o.put("mid", g.midLine)
         return o
     }
 
@@ -675,7 +697,7 @@ object Store {
                 r.add(
                     Genres.makeCustom(
                         k, l, o.optString("icon", "heart"),
-                        o.optInt("color", Palette.pink), o.optString("tagline", "")
+                        o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
                     )
                 )
             }
@@ -710,7 +732,7 @@ object Store {
         if (l.isEmpty()) return null
         return Genres.editBuiltin(
             base, l, o.optString("icon", base.icon),
-            o.optInt("color", base.base), o.optString("tagline", "")
+            o.optInt("color", base.base), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
         )
     }
 
@@ -1104,7 +1126,7 @@ object Store {
                         cur.add(
                             Genres.makeCustom(
                                 k, l, o.optString("icon", "heart"),
-                                o.optInt("color", Palette.pink), o.optString("tagline", "")
+                                o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
                             )
                         )
                     }
@@ -1224,7 +1246,7 @@ object Store {
             r.add(
                 Genres.makeCustom(
                     k, l, o.optString("icon", "heart"),
-                    o.optInt("color", Palette.pink), o.optString("tagline", "")
+                    o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
                 )
             )
         }

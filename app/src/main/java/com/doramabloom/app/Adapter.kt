@@ -25,14 +25,31 @@ fun Context.favBadge(heartDp: Int = 28): FrameLayout {
 }
 
 /** Bolinha de informação: ícone em cima e texto curto embaixo, num cartão translúcido. */
-fun Context.statBubble(icon: String, text: String, g: Genre): View {
+fun Context.statBubble(icon: String, text: String, g: Genre, marks: List<Streaming> = emptyList()): View {
     val b = LinearLayout(this)
     b.orientation = LinearLayout.VERTICAL
     b.gravity = Gravity.CENTER_HORIZONTAL
     b.setPadding(dp(3), dp(7), dp(3), dp(7))
     b.background = roundRect(Palette.card, dp(18).toFloat(), mixColor(g.primary, Palette.card, 0.45f), dp(2))
     b.elevation = dp(2).toFloat()
-    b.addView(IconView(this, icon, g.primary, 16), LinearLayout.LayoutParams(WRAP, WRAP))
+    if (marks.isNotEmpty()) {
+        // só o símbolo da marca, centralizado na caixinha
+        b.gravity = Gravity.CENTER
+        b.minimumHeight = dp(50)
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER
+        val sz = if (marks.size == 1) 30 else 21
+        for ((i, m) in marks.take(2).withIndex()) {
+            val mv = View(this)
+            mv.background = StreamMarkDrawable(m)
+            row.addView(mv, lin(dp(sz), dp(sz), l = if (i > 0) 4 else 0))
+        }
+        b.addView(row, LinearLayout.LayoutParams(WRAP, WRAP))
+        return b
+    } else {
+        b.addView(IconView(this, icon, g.primary, 16), LinearLayout.LayoutParams(WRAP, WRAP))
+    }
     val t = fitLabel(text, 10.5f, g.dark, true, false, 7f)
     t.gravity = Gravity.CENTER
     b.addView(t, lin(MATCH, WRAP, t = 2))
@@ -150,7 +167,7 @@ class DramaAdapter(
         val dot: FrameLayout? = null,
         val percent: TextView? = null,
         val flow: FlowLayout? = null,
-        val plat: TextView? = null,
+        val plat: FlowLayout? = null,
         val note: TextView? = null,
         val frame: View? = null,
         val stats: LinearLayout? = null,
@@ -197,9 +214,10 @@ class DramaAdapter(
         }
         val tg = h.tagline
         if (tg != null) {
-            val auto = g.tagline.startsWith("Seu gênero")
-            tg.visibility = if (auto || g.tagline.isBlank()) View.GONE else View.VISIBLE
-            tg.text = g.tagline
+            val line = g.lineFor(d.score)
+            val auto = line.startsWith("Seu gênero")
+            tg.visibility = if (auto || line.isBlank()) View.GONE else View.VISIBLE
+            tg.text = line
             tg.setTextColor(g.dark)
             tg.setCompoundDrawables(tg.context.iconDrawable("sparkle", g.primary, tg.context.dp(13)), null, null, null)
         }
@@ -208,12 +226,13 @@ class DramaAdapter(
             statsBox.removeAllViews()
             val c = statsBox.context
             val total = totalEps(d)
-            val items = ArrayList<Pair<String, String>>()
-            if (d.year.isNotBlank()) items.add("calendar" to d.year)
-            if (total > 0) items.add("tv" to (total.toString() + " eps"))
-            if (d.platform.isNotBlank()) items.add("play" to d.platform)
-            else if (d.country.isNotBlank()) items.add("flag" to d.country.substringBefore(" "))
-            for (it2 in items.take(3)) statsBox.addView(c.statBubble(it2.first, it2.second, g), c.lin(c.dp(54), WRAP, t = 6))
+            val items = ArrayList<Triple<String, String, List<Streaming>>>()
+            if (d.year.isNotBlank()) items.add(Triple("calendar", d.year, emptyList()))
+            if (total > 0) items.add(Triple("tv", total.toString() + " eps", emptyList()))
+            val sl = Streamings.parse(d.platform)
+            if (sl.isNotEmpty()) items.add(Triple("play", sl[0].label, sl))
+            else if (d.country.isNotBlank()) items.add(Triple("flag", d.country.substringBefore(" "), emptyList()))
+            for (it2 in items.take(3)) statsBox.addView(c.statBubble(it2.first, it2.second, g, it2.third), c.lin(c.dp(54), WRAP, t = 6))
         }
         h.fav?.visibility = if (d.favorite) View.VISIBLE else View.GONE
         tintFav(h.fav, g.primary)
@@ -292,7 +311,8 @@ class DramaAdapter(
                 plat.visibility = View.GONE
             } else {
                 plat.visibility = View.VISIBLE
-                plat.text = d.platform
+                plat.removeAllViews()
+                for (sm in Streamings.parse(d.platform)) plat.addView(plat.context.streamChip(sm, 11f))
             }
         }
         val fr = h.frame
@@ -390,12 +410,10 @@ class DramaAdapter(
         rrow.addView(note, c.lin(WRAP, WRAP, l = 8))
         col.addView(rrow, c.lin(MATCH, WRAP, t = 7))
 
-        val plat = c.label("", 11f, Palette.muted)
-        plat.maxLines = 1
-        plat.ellipsize = TextUtils.TruncateAt.END
-        plat.setCompoundDrawables(c.iconDrawable("tv", Palette.muted, c.dp(12)), null, null, null)
-        plat.compoundDrawablePadding = c.dp(5)
-        col.addView(plat, c.lin(MATCH, WRAP, t = 5))
+        val plat = FlowLayout(c)
+        plat.hGap = c.dp(6)
+        plat.vGap = c.dp(6)
+        col.addView(plat, c.lin(MATCH, WRAP, t = 6))
 
         val prow = LinearLayout(c)
         prow.orientation = LinearLayout.HORIZONTAL
@@ -505,15 +523,15 @@ class DramaAdapter(
         // selo do gênero: adesivo no cantinho da capa
         val seal = SealView(c, true)
         seal.rotation = -8f
-        val slp = FrameLayout.LayoutParams(c.dp(72), c.dp(72), Gravity.BOTTOM or Gravity.END)
-        slp.setMargins(0, 0, c.dp(10), c.dp(10))
+        val slp = FrameLayout.LayoutParams(c.dp(54), c.dp(54), Gravity.BOTTOM or Gravity.END)
+        slp.setMargins(0, 0, c.dp(9), c.dp(26))
         hero.addView(seal, slp)
         // bolinhas de informação (ano, episódios, plataforma) no espaço ao lado da capa
         val stats = LinearLayout(c)
         stats.orientation = LinearLayout.VERTICAL
         stats.gravity = Gravity.CENTER_HORIZONTAL
         val stlp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START)
-        stlp.setMargins(c.dp(7), 0, 0, c.dp(12))
+        stlp.setMargins(c.dp(7), 0, 0, c.dp(46))
         hero.addView(stats, stlp)
         hero.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             val ok = cover.posterLeft() >= c.dp(66)
@@ -638,12 +656,10 @@ class DramaAdapter(
         rrow.addView(note, c.lin(WRAP, WRAP, l = 6))
         root.addView(rrow, c.lin(MATCH, WRAP, t = 7, l = 3, r = 3))
 
-        val plat = c.label("", 11f, Palette.muted)
-        plat.maxLines = 1
-        plat.ellipsize = TextUtils.TruncateAt.END
-        plat.setCompoundDrawables(c.iconDrawable("tv", Palette.muted, c.dp(12)), null, null, null)
-        plat.compoundDrawablePadding = c.dp(5)
-        root.addView(plat, c.lin(MATCH, WRAP, t = 5, l = 3, r = 3))
+        val plat = FlowLayout(c)
+        plat.hGap = c.dp(6)
+        plat.vGap = c.dp(6)
+        root.addView(plat, c.lin(MATCH, WRAP, t = 6, l = 3, r = 3))
 
         val prow = LinearLayout(c)
         prow.orientation = LinearLayout.HORIZONTAL

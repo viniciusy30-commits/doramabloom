@@ -577,7 +577,7 @@ class MainActivity : AppCompatActivity() {
         if (query.isNotBlank()) {
             l = l.filter {
                 it.title.contains(query, true) || it.original.contains(query, true) ||
-                    it.cast.contains(query, true) || it.platform.contains(query, true) ||
+                    it.cast.contains(query, true) || Streamings.names(it.platform).contains(query, true) ||
                     it.couple.contains(query, true)
             }
         }

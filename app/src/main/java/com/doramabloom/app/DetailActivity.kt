@@ -659,7 +659,7 @@ class DetailActivity : AppCompatActivity() {
         }
         val wide4 = d.platform.isNotBlank()
         val valSp = if (wide4) 12f else 13.5f
-        fun infoCol(title: String, b: View, valueView: TextView): LinearLayout {
+        fun infoCol(title: String, b: View, valueView: View): LinearLayout {
             val c = LinearLayout(this)
             c.orientation = LinearLayout.VERTICAL
             c.gravity = Gravity.CENTER_HORIZONTAL
@@ -668,9 +668,11 @@ class DetailActivity : AppCompatActivity() {
             t.letterSpacing = if (wide4) 0.06f else 0.14f
             t.gravity = Gravity.CENTER
             c.addView(t, lin(WRAP, WRAP, t = 7))
-            valueView.maxLines = 2
-            valueView.gravity = Gravity.CENTER
-            valueView.setPadding(dp(4), 0, dp(4), 0)
+            if (valueView is TextView) {
+                valueView.maxLines = 2
+                valueView.gravity = Gravity.CENTER
+                valueView.setPadding(dp(4), 0, dp(4), 0)
+            }
             c.addView(valueView, lin(WRAP, WRAP, t = 2))
             return c
         }
@@ -692,7 +694,7 @@ class DetailActivity : AppCompatActivity() {
         if (d.platform.isNotBlank()) {
             infoCard.addView(divider(), lin(dp(1), dp(46)))
             val (plBubble, _) = bubble("tv", g.primary, Color.WHITE)
-            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, label(d.platform, valSp, Color.WHITE, true, true)), lin(0, WRAP, 1f))
+            infoCard.addView(infoCol("ONDE ASSISTIR", plBubble, streamRow(d.platform, 10f, true)), lin(0, WRAP, 1f))
         }
         heroCol.addView(infoCard, lin(MATCH, WRAP, t = 14, l = 14, r = 14))
 
@@ -724,7 +726,7 @@ class DetailActivity : AppCompatActivity() {
         rcol.addView(rvNote, lin(WRAP, WRAP, t = 4))
         strip.addView(rcol, lin(0, WRAP, 1f))
         heroCol.addView(strip, lin(MATCH, WRAP, t = 16, l = 14, r = 14, b = 8))
-        val tagLine = label(g.tagline, 12.5f, Color.parseColor("#F2FFFFFF"))
+        val tagLine = label(g.lineFor(d.score), 12.5f, Color.parseColor("#F2FFFFFF"))
         tagLine.gravity = Gravity.CENTER
         heroCol.addView(tagLine, lin(MATCH, WRAP, l = 16, r = 16, b = 16))
 
@@ -748,6 +750,8 @@ class DetailActivity : AppCompatActivity() {
             }
             rv.score = d.score
             rvNote.text = if (d.score <= 0) "ainda sem nota" else "nota " + d.score + " de 10"
+            tagLine.text = g.lineFor(d.score)
+            tagLine.visibility = if (tagLine.text.isBlank()) View.GONE else View.VISIBLE
         }
 
         // ---- assistir: abre a aba só deste dorama
@@ -989,7 +993,7 @@ class DetailActivity : AppCompatActivity() {
         updaters.add {
             while (ic.childCount > 0) ic.removeViewAt(0)
             ic.addView(sectionTitle("Informações", "tag", g.primary))
-            if (d.platform.isNotBlank()) ic.addView(infoRow("tv", "Onde assistir", d.platform, g.primary))
+            if (d.platform.isNotBlank()) ic.addView(infoRowView("tv", "Onde assistir", streamRow(d.platform, 12f), g.primary))
             if (d.year.isNotBlank()) ic.addView(infoRow("calendar", "Ano de lançamento", d.year, g.primary))
             if (d.startDate > 0L) ic.addView(infoRow("play", "Comecei em", fmt(d.startDate), g.primary))
             if (d.endDate > 0L) ic.addView(infoRow("check", "Terminei em", fmt(d.endDate), g.primary))
@@ -1199,6 +1203,19 @@ class DetailActivity : AppCompatActivity() {
 
     /** Casal favorito: polaroid grande e centralizada (veja coupleCard em FlairUi.kt). */
     private fun buildCoupleCard(d: Drama, g: Genre): View? = coupleCard(d, g)
+
+    private fun infoRowView(icon: String, name: String, value: View, color: Int): View {
+        val r = LinearLayout(this)
+        r.orientation = LinearLayout.HORIZONTAL
+        r.setPadding(0, dp(10), 0, 0)
+        r.addView(IconView(this, icon, color, 18), lin(WRAP, WRAP, t = 2))
+        val c = LinearLayout(this)
+        c.orientation = LinearLayout.VERTICAL
+        c.addView(label(name, 11f, Palette.muted, true))
+        c.addView(value, lin(MATCH, WRAP, t = 4))
+        r.addView(c, lin(0, WRAP, 1f, l = 10))
+        return r
+    }
 
     private fun infoRow(icon: String, name: String, value: String, color: Int): View {
         val r = LinearLayout(this)

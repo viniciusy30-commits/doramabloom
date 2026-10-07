@@ -1,3 +1,13 @@
+#id 2026-10-07-r
+#titulo Streamings com a cara de cada um e frases que mudam com a nota
+- Onde assistir: em vez de escrever, agora você toca nos streamings (Netflix, Viki, Disney+, Prime Video, HBO Max, Apple TV+, Paramount+, Globoplay, YouTube, Crunchyroll, iQIYI e WeTV), cada um com o símbolo e a cor da marca. Dá para marcar mais de um.
+- Botão "Outro": crie um lugar seu (Telegram, DVD, site...) escolhendo o nome e a cor. O que você já tinha escrito antes continua aparecendo.
+- Na tela do dorama o "Onde assistir" aparece com as etiquetas coloridas.
+- Frases por nota: notas de 1 a 4 mostram "Terminei por educação", de 5 a 7 uma frase de meme (igual para todos os gêneros) e de 8 a 10 a frase única do gênero, que já existia.
+- Ao editar um gênero dá para mudar as 3 frases (notas 1-4, 5-7 e 8-10).
+- Doramas sem nota não mostram nenhuma frase.
+- Início: a bolinha do streaming mostra só o símbolo da marca, centralizado; na Estante (lista e grade) aparece a etiqueta com o símbolo e o nome, nas cores da marca; as bolinhas de ano, episódios e onde assistir subiram, e o selo do gênero ficou menor e mais afastado da capa e da borda.
+
 #id 2026-10-07-q
 #titulo Elenco mais limpinho e trilha sonora mais suave
 - Elenco: sumiu o retângulo escuro em volta da foto de cada ator e também o selo do gênero que ficava atrás da foto. Agora só o círculo com o nome embaixo.
