@@ -1,3 +1,9 @@
+#id 2026-10-08-zt
+#titulo Pódio novo no Top 10, sem brilhos
+- Top 10: o 1º, 2º e 3º lugar agora ficam em três plataformas coladas (prata, ouro e bronze), cada foto com o contorno da cor da sua plataforma. Só o 1º lugar usa coroa. Do 4º ao 10º continua igual.
+- Sumiram a aura dourada, os raios, os louros, as pérolas e as estrelinhas em volta das fotos, no ranking e no perfil. No perfil, só o 1º lugar tem coroa; o 2º e o 3º ficam com o contorno de prata e de bronze.
+- Corrigido: "Nº 1 dos atores" (antes aparecia "das atores").
+
 #id 2026-10-08-zs
 #titulo Personagem de cada ator no elenco
 - Edição do dorama: em cada pessoa do elenco agora tem o campo "Personagem" embaixo do nome do ator ou atriz.

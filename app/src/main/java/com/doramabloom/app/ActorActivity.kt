@@ -165,28 +165,19 @@ class ActorActivity : AppCompatActivity() {
         // foto grande (toque para escolher outra)
         val big = 136
         val medalRank = rank in 1..3
+        // anel da cor da medalha (ouro, prata ou bronze); só o 1º lugar usa coroa
         val ring = if (medalRank) Actors.medal(rank) else acc
         val ph = FrameLayout(this)
         ph.clipChildren = false
         ph.clipToPadding = false
-        val avTop = if (medalRank) 36 else 0
-        if (medalRank) {
-            // aura (brilho, raios, louros) atrás da foto, com o mesmo centro dela
-            val aSize = (big * 1.62f).toInt()
-            ph.addView(
-                HeroAuraView(this, big, rank),
-                FrameLayout.LayoutParams(dp(aSize), dp(aSize), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also {
-                    it.topMargin = dp(avTop + big / 2 - aSize / 2)
-                }
-            )
-        }
+        val avTop = if (rank == 1) 36 else 0
         ph.addView(
             avatarView(a.photo, big, ring, Actors.soft(g), acc),
             FrameLayout.LayoutParams(dp(big), dp(big), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(avTop) }
         )
-        if (medalRank) {
+        if (rank == 1) {
             // a base da coroa entra na foto: coroa "usada", não solta no ar
-            val crown = CrownView(this, rank, acc)
+            val crown = CrownView(this, 1, acc)
             crown.elevation = dp(8).toFloat()
             ph.addView(
                 crown,
@@ -223,7 +214,7 @@ class ActorActivity : AppCompatActivity() {
         fl.addView(vividPill(Actors.genderLabel(g), Actors.genderIcon(g), listOf(acc), 12f))
         if (rank > 0) {
             val plural = if (g == "f") "atrizes" else "atores"
-            fl.addView(vividPill("Nº $rank das $plural", if (rank <= 3) "trophy" else "star", listOf(if (rank <= 3) Actors.medal(rank) else acc), 12f))
+            fl.addView(vividPill("Nº $rank " + (if (g == "f") "das" else "dos") + " $plural", if (rank <= 3) "trophy" else "star", listOf(if (rank <= 3) Actors.medal(rank) else acc), 12f))
         }
         if (a.favorite) fl.addView(vividPill(favWord(g), "heart", listOf(acc), 12f))
         c.addView(fl, lin(MATCH, WRAP, t = 10))

@@ -10,6 +10,7 @@ import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
 import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -17,6 +18,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.core.widget.TextViewCompat
 import java.io.File
 import java.util.zip.CRC32
 
@@ -388,28 +390,8 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
     val top = list.take(10)
     val maxCount = maxOf(1, top[0].count)
 
-    val hero = heroCell(top[0], onOpen)
-    c.addView(hero, lin(MATCH, WRAP, t = 6))
-    hero.riseIn(80L)
-
-    // degraus de prata e bronze (2º e 3º), lado a lado, cada um mais baixo que o outro
-    if (top.size > 1) {
-        val pod = LinearLayout(this)
-        pod.orientation = LinearLayout.HORIZONTAL
-        pod.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        pod.clipChildren = false
-        val c2 = podiumCell(top[1], 2, onOpen)
-        pod.addView(c2, lin(0, WRAP, 1f, r = 3))
-        c2.riseIn(180L)
-        if (top.size > 2) {
-            val c3 = podiumCell(top[2], 3, onOpen)
-            pod.addView(c3, lin(0, WRAP, 1f, l = 3))
-            c3.riseIn(260L)
-        } else {
-            pod.addView(View(this), lin(0, 1, 1f, l = 3))
-        }
-        c.addView(pod, lin(MATCH, WRAP, t = 10))
-    }
+    // pódio: três plataformas coladas (prata | ouro | bronze); só o 1º lugar usa coroa
+    c.addView(podiumView(top, onOpen), lin(MATCH, WRAP, t = 8))
 
     if (top.size > 3) {
         val rows = LinearLayout(this)
@@ -439,116 +421,91 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
     return root
 }
 
-/** O 1º lugar: foto grande com aura, louros e raios, coroa assentada na cabeça e faixa dourada com o nome. */
-private fun Context.heroCell(a: Actor, onOpen: (Actor) -> Unit): View {
-    val acc = Actors.accent(a.gender)
-    val tone = Metal.tone(1)
-    val cell = LinearLayout(this)
-    cell.orientation = LinearLayout.VERTICAL
-    cell.gravity = Gravity.CENTER_HORIZONTAL
-    cell.setPadding(dp(2), 0, dp(2), dp(6))
-
-    val stage = FrameLayout(this)
-    stage.clipChildren = false
-    stage.clipToPadding = false
-    stage.addView(
-        HeroAuraView(this, 84, 1),
-        FrameLayout.LayoutParams(dp(136), dp(136), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(14) }
-    )
-    val wrap = FrameLayout(this)
-    wrap.clipChildren = false
-    wrap.addView(
-        avatarView(a.photo, 84, tone.mid, Actors.soft(a.gender), acc),
-        FrameLayout.LayoutParams(dp(84), dp(84), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
-    )
-    val badge = FrameLayout(this)
-    badge.background = Metal.medal(1, dp(2))
-    badge.elevation = dp(6).toFloat()
-    val num = label("1", 13f, Color.parseColor("#4A2E00"), true, true)
-    num.gravity = Gravity.CENTER
-    badge.addView(num, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-    wrap.addView(badge, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.BOTTOM or Gravity.END))
-    stage.addView(wrap, FrameLayout.LayoutParams(dp(90), dp(90), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(40) })
-    // a base da coroa entra uns dp na foto: ela fica "usada", não solta no ar
-    val crown = CrownView(this, 1, acc)
-    crown.elevation = dp(8).toFloat()
-    stage.addView(crown, FrameLayout.LayoutParams(dp(46), dp(36), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(14) })
-    cell.addView(stage, lin(MATCH, dp(150)))
-
-    // faixa dourada com o nome
-    val banner = LinearLayout(this)
-    banner.gravity = Gravity.CENTER
-    banner.setPadding(dp(10), dp(5), dp(10), dp(5))
-    val bg = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(tone.hi, tone.mid, mixColor(tone.lo, tone.mid, 0.3f)))
-    bg.cornerRadius = dp(12).toFloat()
-    bg.setStroke(dp(1), Color.argb(210, 255, 255, 255))
-    banner.background = bg
-    banner.elevation = dp(3).toFloat()
-    val nm = label(a.name, 14.5f, Color.parseColor("#4A2E00"), true, true)
-    nm.gravity = Gravity.CENTER
-    nm.maxLines = 2
-    nm.ellipsize = TextUtils.TruncateAt.END
-    banner.addView(nm, lin(WRAP, WRAP))
-    cell.addView(banner, lin(MATCH, WRAP, l = 4, r = 4, t = -12))
-
-    cell.addView(vividPill(dramasText(a.count), null, listOf(acc), 10.5f), lin(WRAP, WRAP, t = 8))
-    if (a.avg > 0) {
-        val rv = RatingView(this, 12, false)
-        rv.score = Math.round(a.avg).toInt()
-        rv.color = acc
-        cell.addView(rv, lin(WRAP, WRAP, t = 7))
-        cell.addView(label("nota média " + "%.1f".format(a.avg), 10.5f, Palette.muted), lin(WRAP, WRAP, t = 2))
+/**
+ * Pódio do Top 10: três plataformas coladas, na ordem 2º, 1º, 3º. Cada foto tem o anel da cor da
+ * sua plataforma (prata, ouro, bronze) e só o 1º lugar usa coroa. O nome fica embaixo, alinhado.
+ */
+private fun Context.podiumView(top: List<Actor>, onOpen: (Actor) -> Unit): View {
+    val row = LinearLayout(this)
+    row.orientation = LinearLayout.HORIZONTAL
+    row.isBaselineAligned = false
+    row.clipChildren = false
+    row.setPadding(dp(2), 0, dp(2), 0)
+    val order = intArrayOf(2, 1, 3)
+    for (rank in order) {
+        val w = if (rank == 1) 1.2f else 1f
+        val a = top.getOrNull(rank - 1)
+        if (a == null) {
+            row.addView(View(this), lin(0, 1, w))
+        } else {
+            val col = podiumColumn(a, rank, onOpen)
+            row.addView(col, lin(0, WRAP, w))
+            col.riseIn(if (rank == 1) 80L else if (rank == 2) 180L else 260L)
+        }
     }
-    cell.setOnClickListener { onOpen(a) }
-    cell.pressable(0.96f)
-    return cell
+    return row
 }
 
-/** 2º e 3º lugar: foto com coroinha de prata ou bronze, nome, nota e um degrau de metal embaixo. */
-private fun Context.podiumCell(a: Actor, rank: Int, onOpen: (Actor) -> Unit): View {
+private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): View {
     val acc = Actors.accent(a.gender)
     val tone = Metal.tone(rank)
+    val first = rank == 1
+    val avSize = if (first) 50 else 40
+    val crownRoom = if (first) 18 else 0
+    val platH = when (rank) {
+        1 -> 56
+        2 -> 42
+        else -> 30
+    }
+    val overlap = 7
+
     val cell = LinearLayout(this)
     cell.orientation = LinearLayout.VERTICAL
     cell.gravity = Gravity.CENTER_HORIZONTAL
     cell.clipChildren = false
 
-    val block = FrameLayout(this)
-    block.clipChildren = false
-    val avSize = 54
-    block.addView(
-        avatarView(a.photo, avSize, tone.mid, Actors.soft(a.gender), acc),
-        FrameLayout.LayoutParams(dp(avSize), dp(avSize), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(15) }
-    )
-    val badge = FrameLayout(this)
-    badge.background = Metal.medal(rank, dp(1))
-    badge.elevation = dp(6).toFloat()
-    val num = label(rank.toString(), 10f, tone.edge, true, true)
-    num.gravity = Gravity.CENTER
-    badge.addView(num, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-    block.addView(badge, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.TOP or Gravity.END).also {
-        it.topMargin = dp(15 + avSize - 18)
-        it.rightMargin = dp(2)
-    })
-    val crown = CrownView(this, rank, acc)
-    crown.elevation = dp(8).toFloat()
-    // avatar começa em y = 15; a base da coroa entra uns dp na foto
-    block.addView(crown, FrameLayout.LayoutParams(dp(30), dp(24), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(1) })
-    cell.addView(block, lin(MATCH, dp(15 + avSize + 2)))
+    // palco de altura fixa: a foto e a plataforma ficam no chão, então as três bases se alinham
+    val stage = LinearLayout(this)
+    stage.orientation = LinearLayout.VERTICAL
+    stage.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+    stage.clipChildren = false
 
-    val nm = label(a.name, 12f, Palette.text, true, true)
+    val photo = FrameLayout(this)
+    photo.clipChildren = false
+    photo.elevation = dp(3).toFloat()
+    photo.addView(
+        avatarView(a.photo, avSize, tone.mid, Actors.soft(a.gender), acc),
+        FrameLayout.LayoutParams(dp(avSize), dp(avSize), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(crownRoom) }
+    )
+    if (first) {
+        // a base da coroa entra uns dp na foto: ela fica "usada", não solta no ar
+        val crown = CrownView(this, 1, acc)
+        crown.elevation = dp(4).toFloat()
+        photo.addView(crown, FrameLayout.LayoutParams(dp(30), dp(24), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+    }
+    stage.addView(photo, lin(dp(avSize + 6), dp(crownRoom + avSize)))
+    stage.addView(PedestalView(this, rank), lin(MATCH, dp(platH), t = -overlap))
+    cell.addView(stage, lin(MATCH, dp(130)))
+
+    val nm = label(a.name, 10.5f, Palette.text, true, true)
     nm.gravity = Gravity.CENTER
     nm.maxLines = 2
     nm.ellipsize = TextUtils.TruncateAt.END
-    cell.addView(nm, lin(MATCH, WRAP, t = 4, l = 2, r = 2))
-    cell.addView(label(dramasText(a.count), 10f, Palette.muted), lin(WRAP, WRAP, t = 1))
+    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(nm, 8, 11, 1, TypedValue.COMPLEX_UNIT_SP)
+    cell.addView(nm, lin(MATCH, WRAP, t = 6))
     if (a.avg > 0) {
-        val rv = RatingView(this, 9, false)
-        rv.score = Math.round(a.avg).toInt()
-        rv.color = acc
-        cell.addView(rv, lin(WRAP, WRAP, t = 4))
+        val sc = LinearLayout(this)
+        sc.orientation = LinearLayout.HORIZONTAL
+        sc.gravity = Gravity.CENTER
+        sc.addView(IconView(this, "heart", acc, 9), lin(WRAP, WRAP, r = 2))
+        sc.addView(label("%.1f".format(a.avg), 10f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
+        cell.addView(sc, lin(MATCH, WRAP, t = 2))
     }
-    cell.addView(PedestalView(this, rank), lin(MATCH, dp(if (rank == 2) 46 else 34), t = 8))
+    val dr = label(dramasText(a.count), 9f, Palette.muted)
+    dr.gravity = Gravity.CENTER
+    dr.maxLines = 1
+    cell.addView(dr, lin(MATCH, WRAP, t = 1))
+
     cell.setOnClickListener { onOpen(a) }
     cell.pressable(0.95f)
     return cell
