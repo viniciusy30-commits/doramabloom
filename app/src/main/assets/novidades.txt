@@ -1,3 +1,11 @@
+#id 2026-10-08-zv
+#titulo Ano curto, frases por nota, Top 10 arrastável e correções
+- Datas: agora dá para digitar o ano com 2 dígitos (07/10/22 vira 07/10/2022). O campo "Ano" também aceita 22 e salva 2022.
+- Frases dos gêneros: cada gênero agora tem uma frase para as notas 8 e 9 e outra, diferente, só para a nota 10. Ao criar ou editar um gênero dá para escrever as duas.
+- Top 10 de atores e atrizes: novo botão "Reordenar". Segure e arraste para escolher quem fica em 1º, 2º, 3º... mesmo com empate. "Automático" volta para a ordem por doramas e nota.
+- SnapTube: ele continua abrindo já na pesquisa, agora em uma tela separada do app (para a tela não tremer).
+- Adicionar dorama: se você sair do app e voltar, o que já tinha digitado continua lá (fica guardado como rascunho até você salvar ou sair da tela).
+
 #id 2026-10-08-zt
 #titulo Pódio novo no Top 10, sem brilhos
 - Top 10: o 1º, 2º e 3º lugar agora ficam em três plataformas coladas (prata, ouro e bronze), cada foto com o contorno da cor da sua plataforma. Só o 1º lugar usa coroa. Do 4º ao 10º continua igual.

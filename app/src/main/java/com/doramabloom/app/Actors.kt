@@ -131,7 +131,19 @@ object Actors {
 
     fun find(key: String): Actor? = all().firstOrNull { it.key == key }
 
-    fun ranked(list: List<Actor>, gender: String): List<Actor> = list.filter { it.gender == gender }.sortedWith(order)
+    /** Ordem automática (mais doramas, nota, nome). */
+    fun autoRanked(list: List<Actor>, gender: String): List<Actor> = list.filter { it.gender == gender }.sortedWith(order)
+
+    /** Quem você arrastou para uma posição fica nela; o resto vem depois, na ordem automática. */
+    fun ranked(list: List<Actor>, gender: String): List<Actor> {
+        val auto = autoRanked(list, gender)
+        val pinned = Store.actorOrder(gender)
+        if (pinned.isEmpty()) return auto
+        val byKey = auto.associateBy { it.key }
+        val head = pinned.mapNotNull { byKey[it] }
+        val used = head.map { it.key }.toHashSet()
+        return head + auto.filter { it.key !in used }
+    }
 
     /** Posição (1, 2, 3...) entre quem tem o mesmo tipo; 0 se ainda não foi classificada. */
     fun rankOf(a: Actor, everyone: List<Actor>): Int {
@@ -215,7 +227,7 @@ private fun dramasText(n: Int): String = if (n == 1) "1 dorama" else "$n doramas
 // ===================================================================== NÚMEROS: TOP 10
 
 /** Coloca na aba Números o aviso para classificar (se precisar) e os dois Top 10: atores e atrizes. */
-fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClassify: () -> Unit) {
+fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClassify: () -> Unit, onReordered: () -> Unit = {}) {
     val everyone = Actors.all()
     if (everyone.isEmpty()) {
         val e = card(16, 22)
@@ -235,8 +247,8 @@ fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClass
     val both = LinearLayout(this)
     both.orientation = LinearLayout.HORIZONTAL
     both.isBaselineAligned = false
-    both.addView(actorColumn("m", Actors.ranked(everyone, "m"), onOpen), lin(0, MATCH, 1f, r = 5))
-    both.addView(actorColumn("f", Actors.ranked(everyone, "f"), onOpen), lin(0, MATCH, 1f, l = 5))
+    both.addView(actorColumn("m", Actors.ranked(everyone, "m"), onOpen, onReordered), lin(0, MATCH, 1f, r = 5))
+    both.addView(actorColumn("f", Actors.ranked(everyone, "f"), onOpen, onReordered), lin(0, MATCH, 1f, l = 5))
     col.addView(both, lin(MATCH, WRAP))
 }
 
@@ -328,7 +340,7 @@ private class SparkleBackdrop(ctx: Context, private val tint: Int, seed: Int) : 
 }
 
 /** Uma coluna do Top 10 (atores OU atrizes): título em faixa, destaque do 1º lugar e as linhas dos outros. */
-private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Actor) -> Unit): View {
+private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Actor) -> Unit, onReordered: () -> Unit): View {
     val acc = Actors.accent(gender)
     val plural = if (gender == "f") "atrizes" else "atores"
     val root = FrameLayout(this)
@@ -388,7 +400,18 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
     }
 
     val top = list.take(10)
-    val maxCount = maxOf(1, top[0].count)
+    val maxCount = maxOf(1, list.maxOf { it.count })
+
+    // botão para escolher a ordem arrastando
+    val act = this as? Activity
+    if (act != null && list.size > 1) {
+        val reorder = pill("Reordenar", acc, Color.WHITE, 11.5f, "sort")
+        reorder.setOnClickListener { act.showReorderDialog(gender, onReordered) }
+        val rr = LinearLayout(this)
+        rr.gravity = Gravity.CENTER_HORIZONTAL
+        rr.addView(reorder, lin(WRAP, WRAP))
+        c.addView(rr, lin(MATCH, WRAP, t = 8))
+    }
 
     // pódio: três plataformas coladas (prata | ouro | bronze); só o 1º lugar usa coroa
     c.addView(podiumView(top, onOpen), lin(MATCH, WRAP, t = 8))
@@ -660,4 +683,140 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
     dialog.setOnDismissListener { onDone() }
     render()
     dialog.show()
+}
+
+
+// ===================================================================== REORDENAR O TOP 10 ARRASTANDO
+
+/**
+ * Lista de todas as pessoas do tipo (atores ou atrizes). Segure e arraste para escolher quem fica
+ * em 1º, 2º, 3º... mesmo com empate. "Automático" volta para a ordem por doramas e nota.
+ */
+fun Activity.showReorderDialog(gender: String, onDone: () -> Unit) {
+    val everyone = Actors.all()
+    val items = ArrayList(Actors.ranked(everyone, gender).take(60))
+    if (items.size < 2) return
+    val acc = Actors.accent(gender)
+
+    val box = LinearLayout(this)
+    box.orientation = LinearLayout.VERTICAL
+    box.setPadding(dp(12), dp(12), dp(12), dp(4))
+    box.addView(
+        label("Segure e arraste para escolher a posição de cada " + (if (gender == "f") "atriz" else "ator") + ".", 12.5f, Palette.muted),
+        lin(MATCH, WRAP, l = 6, r = 6, b = 8)
+    )
+    val rv = androidx.recyclerview.widget.RecyclerView(this)
+    rv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+    rv.overScrollMode = View.OVER_SCROLL_NEVER
+    val maxH = (resources.displayMetrics.heightPixels * 0.6f).toInt()
+    box.addView(rv, lin(MATCH, maxH))
+
+    lateinit var helper: androidx.recyclerview.widget.ItemTouchHelper
+
+    class VH(val row: LinearLayout, val num: TextView, val photoBox: FrameLayout, val name: TextView, val sub: TextView, val handle: View) :
+        androidx.recyclerview.widget.RecyclerView.ViewHolder(row)
+
+    val adapter = object : androidx.recyclerview.widget.RecyclerView.Adapter<VH>() {
+        override fun getItemCount(): Int = items.size
+
+        override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): VH {
+            val row = LinearLayout(this@showReorderDialog)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.setPadding(dp(8), dp(6), dp(10), dp(6))
+            row.layoutParams = android.view.ViewGroup.LayoutParams(MATCH, WRAP)
+            val num = label("1", 13f, acc, true, true)
+            num.gravity = Gravity.CENTER
+            row.addView(num, lin(dp(26), WRAP))
+            val pb = FrameLayout(this@showReorderDialog)
+            row.addView(pb, lin(dp(40), dp(40), l = 4, r = 10))
+            val mid = LinearLayout(this@showReorderDialog)
+            mid.orientation = LinearLayout.VERTICAL
+            val nm = label("", 13.5f, Palette.text, true)
+            nm.maxLines = 1
+            nm.ellipsize = TextUtils.TruncateAt.END
+            val sb = label("", 10.5f, Palette.muted)
+            mid.addView(nm)
+            mid.addView(sb)
+            row.addView(mid, lin(0, WRAP, 1f))
+            val h = IconView(this@showReorderDialog, "sort", acc, 22)
+            row.addView(h, lin(dp(34), dp(34), l = 6))
+            return VH(row, num, pb, nm, sb, h)
+        }
+
+        override fun onBindViewHolder(h: VH, pos: Int) {
+            val a = items[pos]
+            h.num.text = (pos + 1).toString()
+            val medal = if (pos < 3) Actors.medal(pos + 1) else acc
+            h.photoBox.removeAllViews()
+            h.photoBox.addView(
+                avatarView(a.photo, 40, medal, Actors.soft(a.gender), acc),
+                FrameLayout.LayoutParams(dp(40), dp(40))
+            )
+            h.name.text = a.name
+            h.sub.text = dramasText(a.count)
+            h.row.background = roundRect(
+                if (pos < 3) mixColor(Palette.card, medal, if (Palette.dark) 0.20f else 0.14f) else Palette.card,
+                dp(16).toFloat(), Palette.line, dp(1)
+            )
+            h.handle.setOnTouchListener { _, ev ->
+                if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) helper.startDrag(h)
+                false
+            }
+        }
+    }
+
+    helper = androidx.recyclerview.widget.ItemTouchHelper(object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+        androidx.recyclerview.widget.ItemTouchHelper.UP or androidx.recyclerview.widget.ItemTouchHelper.DOWN, 0
+    ) {
+        override fun onMove(
+            r: androidx.recyclerview.widget.RecyclerView,
+            from: androidx.recyclerview.widget.RecyclerView.ViewHolder,
+            to: androidx.recyclerview.widget.RecyclerView.ViewHolder
+        ): Boolean {
+            val a = from.bindingAdapterPosition
+            val b = to.bindingAdapterPosition
+            if (a < 0 || b < 0) return false
+            val moved = items.removeAt(a)
+            items.add(b, moved)
+            adapter.notifyItemMoved(a, b)
+            return true
+        }
+
+        override fun onSwiped(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder, direction: Int) {}
+
+        override fun clearView(r: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) {
+            super.clearView(r, vh)
+            vh.itemView.alpha = 1f
+            // atualiza os números e as cores do pódio depois de soltar
+            r.post { adapter.notifyDataSetChanged() }
+        }
+
+        override fun onSelectedChanged(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder?, state: Int) {
+            super.onSelectedChanged(vh, state)
+            if (state == androidx.recyclerview.widget.ItemTouchHelper.ACTION_STATE_DRAG) vh?.itemView?.alpha = 0.85f
+        }
+    })
+    rv.adapter = adapter
+    rv.addItemDecoration(object : androidx.recyclerview.widget.RecyclerView.ItemDecoration() {
+        override fun getItemOffsets(out: android.graphics.Rect, v: View, p: androidx.recyclerview.widget.RecyclerView, st: androidx.recyclerview.widget.RecyclerView.State) {
+            out.set(0, 0, 0, dp(6))
+        }
+    })
+    helper.attachToRecyclerView(rv)
+
+    val dlg = AlertDialog.Builder(this)
+        .setTitle(if (gender == "f") "Ordem das atrizes" else "Ordem dos atores")
+        .setView(box)
+        .setPositiveButton("Salvar") { _, _ ->
+            Store.setActorOrder(gender, items.map { it.key })
+            onDone()
+        }
+        .setNegativeButton("Cancelar", null)
+        .setNeutralButton("Automático") { _, _ ->
+            Store.setActorOrder(gender, emptyList())
+            onDone()
+        }
+        .create()
+    dlg.show()
 }

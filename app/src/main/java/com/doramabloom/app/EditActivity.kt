@@ -86,17 +86,25 @@ class EditActivity : AppCompatActivity() {
         ThemeMode.refresh(this)
         id = intent.getLongExtra("id", -1L)
         existing = Store.get(id)
-        val ex = existing
+        val real = existing
+        // rascunho: se o app foi fechado no meio do formulário, volta tudo como estava
+        val prefill = intent.getStringExtra("prefill") ?: ""
+        val draft = if (prefill.isEmpty()) Store.loadDraft(id) else null
+        if (draft == null && prefill.isNotEmpty()) Store.clearDraft(id)
+        if (draft != null) createdFiles.addAll(draft.second)
+        val ex: Drama? = draft?.first ?: real
+        if (real != null) {
+            if (real.soundtrack.isNotEmpty()) originalFiles.add(real.soundtrack)
+            if (real.couplePhoto.isNotEmpty()) originalFiles.add(real.couplePhoto)
+            for (p in real.castPeople) if (p.photo.isNotEmpty()) originalFiles.add(p.photo)
+            originalCover = real.cover
+        }
         if (ex != null) {
             coverPath = ex.cover
             kind = ex.kind
             soundtrackPath = ex.soundtrack
             couplePhotoPath = ex.couplePhoto
             for (p in ex.castPeople) castList.add(CastPerson(p.name, p.photo, p.role))
-            if (ex.soundtrack.isNotEmpty()) originalFiles.add(ex.soundtrack)
-            if (ex.couplePhoto.isNotEmpty()) originalFiles.add(ex.couplePhoto)
-            for (p in ex.castPeople) if (p.photo.isNotEmpty()) originalFiles.add(p.photo)
-            originalCover = ex.cover
             genreKey = ex.genre
             tags = HashSet(ex.tags)
             shelf = ArrayList(ex.shelfTags)
@@ -127,7 +135,7 @@ class EditActivity : AppCompatActivity() {
         head.gravity = Gravity.CENTER_VERTICAL
         head.setPadding(dp(16), dp(10), dp(16), dp(6))
         head.addView(roundBtn("back", Palette.pinkDark, false, 18) { finish() }, lin(dp(40), dp(40), r = 12))
-        head.addView(label(if (ex == null) "Novo dorama" else "Editar dorama", 22f, Palette.pinkDark, true, true))
+        head.addView(label(if (real == null) "Novo dorama" else "Editar dorama", 22f, Palette.pinkDark, true, true))
         page.addView(head, lin(MATCH, WRAP))
 
         val sv = ScrollView(this)
@@ -170,7 +178,7 @@ class EditActivity : AppCompatActivity() {
         coverRow.addView(coverBtns, lin(0, WRAP, 1f))
         c1.addView(coverRow, lin(MATCH, WRAP, t = 10))
         c1.addView(fieldLabel("Título *"))
-        titleIn = input("Ex.: Pousando no Amor", ex?.title ?: (intent.getStringExtra("prefill") ?: ""), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+        titleIn = input("Ex.: Pousando no Amor", ex?.title ?: prefill, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         c1.addView(titleIn, lin(MATCH, WRAP))
         c1.addView(fieldLabel("Título original"))
         originalIn = input("Ex.: 사랑의 불시착", ex?.original ?: "")
@@ -290,11 +298,11 @@ class EditActivity : AppCompatActivity() {
         c5.addView(fieldLabel("Ano"))
         yearIn = input("Ano", ex?.year ?: "", InputType.TYPE_CLASS_NUMBER)
         c5.addView(yearIn, lin(MATCH, WRAP))
-        c5.addView(fieldLabel("Datas (é só digitar os números)"))
+        c5.addView(fieldLabel("Datas (só os números; o ano pode ter 2 dígitos: 22 vira 2022)"))
         val dRow = LinearLayout(this)
         dRow.orientation = LinearLayout.HORIZONTAL
-        startIn = dateInput("Início: dd/mm/aaaa", startDate) { startDate = it }
-        endIn = dateInput("Fim: dd/mm/aaaa", endDate) { endDate = it }
+        startIn = dateInput("Início: dd/mm/aa", startDate) { startDate = it }
+        endIn = dateInput("Fim: dd/mm/aa", endDate) { endDate = it }
         dRow.addView(startIn, lin(0, WRAP, 1f, r = 8))
         dRow.addView(endIn, lin(0, WRAP, 1f))
         c5.addView(dRow, lin(MATCH, WRAP))
@@ -392,16 +400,16 @@ class EditActivity : AppCompatActivity() {
         col.addView(c7, lin(MATCH, WRAP, t = 12))
 
         // ---------------- excluir (só aparece ao editar um dorama que já existe)
-        if (ex != null) {
+        if (real != null) {
             val del = pill("Excluir dorama", Color.parseColor("#FFE0E6"), Color.parseColor("#C2185B"), 14f, "delete")
             del.setPadding(dp(18), dp(12), dp(18), dp(12))
             del.setOnClickListener {
                 AlertDialog.Builder(this)
                     .setTitle("Excluir dorama?")
-                    .setMessage("\"" + ex.title + "\" será removido da sua estante.")
+                    .setMessage("\"" + real.title + "\" será removido da sua estante.")
                     .setPositiveButton("Excluir") { _, _ ->
                         sv.animate().alpha(0f).translationY(dp(30).toFloat()).setDuration(260).withEndAction {
-                            Store.delete(ex.id)
+                            Store.delete(real.id)
                             Toast.makeText(this, "Dorama excluído", Toast.LENGTH_SHORT).show()
                             finish()
                         }.start()
@@ -636,7 +644,7 @@ class EditActivity : AppCompatActivity() {
             }
             val ms = parseDate(txt)
             onValue(if (ms != null) ms else 0L)
-            val bad = txt.isNotEmpty() && ms == null && txt.length == 10
+            val bad = txt.isNotEmpty() && ms == null && (txt.length == 10 || txt.length == 8)
             e.background = roundRect(Palette.card, dp(18).toFloat(), if (bad) Color.parseColor("#E5484D") else Palette.line, dp(if (bad) 2 else 1))
         }
         return e
@@ -644,10 +652,13 @@ class EditActivity : AppCompatActivity() {
 
     /** "dd/MM/aaaa" para milissegundos (meio-dia); null se não for uma data de verdade. */
     private fun parseDate(t: String): Long? {
-        if (t.length != 10) return null
+        // aceita dd/mm/aa (22 vira 2022) ou dd/mm/aaaa
+        if (t.length != 8 && t.length != 10) return null
         val dd = t.substring(0, 2).toIntOrNull() ?: return null
         val mm = t.substring(3, 5).toIntOrNull() ?: return null
-        val yy = t.substring(6, 10).toIntOrNull() ?: return null
+        val yRaw = t.substring(6)
+        var yy = yRaw.toIntOrNull() ?: return null
+        if (yRaw.length == 2) yy = fullYear(yy)
         if (yy < 1900 || yy > 2100) return null
         val c = Calendar.getInstance()
         c.isLenient = false
@@ -659,6 +670,9 @@ class EditActivity : AppCompatActivity() {
             null
         }
     }
+
+    /** Ano de 2 dígitos para 4: 00 a 69 viram 2000 a 2069; 70 a 99 viram 1970 a 1999. */
+    private fun fullYear(yy: Int): Int = if (yy <= 69) 2000 + yy else 1900 + yy
 
     /** Campo preenchido pela metade ou com data que não existe: não deixa salvar sem avisar. */
     private fun dateProblem(e: EditText): Boolean {
@@ -787,7 +801,7 @@ class EditActivity : AppCompatActivity() {
         snapSince = System.currentTimeMillis() - 15000L
         if (SnapTube.open(this, snapQuery)) {
             snapWaiting = true
-            Toast.makeText(this, "Busca copiada. Baixe o MP3 e volte para cá.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Baixe o MP3 no SnapTube e volte para cá.", Toast.LENGTH_LONG).show()
         } else {
             AlertDialog.Builder(this)
                 .setTitle("SnapTube não encontrado")
@@ -939,19 +953,10 @@ class EditActivity : AppCompatActivity() {
         }
     }
 
-    private fun save() {
-        val title = titleIn.text.toString().trim()
-        if (title.isEmpty()) {
-            Toast.makeText(this, "Dê um nome ao dorama.", Toast.LENGTH_SHORT).show()
-            titleIn.requestFocus()
-            return
-        }
-        if (dateProblem(startIn) || dateProblem(endIn)) {
-            Toast.makeText(this, "Confira a data: use dia/mês/ano, como 07/10/2026.", Toast.LENGTH_SHORT).show()
-            (if (dateProblem(startIn)) startIn else endIn).requestFocus()
-            return
-        }
+    /** Junta tudo o que está no formulário num Dorama (sem validar nem salvar). */
+    private fun collect(): Drama {
         val old = existing
+        val title = titleIn.text.toString().trim()
         val d = Drama(
             id = if (old != null) old.id else System.currentTimeMillis(),
             title = title,
@@ -965,7 +970,7 @@ class EditActivity : AppCompatActivity() {
             seasonEps = ArrayList(seasonTotals),
             watched = ArrayList(seasonWatched),
             epMinutes = minutesIn.text.toString().toIntOrNull() ?: 0,
-            year = yearIn.text.toString().trim(),
+            year = yearIn.text.toString().trim().let { y -> if (y.length == 2 && y.all { it.isDigit() }) fullYear(y.toInt()).toString() else y },
             platform = Streamings.encode(streams),
             cast = castList.map { it.name.trim() }.filter { it.isNotEmpty() }.joinToString(", "),
             couple = coupleIn.text.toString().trim(),
@@ -987,6 +992,38 @@ class EditActivity : AppCompatActivity() {
             couplePhoto = couplePhotoPath,
             shelfTags = shelf.filter { tags.contains(it) && it != genreKey }
         )
+        return d
+    }
+
+    private fun writeDraft() {
+        try {
+            val d = collect()
+            val has = d.title.isNotBlank() || d.original.isNotBlank() || d.synopsis.isNotBlank() || d.notes.isNotBlank() ||
+                d.couple.isNotBlank() || d.cover.isNotEmpty() || d.castPeople.isNotEmpty() || d.soundtrack.isNotEmpty() ||
+                d.year.isNotBlank() || d.platform.isNotBlank() || d.startDate > 0L || d.endDate > 0L || d.epMinutes > 0
+            if (existing == null && !has) Store.clearDraft(id) else Store.saveDraft(id, d, createdFiles)
+        } catch (e: Exception) {
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (!saved && !isFinishing) writeDraft()
+    }
+
+    private fun save() {
+        val title = titleIn.text.toString().trim()
+        if (title.isEmpty()) {
+            Toast.makeText(this, "Dê um nome ao dorama.", Toast.LENGTH_SHORT).show()
+            titleIn.requestFocus()
+            return
+        }
+        if (dateProblem(startIn) || dateProblem(endIn)) {
+            Toast.makeText(this, "Confira a data: use dia/mês/ano, como 07/10/26 ou 07/10/2026.", Toast.LENGTH_SHORT).show()
+            (if (dateProblem(startIn)) startIn else endIn).requestFocus()
+            return
+        }
+        val d = collect()
         normalize(d)
         val tot = totalEps(d)
         val wat = watchedEps(d)
@@ -1015,6 +1052,7 @@ class EditActivity : AppCompatActivity() {
         }
         Covers.clear()
         saved = true
+        Store.clearDraft(id)
         Store.save(d)
         Toast.makeText(this, "Salvo com carinho!", Toast.LENGTH_SHORT).show()
         finish()
@@ -1022,6 +1060,9 @@ class EditActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // só apaga os arquivos novos se você realmente saiu da tela; se o sistema só recriou, o rascunho continua valendo
+        if (!saved && !isFinishing) return
+        if (!saved) Store.clearDraft(id)
         if (!saved) {
             for (f in createdFiles) {
                 try {

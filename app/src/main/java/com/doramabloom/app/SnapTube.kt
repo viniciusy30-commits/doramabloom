@@ -54,17 +54,23 @@ object SnapTube {
         } catch (e: Exception) {
         }
         val pkg = installedPackage(a) ?: return false
+        // Abre direto na pesquisa, mas em uma tarefa separada do nosso app (NEW_TASK).
+        // Antes o link abria dentro da nossa própria tarefa, e a tela ficava tremendo.
         try {
             val url = "https://www.youtube.com/results?search_query=" + URLEncoder.encode(query, "UTF-8")
             val view = Intent(Intent.ACTION_VIEW, Uri.parse(url))
             view.setPackage(pkg)
+            view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             a.startActivity(view)
+            a.overridePendingTransition(0, 0)
             return true
         } catch (e: Exception) {
         }
         return try {
             val main = a.packageManager.getLaunchIntentForPackage(pkg) ?: return false
+            main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             a.startActivity(main)
+            a.overridePendingTransition(0, 0)
             true
         } catch (e: Exception) {
             false

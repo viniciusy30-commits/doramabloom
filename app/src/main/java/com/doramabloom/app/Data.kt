@@ -33,13 +33,17 @@ data class Genre(
     val softL: Int,
     val darkL: Int,
     val petals: List<String>,
-    /** Frase das notas 8 a 10 (a única de cada gênero). */
+    /** Frase da nota 8 (as notas 9 e 10 têm frases próprias: [line9] e [line10]). */
     val tagline: String,
     val custom: Boolean = false,
     /** Frase das notas 1 a 4. */
     val lowLine: String = DEFAULT_LOW_LINE,
     /** Frase das notas 5 a 7. */
-    val midLine: String = DEFAULT_MID_LINE
+    val midLine: String = DEFAULT_MID_LINE,
+    /** Frase da nota 9. */
+    val line9: String = DEFAULT_LINE_9,
+    /** Frase da nota 10. */
+    val line10: String = DEFAULT_LINE_10
 ) {
     /** Cor principal; no modo escuro as muito escuras (preto, cinza) são clareadas para aparecer. */
     val primary: Int
@@ -63,13 +67,16 @@ data class Genre(
 
 const val DEFAULT_LOW_LINE = "Terminei por educação"
 const val DEFAULT_MID_LINE = "Tá ok, mas cadê o plot? \uD83D\uDDFF"
+const val DEFAULT_LINE_9 = "Quase perfeito, amei demais!"
+const val DEFAULT_LINE_10 = "Nota máxima: obra-prima do meu coração!"
 
-/** Frase do gênero de acordo com a nota do dorama: sem nota nenhuma, 1-4 educação, 5-7 meme, 8-10 a frase do gênero. */
+/** Frase do gênero de acordo com a nota do dorama: sem nota nenhuma, 1-4 educação, 5-7 meme, 8-9 a frase do gênero e 10 uma frase só dela. */
 fun Genre.lineFor(score: Int): String = when {
     score <= 0 -> ""
     score <= 4 -> lowLine.ifBlank { DEFAULT_LOW_LINE }
     score <= 7 -> midLine.ifBlank { DEFAULT_MID_LINE }
-    else -> tagline
+    score <= 9 -> tagline
+    else -> line10.ifBlank { DEFAULT_LINE_10 }
 }
 
 /** Mistura duas cores (f = 0 fica em a, f = 1 fica em b). */
@@ -85,43 +92,62 @@ object Genres {
 
     private val factory: List<Genre> = listOf(
         Genre("romance", "Romance", "heart", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
-            listOf("petal", "blossom", "sparkle"), "Para suspirar abraçada na almofada"),
+            listOf("petal", "blossom", "sparkle"), "Para suspirar abraçada na almofada",
+            line9 = "Suspirei tanto que faltou ar, amei demais", line10 = "Final perfeito: meu coração virou geleia e não quer voltar"),
         Genre("comedia", "Comédia", "smile", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
-            listOf("star", "sparkle"), "Risadinhas garantidas"),
+            listOf("star", "sparkle"), "Risadinhas garantidas",
+            line9 = "Chorei de rir, a barriga até doeu", line10 = "Obra-prima do humor: ri do começo ao fim sem parar"),
         Genre("acao", "Ação", "bolt", c("#FF7A6B"), c("#FFE5E0"), c("#9C2F22"),
-            listOf("bolt", "flame", "shield"), "Coração acelerado e muita adrenalina"),
+            listOf("bolt", "flame", "shield"), "Coração acelerado e muita adrenalina",
+            line9 = "Adrenalina nas alturas, nem pisquei", line10 = "Perfeito: o coração disparou do início ao fim"),
         Genre("terror", "Terror", "ghost", c("#9B7EDE"), c("#EDE6FA"), c("#4B2E8F"),
-            listOf("ghost", "bat", "tomb"), "Luz acesa e coberta até o nariz"),
+            listOf("ghost", "bat", "tomb"), "Luz acesa e coberta até o nariz",
+            line9 = "Dormir de luz acesa foi pouco, que medo bom", line10 = "Obra-prima do pavor: nunca mais olho o escuro igual"),
         Genre("fantasia", "Fantasia", "sparkle", c("#6FA8FF"), c("#E3EEFF"), c("#1F4F9C"),
-            listOf("sparkle", "butterfly", "wand"), "Magia, brilho e mundos encantados"),
+            listOf("sparkle", "butterfly", "wand"), "Magia, brilho e mundos encantados",
+            line9 = "Um mundo encantado que eu não queria deixar", line10 = "Pura magia: queria morar dentro dessa história"),
         Genre("historico", "Histórico", "pagoda", c("#D6536D"), c("#FBE3E8"), c("#8E1F3A"),
-            listOf("pagoda", "lantern", "fan"), "Hanboks, palácios e intrigas da corte"),
+            listOf("pagoda", "lantern", "fan"), "Hanboks, palácios e intrigas da corte",
+            line9 = "Intrigas e palácio de tirar o fôlego", line10 = "Joia da coroa: majestoso do primeiro ao último ep"),
         Genre("misterio", "Mistério", "search", c("#5FB3A8"), c("#DFF4F1"), c("#1F6B62"),
-            listOf("search", "key", "lock"), "Quem será o culpado?"),
+            listOf("search", "key", "lock"), "Quem será o culpado?",
+            line9 = "A cada pista eu mudava de culpado", line10 = "Reviravolta perfeita: não vi o final chegando"),
         Genre("escolar", "Escolar", "school", c("#7FD1AE"), c("#E1F7EC"), c("#226B4B"),
-            listOf("school", "book", "pencil"), "Uniformes, amizades e primeiros amores"),
+            listOf("school", "book", "pencil"), "Uniformes, amizades e primeiros amores",
+            line9 = "Deu saudade da escola e do primeiro amor", line10 = "Perfeito: virei estudante de novo e chorei na formatura"),
         Genre("drama", "Drama", "drop", c("#C38BD8"), c("#F6E6FB"), c("#6E2F86"),
-            listOf("drop", "cloud", "heartbreak"), "Lencinho por perto, vai ter choro"),
+            listOf("drop", "cloud", "heartbreak"), "Lencinho por perto, vai ter choro",
+            line9 = "Gastei a caixa de lenços e valeu cada lágrima", line10 = "Choro bonito: me destruiu e me curou ao mesmo tempo"),
         Genre("suspense", "Suspense", "eye", c("#4F6D9A"), c("#E3EAF5"), c("#24395A"),
-            listOf("eye", "moon", "clock"), "Segura a respiração, a trama não dá trégua"),
+            listOf("eye", "moon", "clock"), "Segura a respiração, a trama não dá trégua",
+            line9 = "Prendi a respiração até o último episódio", line10 = "Tensão perfeita: não consegui nem pausar"),
         Genre("medico", "Médico", "cross", c("#3FB6C9"), c("#DDF4F8"), c("#17657A"),
-            listOf("cross", "pill", "syringe"), "Plantões, jalecos e corações em tratamento"),
+            listOf("cross", "pill", "syringe"), "Plantões, jalecos e corações em tratamento",
+            line9 = "Plantão que cura o coração e a alma", line10 = "Receita perfeita: alta médica para o meu coração, só amor"),
         Genre("familia", "Família", "home", c("#F29B5C"), c("#FFEBDC"), c("#96501A"),
-            listOf("home", "cake", "gift"), "Mesa farta, abraço apertado e muito afeto"),
+            listOf("home", "cake", "gift"), "Mesa farta, abraço apertado e muito afeto",
+            line9 = "Aqueceu o coração, quis abraçar todo mundo", line10 = "Abraço eterno: a família que eu queria chamar de minha"),
         Genre("musical", "Musical", "music", c("#E36BC4"), c("#FDE4F6"), c("#8A2A72"),
-            listOf("music", "mic", "headphones"), "Melodias que grudam no coração"),
+            listOf("music", "mic", "headphones"), "Melodias que grudam no coração",
+            line9 = "Trilha na cabeça por dias e eu não me importo", line10 = "Perfeito: cada música virou parte de mim"),
         Genre("esporte", "Esporte", "trophy", c("#5DB56E"), c("#E1F5E5"), c("#226B35"),
-            listOf("trophy", "medal", "ball"), "Suor, garra e superação em campo"),
+            listOf("trophy", "medal", "ball"), "Suor, garra e superação em campo",
+            line9 = "Vibrei, torci e suei junto em cada jogo", line10 = "Campeão absoluto: medalha de ouro no meu coração"),
         Genre("realeza", "Realeza", "crown", c("#E0A93B"), c("#FFF1CC"), c("#7A5A00"),
-            listOf("crown", "gem", "castle"), "Coroas, tronos e segredos do palácio"),
+            listOf("crown", "gem", "castle"), "Coroas, tronos e segredos do palácio",
+            line9 = "Coroa merecida: trono, segredos e muito brilho", line10 = "Majestade absoluta: reinou no meu coração"),
         Genre("scifi", "Ficção científica", "rocket", c("#6C63FF"), c("#E7E5FF"), c("#2E2A99"),
-            listOf("rocket", "planet", "ufo"), "Futuro, viagens no tempo e mistérios do espaço"),
+            listOf("rocket", "planet", "ufo"), "Futuro, viagens no tempo e mistérios do espaço",
+            line9 = "Futuro fascinante, minha cabeça explodiu", line10 = "Obra-prima do tempo e do espaço: infinito de bom"),
         Genre("vida", "Vida real", "coffee", c("#C79A7B"), c("#F6E9DF"), c("#6B4630"),
-            listOf("coffee", "leaf", "sun"), "Cotidiano gostoso, café quentinho e paz"),
+            listOf("coffee", "leaf", "sun"), "Cotidiano gostoso, café quentinho e paz",
+            line9 = "Aconchego puro, quis morar nesse cotidiano", line10 = "Paz perfeita: um abraço quentinho em forma de dorama"),
         Genre("vinganca", "Vingança", "skull", c("#B03A5B"), c("#F8DDE5"), c("#5E1128"),
-            listOf("skull", "dagger", "hourglass"), "Frieza, planos e a hora do acerto de contas"),
+            listOf("skull", "dagger", "hourglass"), "Frieza, planos e a hora do acerto de contas",
+            line9 = "Acerto de contas de arrepiar, frio e genial", line10 = "Vingança perfeita: servida fria e impecável"),
         Genre("crime", "Crime", "lock", c("#8A94A6"), c("#E6E9EF"), c("#3C4452"),
-            listOf("lock", "key", "eye"), "Sirenes, pistas e um caso para resolver")
+            listOf("lock", "key", "eye"), "Sirenes, pistas e um caso para resolver",
+            line9 = "Caso fechado com chave de ouro, quase perfeito", line10 = "Caso perfeito: impecável do primeiro ao último ep")
     )
 
     private var edits: Map<String, Genre> = emptyMap()
@@ -141,20 +167,22 @@ object Genres {
     fun factoryOf(k: String): Genre? = factory.firstOrNull { it.key == k }
 
     /** Gênero de fábrica com nome, ícone, cor e frase novos (mantém o resto se a cor não mudou). */
-    fun editBuiltin(base: Genre, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = ""): Genre {
+    fun editBuiltin(base: Genre, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = "", l9: String = "", l10: String = ""): Genre {
         val orig = factoryOf(base.key) ?: base
+        val n9 = if (l9.isBlank()) orig.line9 else l9
+        val n10 = if (l10.isBlank()) orig.line10 else l10
         val tag = if (tagline.isBlank()) orig.tagline else tagline
         val lo = if (low.isBlank()) DEFAULT_LOW_LINE else low
         val mi = if (mid.isBlank()) DEFAULT_MID_LINE else mid
         val pet = if (icon == orig.icon) orig.petals else (listOf(icon) + orig.petals.drop(1)).distinct()
         return if (primary == orig.base) {
-            orig.copy(label = label, icon = icon, tagline = tag, petals = pet, lowLine = lo, midLine = mi)
+            orig.copy(label = label, icon = icon, tagline = tag, petals = pet, lowLine = lo, midLine = mi, line9 = n9, line10 = n10)
         } else {
             orig.copy(
                 label = label, icon = icon, base = primary,
                 softL = mixColor(primary, Color.WHITE, 0.84f),
                 darkL = mixColor(primary, Color.BLACK, 0.42f),
-                tagline = tag, petals = pet, lowLine = lo, midLine = mi
+                tagline = tag, petals = pet, lowLine = lo, midLine = mi, line9 = n9, line10 = n10
             )
         }
     }
@@ -173,7 +201,7 @@ object Genres {
     fun byKey(k: String): Genre = all.firstOrNull { it.key == k } ?: builtin[0]
 
     /** Monta um gênero novo a partir de nome, ícone e cor; o resto (tons claro e escuro) sai da cor. */
-    fun makeCustom(key: String, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = ""): Genre =
+    fun makeCustom(key: String, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = "", l9: String = "", l10: String = ""): Genre =
         Genre(
             key, label, icon, primary,
             mixColor(primary, Color.WHITE, 0.84f),
@@ -182,7 +210,9 @@ object Genres {
             if (tagline.isBlank()) "Seu gênero $label" else tagline,
             true,
             if (low.isBlank()) DEFAULT_LOW_LINE else low,
-            if (mid.isBlank()) DEFAULT_MID_LINE else mid
+            if (mid.isBlank()) DEFAULT_MID_LINE else mid,
+            if (l9.isBlank()) DEFAULT_LINE_9 else l9,
+            if (l10.isBlank()) DEFAULT_LINE_10 else l10
         )
 }
 
@@ -696,6 +726,51 @@ object Store {
             prefs.edit().putBoolean("askedName", v).apply()
         }
 
+    /** Rascunho do formulário de dorama (para não perder o que você digitou ao sair do app). */
+    fun saveDraft(id: Long, d: Drama, created: List<String>) {
+        try {
+            val o = d.toJson()
+            val ca = JSONArray()
+            for (c in created) ca.put(c)
+            o.put("_created", ca)
+            prefs.edit().putString("draft_$id", o.toString()).apply()
+        } catch (e: Exception) {
+        }
+    }
+
+    fun loadDraft(id: Long): Pair<Drama, List<String>>? {
+        return try {
+            val t = prefs.getString("draft_$id", null) ?: return null
+            val o = JSONObject(t)
+            val ca = o.optJSONArray("_created")
+            val created = if (ca == null) emptyList() else (0 until ca.length()).map { ca.optString(it) }.filter { it.isNotEmpty() }
+            Pair(dramaFromJson(o), created)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun clearDraft(id: Long) {
+        if (prefs.contains("draft_$id")) prefs.edit().remove("draft_$id").apply()
+    }
+
+    /** Ordem escolhida à mão no Top 10 ("m" = atores, "f" = atrizes): lista de chaves de pessoas. */
+    fun actorOrder(g: String): List<String> {
+        return try {
+            val arr = JSONArray(prefs.getString("actorOrder_$g", "[]") ?: "[]")
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun setActorOrder(g: String, keys: List<String>) {
+        val arr = JSONArray()
+        for (k in keys) arr.put(k)
+        prefs.edit().putString("actorOrder_$g", arr.toString()).apply()
+        version++
+    }
+
     private const val GKEY = "customGenres"
 
     private fun genreToJson(g: Genre): JSONObject {
@@ -707,6 +782,8 @@ object Store {
         o.put("tagline", g.tagline)
         o.put("low", g.lowLine)
         o.put("mid", g.midLine)
+        o.put("l9", g.line9)
+        o.put("l10", g.line10)
         return o
     }
 
@@ -722,7 +799,7 @@ object Store {
                 r.add(
                     Genres.makeCustom(
                         k, l, o.optString("icon", "heart"),
-                        o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
+                        o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
                     )
                 )
             }
@@ -757,7 +834,7 @@ object Store {
         if (l.isEmpty()) return null
         return Genres.editBuiltin(
             base, l, o.optString("icon", base.icon),
-            o.optInt("color", base.base), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
+            o.optInt("color", base.base), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
         )
     }
 
@@ -1344,7 +1421,7 @@ object Store {
                         cur.add(
                             Genres.makeCustom(
                                 k, l, o.optString("icon", "heart"),
-                                o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
+                                o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
                             )
                         )
                     }
@@ -1398,6 +1475,8 @@ object Store {
         s.put("homeUrl", homeUrl)
         s.put("userName", userName)
         s.put("askedName", askedName)
+        s.put("actorOrderM", JSONArray(actorOrder("m")))
+        s.put("actorOrderF", JSONArray(actorOrder("f")))
         return s
     }
 
@@ -1561,7 +1640,7 @@ object Store {
             r.add(
                 Genres.makeCustom(
                     k, l, o.optString("icon", "heart"),
-                    o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", "")
+                    o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
                 )
             )
         }
@@ -1571,6 +1650,10 @@ object Store {
     private fun applySettings(s: JSONObject?, overwrite: Boolean) {
         if (s == null) return
         if (overwrite) {
+            for ((jk, g) in listOf("actorOrderM" to "m", "actorOrderF" to "f")) {
+                val a = s.optJSONArray(jk) ?: continue
+                setActorOrder(g, (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() })
+            }
             if (s.has("themeMode")) themeMode = s.optInt("themeMode", 0)
             if (s.has("textZoom")) textZoom = s.optInt("textZoom", 100)
             if (s.has("homeUrl")) homeUrl = s.optString("homeUrl", DEFAULT_HOME)

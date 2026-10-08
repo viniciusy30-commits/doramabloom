@@ -1361,6 +1361,9 @@ class MainActivity : AppCompatActivity() {
                     seenVersion = Store.version
                     if (tab == 3) showTab(3, false)
                 }
+            }, {
+                seenVersion = Store.version
+                if (tab == 3) showTab(3, false)
             })
         }
 

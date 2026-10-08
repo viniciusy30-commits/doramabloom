@@ -328,8 +328,12 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
     lowIn.filters = arrayOf(InputFilter.LengthFilter(60))
     col.addView(label("Nome", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 6))
     col.addView(nameIn, lin(MATCH, WRAP))
-    col.addView(label("Frase das notas 8 a 10 (a do gênero)", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 12, b = 6))
+    val l10In = input("Frase para a nota 10", existing?.line10 ?: DEFAULT_LINE_10)
+    l10In.filters = arrayOf(InputFilter.LengthFilter(60))
+    col.addView(label("Frase das notas 8 e 9 (a do gênero)", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 12, b = 6))
     col.addView(tagIn, lin(MATCH, WRAP))
+    col.addView(label("Frase da nota 10", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 12, b = 6))
+    col.addView(l10In, lin(MATCH, WRAP))
     col.addView(label("Frase das notas 5 a 7", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 12, b = 6))
     col.addView(midIn, lin(MATCH, WRAP))
     col.addView(label("Frase das notas 1 a 4", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 12, b = 6))
@@ -346,8 +350,10 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         val tag = tagIn.text.toString().trim()
         val mid = midIn.text.toString().trim()
         val low = lowIn.text.toString().trim()
-        if (existing != null && !existing.custom) return Genres.editBuiltin(existing, label, icon, color, tag, low, mid)
-        return Genres.makeCustom("preview", label, icon, color, tag, low, mid)
+        val n9 = ""
+        val n10 = l10In.text.toString().trim()
+        if (existing != null && !existing.custom) return Genres.editBuiltin(existing, label, icon, color, tag, low, mid, n9, n10)
+        return Genres.makeCustom("preview", label, icon, color, tag, low, mid, n9, n10)
     }
 
     fun restyle() {
@@ -427,16 +433,18 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         val tag = tagIn.text.toString().trim()
         val mid = midIn.text.toString().trim()
         val low = lowIn.text.toString().trim()
+        val n9 = ""
+        val n10 = l10In.text.toString().trim()
         if (existing == null) {
-            val g = Genres.makeCustom("c" + System.currentTimeMillis(), nm, icon, color, tag, low, mid)
+            val g = Genres.makeCustom("c" + System.currentTimeMillis(), nm, icon, color, tag, low, mid, n9, n10)
             Store.addGenre(g)
             dlg.dismiss()
             onDone(g)
         } else {
             val g = if (existing.custom) {
-                Genres.makeCustom(existing.key, nm, icon, color, tag, low, mid)
+                Genres.makeCustom(existing.key, nm, icon, color, tag, low, mid, n9, n10)
             } else {
-                Genres.editBuiltin(existing, nm, icon, color, tag, low, mid)
+                Genres.editBuiltin(existing, nm, icon, color, tag, low, mid, n9, n10)
             }
             Store.updateGenre(g)
             dlg.dismiss()
