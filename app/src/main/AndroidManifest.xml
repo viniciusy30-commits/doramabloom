@@ -33,6 +33,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".WebPickActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".EditActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

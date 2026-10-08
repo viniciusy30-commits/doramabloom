@@ -1623,7 +1623,7 @@ class MainActivity : AppCompatActivity() {
         val bc = card(14, 22)
         bc.addView(
             label(
-                "Cria um arquivo .zip com tudo: doramas, capas, gêneros e ajustes. " +
+                "Cria um arquivo .zip com tudo: doramas, capas, trilhas sonoras, fotos do elenco e do casal, gêneros e ajustes. " +
                     "Para restaurar neste ou em outro celular, é só escolher o arquivo.",
                 12f, Palette.muted
             )
@@ -1716,7 +1716,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Restaurar backup")
             .setMessage(
-                "Substituir tudo apaga a lista atual e coloca a do arquivo, com capas e ajustes. " +
+                "Substituir tudo apaga a lista atual e coloca a do arquivo, com capas, músicas, fotos e ajustes. " +
                     "Mesclar só adiciona o que ainda não existe."
             )
             .setPositiveButton("Substituir tudo") { _, _ -> doImport(uri, true) }
@@ -1726,18 +1726,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun doImport(uri: Uri, replace: Boolean) {
-        Toast.makeText(this, "Lendo o arquivo…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Lendo o arquivo… pode demorar se tiver muitas músicas.", Toast.LENGTH_SHORT).show()
         Thread {
-            var bytes: ByteArray? = null
+            var pack: Store.BackupPack? = null
             try {
                 val ins = contentResolver.openInputStream(uri)
                 if (ins != null) {
-                    ins.use { bytes = it.readBytes() }
+                    ins.use { pack = Store.openBackup(it) }
                 }
             } catch (e: Exception) {
-                bytes = null
+                pack = null
             }
-            val data = bytes
+            val data = pack
             runOnUiThread {
                 val n = if (data == null) -1 else Store.readBackup(data, replace)
                 if (n < 0) {

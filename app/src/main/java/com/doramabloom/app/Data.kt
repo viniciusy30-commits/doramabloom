@@ -10,11 +10,12 @@ import android.media.ExifInterface
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1185,25 +1186,42 @@ object Store {
         return s
     }
 
+    private fun extOf(path: String, fallback: String): String {
+        val e = File(path).extension.lowercase(Locale.US)
+        return if (e.isNotEmpty() && e.length <= 5 && e.all { it.isLetterOrDigit() }) e else fallback
+    }
+
     /**
-     * Grava o backup completo num .zip: backup.json (doramas, gêneros, ajustes)
-     * e a pasta covers/ com a imagem de cada capa. Devolve false se der erro.
+     * Grava o backup completo num .zip: backup.json (doramas, gêneros, ajustes) e a pasta media/
+     * com TODOS os arquivos: capas, trilhas sonoras, fotos do elenco e foto do casal.
+     * Devolve false se der erro.
      */
     fun writeBackup(dramas: List<Drama>, out: OutputStream): Boolean {
         return try {
-            val zip = ZipOutputStream(BufferedOutputStream(out))
+            val zip = ZipOutputStream(BufferedOutputStream(out, 64 * 1024))
             val arr = JSONArray()
             val files = ArrayList<Pair<String, File>>()
             for (d in dramas) {
                 val o = d.toJson()
-                val f = if (d.cover.isNotEmpty()) File(d.cover) else null
-                if (f != null && f.exists()) {
-                    val name = "covers/" + d.id + ".jpg"
-                    o.put("cover", name)
-                    files.add(Pair(name, f))
-                } else {
-                    o.put("cover", "")
+                val base = "media/" + d.id + "/"
+                fun add(path: String, name: String): String {
+                    if (path.isEmpty()) return ""
+                    val f = File(path)
+                    if (!f.exists() || !f.isFile) return ""
+                    files.add(Pair(base + name, f))
+                    return base + name
                 }
+                o.put("cover", add(d.cover, "cover." + extOf(d.cover, "jpg")))
+                o.put("soundtrack", add(d.soundtrack, "soundtrack." + extOf(d.soundtrack, "audio")))
+                o.put("couplePhoto", add(d.couplePhoto, "couple." + extOf(d.couplePhoto, "jpg")))
+                val cp = JSONArray()
+                for ((i, p) in d.castPeople.withIndex()) {
+                    val po = JSONObject()
+                    po.put("name", p.name)
+                    po.put("photo", add(p.photo, "cast" + i + "." + extOf(p.photo, "jpg")))
+                    cp.put(po)
+                }
+                o.put("castPeople", cp)
                 arr.put(o)
             }
             val ga = JSONArray()
@@ -1212,19 +1230,24 @@ object Store {
             for (g in Genres.edited().values) ea.put(genreToJson(g))
             val root = JSONObject()
             root.put("app", "MyDoramas")
-            root.put("backupVersion", 2)
+            root.put("backupVersion", 3)
             root.put("createdAt", System.currentTimeMillis())
             root.put("settings", settingsJson())
             root.put("genres", ga)
             root.put("genreEdits", ea)
             root.put("otherGenres", JSONArray().also { a -> for (g in OtherGenres.custom()) a.put(otherToJson(g)) })
             root.put("otherEdits", JSONArray().also { a -> for (g in OtherGenres.edited().values) a.put(otherToJson(g)) })
-        root.put("otherHidden", JSONArray().also { a -> for (k in OtherGenres.hiddenKeys()) a.put(k) })
+            root.put("otherHidden", JSONArray().also { a -> for (k in OtherGenres.hiddenKeys()) a.put(k) })
             root.put("dramas", arr)
+            zip.setLevel(6)
             zip.putNextEntry(ZipEntry("backup.json"))
             zip.write(root.toString().toByteArray(Charsets.UTF_8))
             zip.closeEntry()
+            // imagens e músicas já vêm comprimidas: guardar sem recomprimir deixa o backup bem mais rápido
+            zip.setLevel(0)
+            val seen = HashSet<String>()
             for (p in files) {
+                if (!seen.add(p.first)) continue
                 zip.putNextEntry(ZipEntry(p.first))
                 FileInputStream(p.second).use { it.copyTo(zip) }
                 zip.closeEntry()
@@ -1234,6 +1257,65 @@ object Store {
             true
         } catch (e: Exception) {
             false
+        }
+    }
+
+    /** Backup já aberto: o texto do backup.json e a pasta temporária com os arquivos de mídia. */
+    class BackupPack(val json: String, val dir: File)
+
+    /**
+     * Passo 1 (pode rodar em segundo plano): lê o .zip aos poucos, sem carregar tudo na memória.
+     * O backup.json fica em texto e os demais arquivos vão para uma pasta temporária.
+     * Aceita também o backup antigo (só o texto JSON).
+     */
+    fun openBackup(input: InputStream): BackupPack? {
+        val tmp = File(appContext.cacheDir, "restore_" + System.currentTimeMillis())
+        return try {
+            tmp.mkdirs()
+            val head = BufferedInputStream(input, 64 * 1024)
+            head.mark(4)
+            val b0 = head.read()
+            val b1 = head.read()
+            head.reset()
+            if (b0 < 0 || b1 < 0) {
+                tmp.deleteRecursively()
+                return null
+            }
+            var jsonText: String? = null
+            if (b0 == 0x50 && b1 == 0x4B) {
+                val z = ZipInputStream(head)
+                var e = z.nextEntry
+                var n = 0
+                while (e != null) {
+                    if (!e.isDirectory) {
+                        if (e.name == "backup.json") {
+                            jsonText = String(z.readBytes(), Charsets.UTF_8)
+                        } else if (e.name.startsWith("media/") || e.name.startsWith("covers/")) {
+                            // nome seguro: nada de sair da pasta temporária
+                            val f = File(tmp, "f" + (n++))
+                            FileOutputStream(f).use { z.copyTo(it) }
+                            File(tmp, "index.txt").appendText(f.name + "\t" + e.name + "\n")
+                        }
+                    }
+                    z.closeEntry()
+                    e = z.nextEntry
+                }
+            } else {
+                jsonText = String(head.readBytes(), Charsets.UTF_8)
+            }
+            val t = jsonText
+            if (t == null) {
+                tmp.deleteRecursively()
+                null
+            } else {
+                BackupPack(t, tmp)
+            }
+        } catch (e: Exception) {
+            try {
+                tmp.deleteRecursively()
+            } catch (x: Exception) {
+            }
+            null
         }
     }
 
@@ -1273,41 +1355,27 @@ object Store {
     }
 
     /**
-     * Lê um backup (o .zip completo ou o texto antigo).
+     * Passo 2: aplica o backup aberto por [openBackup].
      * replace = apaga o que existe e restaura tudo; senão só junta o que ainda não existe.
      * Devolve quantos doramas entraram, ou -1 se o arquivo não for um backup válido.
      */
-    fun readBackup(bytes: ByteArray, replace: Boolean): Int {
+    fun readBackup(pack: BackupPack, replace: Boolean): Int {
         return try {
-            if (bytes.size < 2) return -1
-            val covers = HashMap<String, ByteArray>()
-            var jsonText: String? = null
-            val isZip = bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()
-            if (isZip) {
-                val z = ZipInputStream(ByteArrayInputStream(bytes))
-                var e = z.nextEntry
-                while (e != null) {
-                    if (!e.isDirectory) {
-                        val data = z.readBytes()
-                        if (e.name == "backup.json") {
-                            jsonText = String(data, Charsets.UTF_8)
-                        } else if (e.name.startsWith("covers/")) {
-                            covers[e.name] = data
-                        }
-                    }
-                    z.closeEntry()
-                    e = z.nextEntry
+            // nome dentro do zip -> arquivo temporário
+            val media = HashMap<String, File>()
+            val idx = File(pack.dir, "index.txt")
+            if (idx.exists()) {
+                for (line in idx.readLines()) {
+                    val p = line.split("\t")
+                    if (p.size == 2) media[p[1]] = File(pack.dir, p[0])
                 }
-                z.close()
-            } else {
-                jsonText = String(bytes, Charsets.UTF_8)
             }
-            val t = (jsonText ?: return -1).trim()
+            val t = pack.json.trim()
             val root: JSONObject? = if (t.startsWith("{")) JSONObject(t) else null
             val arr: JSONArray = if (root != null) (root.optJSONArray("dramas") ?: JSONArray()) else JSONArray(t)
 
             // 1) lê e confere tudo antes de mexer em qualquer coisa
-            val keep = ArrayList<Pair<Drama, String>>()
+            val keep = ArrayList<Pair<Drama, JSONObject>>()
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val d = dramaFromJson(o)
@@ -1317,45 +1385,52 @@ object Store {
                         keep.any { it.first.title.equals(d.title, true) && it.first.year == d.year }
                     if (dup) continue
                 }
-                keep.add(Pair(d, o.optString("cover", "")))
+                keep.add(Pair(d, o))
             }
             if (replace && keep.isEmpty()) return -1
 
-            // 2) grava as capas e acerta os ids
-            val dir = File(appContext.filesDir, "covers")
-            dir.mkdirs()
+            // 2) coloca os arquivos nas pastas do app e acerta os ids
+            val covDir = File(appContext.filesDir, "covers")
+            val musDir = File(appContext.filesDir, "music")
+            covDir.mkdirs()
+            musDir.mkdirs()
             val stamp = System.currentTimeMillis()
             val used = HashSet<Long>()
             if (!replace) for (d in list) used.add(d.id)
             var next = stamp
+            var seq = 0
+            fun place(entryName: String, dir: File, prefix: String, ext: String): String {
+                if (entryName.isEmpty()) return ""
+                val src = media[entryName] ?: return ""
+                if (!src.exists() || src.length() == 0L) return ""
+                val dst = File(dir, prefix + stamp + "_" + (seq++) + "." + ext)
+                if (!src.renameTo(dst)) {
+                    src.copyTo(dst, true)
+                    src.delete()
+                }
+                return dst.absolutePath
+            }
             for (i in keep.indices) {
                 val d = keep[i].first
+                val o = keep[i].second
                 if (!replace || used.contains(d.id)) {
                     while (used.contains(next)) next++
                     d.id = next
                 }
                 used.add(d.id)
-                d.cover = ""
-                val data = covers[keep[i].second]
-                if (data != null && data.isNotEmpty()) {
-                    val f = File(dir, "c" + stamp + "_" + i + ".jpg")
-                    FileOutputStream(f).use { it.write(data) }
-                    d.cover = f.absolutePath
+                d.cover = place(o.optString("cover", ""), covDir, "c", "jpg")
+                d.soundtrack = place(o.optString("soundtrack", ""), musDir, "t", "audio")
+                d.couplePhoto = place(o.optString("couplePhoto", ""), covDir, "c", "jpg")
+                val src = o.optJSONArray("castPeople")
+                for ((k, p) in d.castPeople.withIndex()) {
+                    val name = src?.optJSONObject(k)?.optString("photo", "") ?: ""
+                    p.photo = place(name, covDir, "c", "jpg")
                 }
             }
 
             // 3) aplica
             if (replace) {
-                val novas = HashSet<String>()
-                for (p in keep) novas.add(p.first.cover)
-                for (d in list) {
-                    if (d.cover.isNotEmpty() && !novas.contains(d.cover)) {
-                        try {
-                            File(d.cover).delete()
-                        } catch (e: Exception) {
-                        }
-                    }
-                }
+                for (d in list) deleteMediaOf(d)
                 list.clear()
                 for (p in keep) list.add(p.first)
                 if (root != null) {
@@ -1403,6 +1478,27 @@ object Store {
             keep.size
         } catch (e: Exception) {
             -1
+        } finally {
+            try {
+                pack.dir.deleteRecursively()
+            } catch (e: Exception) {
+            }
+        }
+    }
+
+    /** Apaga do aparelho todos os arquivos de um dorama (capa, trilha, fotos do elenco e do casal). */
+    private fun deleteMediaOf(d: Drama) {
+        val all = ArrayList<String>()
+        all.add(d.cover)
+        all.add(d.soundtrack)
+        all.add(d.couplePhoto)
+        for (p in d.castPeople) all.add(p.photo)
+        for (f in all) {
+            if (f.isEmpty()) continue
+            try {
+                File(f).delete()
+            } catch (e: Exception) {
+            }
         }
     }
 

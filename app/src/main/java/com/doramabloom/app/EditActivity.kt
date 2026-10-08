@@ -1,6 +1,7 @@
 package com.doramabloom.app
 
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
@@ -12,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import java.io.File
@@ -668,7 +670,7 @@ class EditActivity : AppCompatActivity() {
             val av = avatarView(p.photo, 52, Palette.pink, Palette.pinkSoft, Palette.pink)
             av.setOnClickListener {
                 pendingCast = i
-                pickImage(104, "Escolher foto")
+                pickImage(104, "Escolher foto", p.name.trim())
             }
             row.addView(av, lin(dp(52), dp(52), r = 10))
             val nm = input("Nome", p.name, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
@@ -688,15 +690,33 @@ class EditActivity : AppCompatActivity() {
     private fun refreshCouplePhoto() {
         coupleBox.removeAllViews()
         val av = avatarView(couplePhotoPath, 84, Palette.pink, Palette.pinkSoft, Palette.pink, "heart", true)
-        av.setOnClickListener { pickImage(103, "Escolher foto do casal") }
+        av.setOnClickListener {
+            val q = coupleIn.text.toString().trim()
+            pickImage(103, "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal")
+        }
         coupleBox.addView(av, FrameLayout.LayoutParams(MATCH, MATCH))
     }
 
-    private fun pickImage(code: Int, title: String) {
-        val i = Intent(Intent.ACTION_GET_CONTENT)
-        i.type = "image/*"
-        i.addCategory(Intent.CATEGORY_OPENABLE)
-        startActivityForResult(Intent.createChooser(i, title), code)
+    /** Pergunta de onde vem a imagem: galeria do celular ou busca direto na internet (sem baixar antes). */
+    private fun pickImage(code: Int, title: String, query: String = "") {
+        val items = arrayOf("Escolher da galeria do celular", "Buscar na internet")
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setItems(items) { _, which ->
+                if (which == 0) {
+                    val i = Intent(Intent.ACTION_GET_CONTENT)
+                    i.type = "image/*"
+                    i.addCategory(Intent.CATEGORY_OPENABLE)
+                    startActivityForResult(Intent.createChooser(i, title), code)
+                } else {
+                    val i = Intent(this, WebPickActivity::class.java)
+                    i.putExtra("query", query)
+                    i.putExtra("title", title)
+                    // resultado da internet volta com o código + 100
+                    startActivityForResult(i, code + 100)
+                }
+            }
+            .show()
     }
 
     private fun pickSoundtrack() {
@@ -712,51 +732,68 @@ class EditActivity : AppCompatActivity() {
     }
 
     private fun pickCover() {
-        val i = Intent(Intent.ACTION_GET_CONTENT)
-        i.type = "image/*"
-        i.addCategory(Intent.CATEGORY_OPENABLE)
-        startActivityForResult(Intent.createChooser(i, "Escolher capa"), 101)
+        val t = titleIn.text.toString().trim()
+        pickImage(101, "Escolher capa", if (t.isEmpty()) "" else "$t dorama poster")
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == android.app.Activity.RESULT_OK && (requestCode == 102 || requestCode == 103 || requestCode == 104)) {
-            val uri = data?.data
-            if (uri != null) {
-                val p = if (requestCode == 102) Store.saveAudio(uri) else Store.saveCover(uri)
-                if (p == null) {
-                    Toast.makeText(this, "Não consegui abrir esse arquivo.", Toast.LENGTH_SHORT).show()
-                } else {
-                    createdFiles.add(p)
-                    when (requestCode) {
-                        102 -> {
-                            soundtrackPath = p
-                            refreshSoundtrack()
-                        }
-                        103 -> {
-                            couplePhotoPath = p
-                            refreshCouplePhoto()
-                        }
-                        else -> {
-                            if (pendingCast in castList.indices) castList[pendingCast].photo = p
-                            rebuildCast()
-                        }
+        if (resultCode != android.app.Activity.RESULT_OK) return
+        var code = requestCode
+        var uri: Uri? = data?.data
+        var temp: File? = null
+        if (requestCode >= 200) {
+            // veio do navegador de imagens: o arquivo temporário é tratado igual a uma imagem da galeria
+            code = requestCode - 100
+            val path = data?.getStringExtra("path")
+            if (path.isNullOrEmpty()) return
+            temp = File(path)
+            uri = Uri.fromFile(temp)
+        }
+        if (uri == null) return
+        try {
+            applyPicked(code, uri)
+        } finally {
+            try {
+                temp?.delete()
+            } catch (e: Exception) {
+            }
+        }
+    }
+
+    /** 101 = capa, 102 = trilha sonora, 103 = foto do casal, 104 = foto de quem está no elenco. */
+    private fun applyPicked(code: Int, uri: Uri) {
+        if (code == 102 || code == 103 || code == 104) {
+            val p = if (code == 102) Store.saveAudio(uri) else Store.saveCover(uri)
+            if (p == null) {
+                Toast.makeText(this, "Não consegui abrir esse arquivo.", Toast.LENGTH_SHORT).show()
+            } else {
+                createdFiles.add(p)
+                when (code) {
+                    102 -> {
+                        soundtrackPath = p
+                        refreshSoundtrack()
+                    }
+                    103 -> {
+                        couplePhotoPath = p
+                        refreshCouplePhoto()
+                    }
+                    else -> {
+                        if (pendingCast in castList.indices) castList[pendingCast].photo = p
+                        rebuildCast()
                     }
                 }
             }
             return
         }
-        if (requestCode == 101 && resultCode == android.app.Activity.RESULT_OK) {
-            val uri = data?.data
-            if (uri != null) {
-                val p = Store.saveCover(uri)
-                if (p != null) {
-                    if (coverPath.isNotEmpty() && coverPath != originalCover) File(coverPath).delete()
-                    coverPath = p
-                    refreshCover()
-                } else {
-                    Toast.makeText(this, "Não consegui abrir essa imagem.", Toast.LENGTH_SHORT).show()
-                }
+        if (code == 101) {
+            val p = Store.saveCover(uri)
+            if (p != null) {
+                if (coverPath.isNotEmpty() && coverPath != originalCover) File(coverPath).delete()
+                coverPath = p
+                refreshCover()
+            } else {
+                Toast.makeText(this, "Não consegui abrir essa imagem.", Toast.LENGTH_SHORT).show()
             }
         }
     }

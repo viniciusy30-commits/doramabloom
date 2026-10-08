@@ -1,3 +1,9 @@
+#id 2026-10-07-zj
+#titulo Contorno do card, backup completo e imagens direto da internet
+- Início: saíram as ondas entre a capa e as informações. No lugar entrou um contorno brilhante na cor do gênero: friso com degradê, fio de pérolas que cintilam em onda, estrelinhas, reflexo de luz que passa e um medalhão com o símbolo do gênero no meio.
+- Backup: agora o arquivo .zip leva tudo: capas, trilhas sonoras, fotos do elenco e foto do casal, além de doramas, gêneros e ajustes. Ele é lido aos poucos, então aguenta backup grande com muitas músicas. Backups antigos continuam funcionando.
+- Escolher foto: ao tocar em capa, foto do elenco ou foto do casal, dá para escolher "Buscar na internet". Abre um navegador dentro do app já pesquisando pelo nome do dorama ou da pessoa (Google, Bing ou DuckDuckGo). Toque numa imagem para abrir grande e use o botão "Usar a imagem da tela" (ou segure o dedo na imagem). Você vê uma prévia antes de confirmar e não precisa baixar nada para o celular.
+
 #id 2026-10-07-zi
 #titulo Início: temas de Romance e Comédia refeitos
 - Romance: céu de algodão-doce com lua dorminhoca, nuvenzinhas, fio de luzinhas, galhos de cerejeira com casal de passarinhos (de vez em quando eles se aproximam e sai um coração), lanterna de papel, bolhas de sabão, carta de amor com asinhas e colinas com flores de coração e um coelhinho.

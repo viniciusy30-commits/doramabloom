@@ -663,8 +663,6 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
         clipToOutline = true
     }
 
-    private val wave = android.graphics.Path()
-
     override fun onDraw(c: Canvas) {
         super.onDraw(c)
         val g = deco ?: return
@@ -701,23 +699,6 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
             val col = if (i % 2 == 0) soft else Color.WHITE
             drawIcon(c, set[i % set.size], col, w * q[0], h * q[1], q[2] * u, q[3])
         }
-
-        // borda de baixo ondulada, na cor do cartão (transição fofa para a parte de baixo)
-        val amp = 7f * u
-        val n = 7
-        val seg = w / n
-        wave.reset()
-        wave.moveTo(0f, h + 1f)
-        wave.lineTo(0f, h - amp)
-        for (i in 0 until n) {
-            val x0 = i * seg
-            val up = if (i % 2 == 0) -amp else amp
-            wave.quadTo(x0 + seg / 2f, h - amp + up * 1.6f, x0 + seg, h - amp)
-        }
-        wave.lineTo(w, h + 1f)
-        wave.close()
-        p.color = Palette.card
-        c.drawPath(wave, p)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
