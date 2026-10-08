@@ -2,9 +2,13 @@ package com.doramabloom.app
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
+import android.os.SystemClock
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -204,15 +208,6 @@ object Actors {
     }
 }
 
-private fun actorClip(v: View, radiusDp: Int) {
-    v.outlineProvider = object : ViewOutlineProvider() {
-        override fun getOutline(view: View, o: Outline) {
-            o.setRoundRect(0, 0, view.width, view.height, view.dp(radiusDp).toFloat())
-        }
-    }
-    v.clipToOutline = true
-}
-
 private fun dramasText(n: Int): String = if (n == 1) "1 dorama" else "$n doramas"
 
 // ===================================================================== NÚMEROS: TOP 10
@@ -232,12 +227,15 @@ fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClass
     }
     val unknown = everyone.filter { it.gender.isEmpty() }
     if (unknown.isNotEmpty()) col.addView(classifyBanner(unknown.size, onClassify), lin(MATCH, WRAP, t = 14))
-    for (g in listOf("m", "f")) {
-        val st = sectionTitle(if (g == "f") "Top 10 atrizes" else "Top 10 atores", "crown", Actors.accent(g))
-        st.setPadding(dp(4), dp(20), 0, dp(10))
-        col.addView(st, lin(MATCH, WRAP))
-        col.addView(actorTopCard(g, Actors.ranked(everyone, g), onOpen), lin(MATCH, WRAP))
-    }
+    val st = sectionTitle("Top 10 do elenco", "crown", Actors.GOLD)
+    st.setPadding(dp(4), dp(20), 0, dp(10))
+    col.addView(st, lin(MATCH, WRAP))
+    val both = LinearLayout(this)
+    both.orientation = LinearLayout.HORIZONTAL
+    both.isBaselineAligned = false
+    both.addView(actorColumn("m", Actors.ranked(everyone, "m"), onOpen), lin(0, MATCH, 1f, r = 5))
+    both.addView(actorColumn("f", Actors.ranked(everyone, "f"), onOpen), lin(0, MATCH, 1f, l = 5))
+    col.addView(both, lin(MATCH, WRAP))
 }
 
 private fun Context.classifyBanner(n: Int, onClick: () -> Unit): View {
@@ -265,36 +263,122 @@ private fun Context.classifyBanner(n: Int, onClick: () -> Unit): View {
     return c
 }
 
-/** Cartão fofo do Top 10: pódio com os 3 primeiros e uma linha para cada um dos outros. */
-private fun Context.actorTopCard(gender: String, list: List<Actor>, onOpen: (Actor) -> Unit): View {
+/**
+ * Fundo de brilhinhos e coraçõezinhos do Top 10. Tudo fica dentro de uma margem de segurança,
+ * então nenhum símbolo é cortado nas bordas do cartão.
+ */
+private class SparkleBackdrop(ctx: Context, private val tint: Int, seed: Int) : View(ctx) {
+    private class Spec(val fx: Float, val fy: Float, val size: Float, val heart: Boolean, val phase: Float, val speed: Float)
+
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val star = Path()
+    private val heart = Path()
+    private val specs = ArrayList<Spec>()
+
+    init {
+        star.moveTo(0f, -1f)
+        star.lineTo(0.18f, -0.18f)
+        star.lineTo(1f, 0f)
+        star.lineTo(0.18f, 0.18f)
+        star.lineTo(0f, 1f)
+        star.lineTo(-0.18f, 0.18f)
+        star.lineTo(-1f, 0f)
+        star.lineTo(-0.18f, -0.18f)
+        star.close()
+        heart.moveTo(0f, 0.85f)
+        heart.cubicTo(-1.4f, -0.1f, -0.85f, -1.0f, 0f, -0.35f)
+        heart.cubicTo(0.85f, -1.0f, 1.4f, -0.1f, 0f, 0.85f)
+        heart.close()
+        val r = java.util.Random(seed.toLong())
+        for (i in 0 until 18) {
+            specs.add(
+                Spec(
+                    r.nextFloat(), r.nextFloat(),
+                    dp(3) + r.nextInt(dp(4)).toFloat(),
+                    i % 3 == 0, r.nextFloat() * 6.28f, 0.9f + r.nextFloat() * 1.4f
+                )
+            )
+        }
+    }
+
+    override fun onDraw(c: Canvas) {
+        val m = dp(16).toFloat()
+        val w = width - 2 * m
+        val h = height - 2 * m
+        if (w <= 0f || h <= 0f) return
+        val time = SystemClock.uptimeMillis() / 1000f
+        p.style = Paint.Style.FILL
+        val starCol = mixColor(tint, Color.WHITE, if (Palette.dark) 0.55f else 0.2f)
+        for (sp in specs) {
+            val tw = 0.5f + 0.5f * Math.sin((time * sp.speed + sp.phase).toDouble()).toFloat()
+            val a = 45 + (150 * tw).toInt()
+            val sz = sp.size * (0.7f + 0.3f * tw)
+            c.save()
+            c.translate(m + w * sp.fx, m + h * sp.fy)
+            c.scale(sz, sz)
+            p.color = if (sp.heart) tint else starCol
+            p.alpha = if (sp.heart) (a * 0.75f).toInt() else a
+            c.drawPath(if (sp.heart) heart else star, p)
+            c.restore()
+        }
+        if (isAttachedToWindow) postInvalidateDelayed(60)
+    }
+}
+
+/** Uma coluna do Top 10 (atores OU atrizes): título em faixa, destaque do 1º lugar e as linhas dos outros. */
+private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Actor) -> Unit): View {
     val acc = Actors.accent(gender)
+    val plural = if (gender == "f") "atrizes" else "atores"
     val root = FrameLayout(this)
     val bg = GradientDrawable(
         GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(Actors.soft(gender), mixColor(Palette.card, acc, if (Palette.dark) 0.10f else 0.05f))
+        intArrayOf(Actors.soft(gender), mixColor(Palette.card, acc, if (Palette.dark) 0.08f else 0.04f))
     )
-    bg.cornerRadius = dp(28).toFloat()
+    bg.cornerRadius = dp(26).toFloat()
     bg.setStroke(dp(1), mixColor(acc, Palette.card, 0.55f))
     root.background = bg
-    val clipper = FrameLayout(this)
-    actorClip(clipper, 28)
-    clipper.addView(PetalsView(this, listOf("petal", "sparkle"), acc, 9), FrameLayout.LayoutParams(MATCH, MATCH))
-    root.addView(clipper, FrameLayout.LayoutParams(MATCH, MATCH))
+    root.addView(SparkleBackdrop(this, acc, if (gender == "f") 7 else 3), FrameLayout.LayoutParams(MATCH, MATCH))
 
     val c = LinearLayout(this)
     c.orientation = LinearLayout.VERTICAL
-    c.setPadding(dp(14), dp(16), dp(14), dp(16))
+    c.setPadding(dp(8), dp(8), dp(8), dp(12))
     root.addView(c, FrameLayout.LayoutParams(MATCH, WRAP))
 
-    val plural = if (gender == "f") "atrizes" else "atores"
+    // faixa do título
+    val head = LinearLayout(this)
+    head.orientation = LinearLayout.HORIZONTAL
+    head.gravity = Gravity.CENTER_VERTICAL
+    head.setPadding(dp(7), dp(7), dp(12), dp(7))
+    val hb = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(acc, mixColor(acc, Color.WHITE, 0.38f)))
+    hb.cornerRadius = dp(20).toFloat()
+    head.background = hb
+    val bubble = FrameLayout(this)
+    val bb0 = GradientDrawable()
+    bb0.shape = GradientDrawable.OVAL
+    bb0.setColor(Color.argb(80, 255, 255, 255))
+    bubble.background = bb0
+    bubble.addView(IconView(this, "crown", Color.WHITE, 15), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+    head.addView(bubble, lin(dp(28), dp(28), r = 8))
+    val tt = LinearLayout(this)
+    tt.orientation = LinearLayout.VERTICAL
+    val title = label(if (gender == "f") "Atrizes" else "Atores", 15.5f, Color.WHITE, true, true)
+    title.setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.argb(110, 0, 0, 0))
+    tt.addView(title)
+    val sub = label("top 10", 10f, Color.argb(220, 255, 255, 255), true)
+    tt.addView(sub, lin(WRAP, WRAP, t = -1))
+    head.addView(tt, lin(0, WRAP, 1f))
+    head.addView(IconView(this, Actors.genderIcon(gender), Color.WHITE, 15), lin(WRAP, WRAP))
+    c.addView(head, lin(MATCH, WRAP))
+    head.riseIn(0L, 10, 320L)
+
     if (list.isEmpty()) {
         val box = LinearLayout(this)
         box.orientation = LinearLayout.VERTICAL
         box.gravity = Gravity.CENTER_HORIZONTAL
-        box.setPadding(dp(8), dp(10), dp(8), dp(10))
-        box.addView(IconView(this, "crown", acc, 34))
-        box.addView(label("Ainda sem $plural no ranking", 15f, Actors.deep(gender), true, true), lin(WRAP, WRAP, t = 8))
-        val m = label("Toque em \"Classificar\" lá em cima para marcar quem é quem. Ou abra uma pessoa no elenco de um dorama.", 12f, Palette.muted)
+        box.setPadding(dp(6), dp(22), dp(6), dp(14))
+        box.addView(IconView(this, "crown", acc, 30))
+        box.addView(label("Ainda sem $plural", 13.5f, Actors.deep(gender), true, true), lin(WRAP, WRAP, t = 8))
+        val m = label("Marque quem é quem em Classificar, ou abra uma pessoa no elenco de um dorama.", 11f, Palette.muted)
         m.gravity = Gravity.CENTER
         box.addView(m, lin(MATCH, WRAP, t = 4))
         c.addView(box, lin(MATCH, WRAP))
@@ -304,133 +388,153 @@ private fun Context.actorTopCard(gender: String, list: List<Actor>, onOpen: (Act
     val top = list.take(10)
     val maxCount = maxOf(1, top[0].count)
 
-    // pódio: 2º, 1º e 3º (o primeiro fica maior, no meio, com coroinha)
-    val podium = top.take(3)
-    val pr = LinearLayout(this)
-    pr.orientation = LinearLayout.HORIZONTAL
-    pr.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-    val orderIdx = when (podium.size) {
-        3 -> listOf(1, 0, 2)
-        2 -> listOf(0, 1)
-        else -> listOf(0)
-    }
-    for ((pos, i) in orderIdx.withIndex()) {
-        val a = podium[i]
-        val rank = i + 1
-        val cell = podiumCell(a, rank, onOpen)
-        pr.addView(cell, lin(0, WRAP, 1f, l = 2, r = 2))
-        cell.riseIn(pos * 90L)
-    }
-    c.addView(pr, lin(MATCH, WRAP, t = 2))
+    val hero = heroCell(top[0], onOpen)
+    c.addView(hero, lin(MATCH, WRAP, t = 8))
+    hero.riseIn(80L)
 
-    // 4º ao 10º
-    if (top.size > 3) {
+    if (top.size > 1) {
         val rows = LinearLayout(this)
         rows.orientation = LinearLayout.VERTICAL
-        for (i in 3 until top.size) rows.addView(actorRow(top[i], i + 1, maxCount, onOpen), lin(MATCH, WRAP, t = 8))
-        c.addView(rows, lin(MATCH, WRAP, t = 10))
+        for (i in 1 until top.size) {
+            val r = actorRow(top[i], i + 1, maxCount, onOpen)
+            rows.addView(r, lin(MATCH, WRAP, t = if (i == 1) 0 else 6))
+            r.riseIn(160L + i * 45L)
+        }
+        c.addView(rows, lin(MATCH, WRAP, t = 12))
     }
 
-    // quem passou do 10º
     if (list.size > 10) {
         val extra = LinearLayout(this)
         extra.orientation = LinearLayout.VERTICAL
-        val more = pill("Ver todas (" + list.size + ")", acc, Color.WHITE, 12.5f, "list")
+        c.addView(extra, lin(MATCH, WRAP, t = 6))
+        val more = pill("Ver todos (" + list.size + ")", acc, Color.WHITE, 11.5f, "list")
         more.setOnClickListener {
-            for (i in 10 until minOf(list.size, 60)) extra.addView(actorRow(list[i], i + 1, maxCount, onOpen), lin(MATCH, WRAP, t = 8))
+            for (i in 10 until minOf(list.size, 60)) extra.addView(actorRow(list[i], i + 1, maxCount, onOpen), lin(MATCH, WRAP, t = 6))
             more.visibility = View.GONE
         }
-        c.addView(extra, lin(MATCH, WRAP, t = 2))
         val mr = LinearLayout(this)
         mr.gravity = Gravity.CENTER_HORIZONTAL
         mr.addView(more, lin(WRAP, WRAP))
-        c.addView(mr, lin(MATCH, WRAP, t = 12))
+        c.addView(mr, lin(MATCH, WRAP, t = 10))
     }
     return root
 }
 
-private fun Context.podiumCell(a: Actor, rank: Int, onOpen: (Actor) -> Unit): View {
+/** O 1º lugar: foto grande com brilho dourado, coroa e medalha. */
+private fun Context.heroCell(a: Actor, onOpen: (Actor) -> Unit): View {
     val acc = Actors.accent(a.gender)
-    val medal = Actors.medal(rank)
-    val size = if (rank == 1) 92 else 72
     val cell = LinearLayout(this)
     cell.orientation = LinearLayout.VERTICAL
     cell.gravity = Gravity.CENTER_HORIZONTAL
-    cell.setPadding(0, dp(4), 0, dp(4))
+    cell.setPadding(dp(2), dp(2), dp(2), dp(4))
 
-    val extraTop = if (rank == 1) 18 else 0
-    val ph = FrameLayout(this)
-    ph.clipChildren = false
-    ph.addView(
-        avatarView(a.photo, size, medal, Actors.soft(a.gender), acc),
-        FrameLayout.LayoutParams(dp(size), dp(size), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+    val stage = FrameLayout(this)
+    stage.clipChildren = false
+    val glow = View(this)
+    val gd = GradientDrawable()
+    gd.shape = GradientDrawable.OVAL
+    gd.gradientType = GradientDrawable.RADIAL_GRADIENT
+    gd.setGradientRadius(dp(64).toFloat())
+    gd.setColors(intArrayOf(Color.argb(if (Palette.dark) 120 else 150, 245, 184, 61), Color.argb(0, 245, 184, 61)))
+    glow.background = gd
+    stage.addView(glow, FrameLayout.LayoutParams(dp(128), dp(128), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
+
+    val wrap = FrameLayout(this)
+    wrap.clipChildren = false
+    wrap.addView(
+        avatarView(a.photo, 84, Actors.GOLD, Actors.soft(a.gender), acc),
+        FrameLayout.LayoutParams(dp(84), dp(84), Gravity.TOP or Gravity.START)
     )
-    if (rank == 1) {
-        val crown = IconView(this, "crown", Actors.GOLD, 26)
-        crown.rotation = -8f
-        ph.addView(crown, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-    }
     val badge = FrameLayout(this)
     val bb = GradientDrawable()
     bb.shape = GradientDrawable.OVAL
-    bb.setColor(medal)
+    bb.setColor(Actors.GOLD)
     bb.setStroke(dp(2), Color.WHITE)
     badge.background = bb
-    val num = label(rank.toString(), 12f, Color.WHITE, true, true)
+    badge.elevation = dp(6).toFloat()
+    val num = label("1", 13f, Color.WHITE, true, true)
     num.gravity = Gravity.CENTER
     badge.addView(num, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-    ph.addView(badge, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.BOTTOM or Gravity.END))
-    cell.addView(ph, lin(dp(size + 6), dp(size + extraTop)))
+    wrap.addView(badge, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.BOTTOM or Gravity.END))
+    stage.addView(wrap, FrameLayout.LayoutParams(dp(92), dp(90), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
 
-    val nm = label(a.name, if (rank == 1) 13.5f else 12f, Palette.text, true)
+    val crown = IconView(this, "crown", Actors.GOLD, 28)
+    crown.rotation = -8f
+    crown.elevation = dp(6).toFloat()
+    stage.addView(crown, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(4) })
+    cell.addView(stage, lin(MATCH, dp(132)))
+
+    val nm = label(a.name, 15f, Palette.text, true, true)
     nm.gravity = Gravity.CENTER
     nm.maxLines = 2
     nm.ellipsize = TextUtils.TruncateAt.END
-    cell.addView(nm, lin(MATCH, WRAP, t = 8))
-    cell.addView(vividPill(dramasText(a.count), null, listOf(acc), 10.5f), lin(WRAP, WRAP, t = 5))
+    cell.addView(nm, lin(MATCH, WRAP, t = 4))
+    cell.addView(vividPill(dramasText(a.count), null, listOf(acc), 10.5f), lin(WRAP, WRAP, t = 6))
     if (a.avg > 0) {
-        val rv = RatingView(this, 11, false)
+        val rv = RatingView(this, 12, false)
         rv.score = Math.round(a.avg).toInt()
         rv.color = acc
-        cell.addView(rv, lin(WRAP, WRAP, t = 5))
+        cell.addView(rv, lin(WRAP, WRAP, t = 7))
+        cell.addView(label("nota média " + "%.1f".format(a.avg), 10.5f, Palette.muted), lin(WRAP, WRAP, t = 2))
     }
     cell.setOnClickListener { onOpen(a) }
-    cell.pressable(0.95f)
+    cell.pressable(0.96f)
     return cell
 }
 
+/** Da 2ª posição em diante: linha compacta com foto, medalhinha, nome, doramas e barrinha. */
 private fun Context.actorRow(a: Actor, rank: Int, maxCount: Int, onOpen: (Actor) -> Unit): View {
     val acc = Actors.accent(a.gender)
+    val podium = rank <= 3
+    val ring = if (podium) Actors.medal(rank) else acc
     val row = LinearLayout(this)
     row.orientation = LinearLayout.HORIZONTAL
     row.gravity = Gravity.CENTER_VERTICAL
-    row.setPadding(dp(10), dp(8), dp(12), dp(8))
-    row.background = roundRect(Palette.card, dp(20).toFloat(), mixColor(Palette.line, acc, 0.35f), dp(1))
+    row.setPadding(dp(6), dp(6), dp(8), dp(6))
+    val fillC = if (podium) mixColor(Palette.card, ring, if (Palette.dark) 0.20f else 0.14f) else Palette.card
+    val strokeC = if (podium) mixColor(Palette.line, ring, 0.75f) else mixColor(Palette.line, acc, 0.3f)
+    row.background = roundRect(fillC, dp(18).toFloat(), strokeC, dp(1))
 
-    val rk = label(rank.toString(), 12f, Actors.deep(a.gender), true, true)
+    val wrap = FrameLayout(this)
+    wrap.clipChildren = false
+    wrap.addView(
+        avatarView(a.photo, 40, ring, Actors.soft(a.gender), acc),
+        FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP or Gravity.START)
+    )
+    val badge = FrameLayout(this)
+    val bb = GradientDrawable()
+    bb.shape = GradientDrawable.OVAL
+    bb.setColor(if (podium) ring else mixColor(acc, Palette.card, 0.15f))
+    bb.setStroke(dp(1), Color.WHITE)
+    badge.background = bb
+    badge.elevation = dp(5).toFloat()
+    val rk = label(rank.toString(), if (rank >= 10) 8f else 9.5f, Color.WHITE, true)
     rk.gravity = Gravity.CENTER
-    rk.background = ovalGradient(Actors.soft(a.gender), Actors.soft(a.gender))
-    row.addView(rk, lin(dp(26), dp(26), r = 8))
-    row.addView(avatarView(a.photo, 46, acc, Actors.soft(a.gender), acc), lin(dp(46), dp(46), r = 10))
+    badge.addView(rk, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+    wrap.addView(badge, FrameLayout.LayoutParams(dp(18), dp(18), Gravity.BOTTOM or Gravity.END))
+    row.addView(wrap, lin(dp(46), dp(46), r = 6))
 
     val mid = LinearLayout(this)
     mid.orientation = LinearLayout.VERTICAL
     val nl = LinearLayout(this)
     nl.orientation = LinearLayout.HORIZONTAL
     nl.gravity = Gravity.CENTER_VERTICAL
-    val nm = label(a.name, 14f, Palette.text, true)
+    val nm = label(a.name, 12.5f, Palette.text, true)
     nm.maxLines = 1
     nm.ellipsize = TextUtils.TruncateAt.END
     nl.addView(nm, lin(0, WRAP, 1f))
-    if (a.favorite) nl.addView(IconView(this, "heart", acc, 13), lin(WRAP, WRAP, l = 6))
+    if (a.favorite) nl.addView(IconView(this, "heart", acc, 11), lin(WRAP, WRAP, l = 3))
     mid.addView(nl, lin(MATCH, WRAP))
-    var sub = dramasText(a.count)
-    if (a.avg > 0) sub += "  ·  nota média " + "%.1f".format(a.avg)
-    mid.addView(label(sub, 11f, Palette.muted), lin(MATCH, WRAP, t = 1))
+    var subTxt = dramasText(a.count)
+    if (a.avg > 0) subTxt += "  ·  " + "%.1f".format(a.avg)
+    val subL = label(subTxt, 10.5f, Palette.muted)
+    subL.maxLines = 1
+    subL.ellipsize = TextUtils.TruncateAt.END
+    mid.addView(subL, lin(MATCH, WRAP, t = 1))
     val bar = SoftBar(this)
-    bar.barColor = acc
+    bar.barColor = ring
     bar.animateTo(a.count.toFloat() / maxCount, 0f, 300L + rank * 50L, 700L)
-    mid.addView(bar, lin(MATCH, dp(6), t = 6))
+    mid.addView(bar, lin(MATCH, dp(4), t = 5))
     row.addView(mid, lin(0, WRAP, 1f))
 
     row.setOnClickListener { onOpen(a) }

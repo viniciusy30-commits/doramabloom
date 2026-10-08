@@ -114,26 +114,12 @@ class GenreBand(private val u: Float) {
         }
     }
 
-    /** Símbolos do gênero repetidos de tempos em tempos ao longo da faixa. */
+    /** Antes desenhava símbolos do gênero ao longo da faixa; agora a faixa fica só com o desenho dela. */
+    @Suppress("UNUSED_PARAMETER", "unused")
     private fun iconsEvery(
         c: Canvas, names: List<String>, period: Float, y: Float, size: Float,
         color: Int = Color.WHITE, sway: Float = 8f, plate: Int = 0
     ) {
-        if (names.isEmpty()) return
-        var i = 0
-        var x = period / 2f
-        while (x < w + period) {
-            val s = sin(t * 1.4f + i * 1.7f)
-            if (plate != 0) {
-                p.style = Paint.Style.FILL
-                p.shader = null
-                p.color = plate
-                c.drawCircle(x, y, size * 0.72f, p)
-            }
-            icon(c, names[i % names.size], color, x, y + 0.5f * u * s, size, sway * s)
-            x += period
-            i++
-        }
     }
 
     private fun line(c: Canvas, x0: Float, y0: Float, x1: Float, y1: Float, sw: Float, color: Int) {
@@ -812,21 +798,6 @@ class GenreBand(private val u: Float) {
             line(c, x, 2.3f * u, x + 2f * u, 2.3f * u, 0.7f * u, al(Color.WHITE, 130f))
             line(c, x, bh - 3f * u, x + 2f * u, bh - 3f * u, 0.7f * u, al(Color.WHITE, 130f))
             x += 4f * u
-        }
-        val gg = g ?: return
-        if (gg.petals.isEmpty()) return
-        var i = 0
-        var cx = 32f * u
-        while (cx < w + 32f * u) {
-            val name = gg.petals[i % gg.petals.size]
-            val rot = if (name == "sun") t * 20f else 8f * sin(t * 1.3f + i)
-            p.style = Paint.Style.FILL
-            p.shader = null
-            p.color = al(deep, 150f)
-            c.drawCircle(cx, y, 7.2f * u, p)
-            icon(c, name, Color.WHITE, cx, y, 10f * u, rot)
-            cx += 64f * u
-            i++
         }
     }
 

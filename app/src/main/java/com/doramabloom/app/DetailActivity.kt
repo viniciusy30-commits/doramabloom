@@ -877,7 +877,7 @@ class DetailActivity : AppCompatActivity() {
         val tw = totalEps(d)
         val tSeasons = tile("tv", seasonCount(d).toString(), "temporadas", g.primary)
         val tEps = tile("play", "", "episódios", g.primary)
-        val tMin = tile("clock", if (d.epMinutes > 0) d.epMinutes.toString() + " min" else "-", "por episódio", g.primary)
+        val tMin = tile("clock", if (d.epMinutes > 0) d.epMinutes.toString() + " min" else "-", "por EP", g.primary)
         val tRew = tile("replay", "", "reassistido", g.primary)
         tiles.addView(tSeasons.first, lin(0, WRAP, 1f, r = 6))
         tiles.addView(tEps.first, lin(0, WRAP, 1f, r = 6))

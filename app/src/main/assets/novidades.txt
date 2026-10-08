@@ -1,3 +1,20 @@
+#id 2026-10-08-zq
+#titulo Página do dorama: "por EP"
+- O quadradinho da duração agora diz "70 min por EP" e cabe inteiro, sem cortar o texto.
+
+#id 2026-10-08-zp
+#titulo Trilha sonora pelo SnapTube
+- Edição do dorama, em "Tipo e trilha sonora": novo botão "Buscar no SnapTube". Ele copia a busca (nome do dorama + OST, ou o nome da música se você já escreveu) e abre o SnapTube na pesquisa. Baixe como MP3 e volte: o app acha sozinho o arquivo que acabou de baixar, você toca na música e ela vira a trilha, com o nome já preenchido.
+- "Pegar o último baixado": se você baixou antes ou o app não achou na volta, toque aqui para ver as músicas baixadas na última hora.
+- Na primeira vez o app pede permissão para ler os áudios do celular (só para achar o MP3 baixado).
+
+#id 2026-10-08-zo
+#titulo Top 10 em duas colunas e faixas sem símbolos
+- Números: o Top 10 de atores e o de atrizes agora ficam lado a lado, cada um numa coluna. O 1º lugar ganha destaque com brilho dourado, coroa e medalha; do 2º ao 10º entram linhas compactas com foto, medalhinha de posição, nome, número de doramas, nota média e barrinha.
+- Fundo de brilhinhos e coraçõezinhos que piscam devagar, sem nada cortado nas bordas.
+- Corrigido: a medalha com o número da posição ficava escondida atrás da foto.
+- Início: as faixas de todos os gêneros ficaram só com o desenho da própria faixa, sem os símbolos.
+
 #id 2026-10-08-zn
 #titulo Números: Top 10 no final e foto só no ranking
 - Números: o Top 10 de atores e o de atrizes agora são as últimas partes da aba.

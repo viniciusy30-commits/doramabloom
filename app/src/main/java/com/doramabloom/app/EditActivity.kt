@@ -63,6 +63,9 @@ class EditActivity : AppCompatActivity() {
     private lateinit var yearIn: EditText
     private var kind = "serie"
     private var soundtrackPath = ""
+    private var snapQuery = ""
+    private var snapSince = 0L
+    private var snapWaiting = false
     private var couplePhotoPath = ""
     private val castList = ArrayList<CastPerson>()
     private var pendingCast = -1
@@ -338,6 +341,19 @@ class EditActivity : AppCompatActivity() {
         sRow.addView(sPick, lin(WRAP, WRAP, r = 8))
         sRow.addView(sClear, lin(WRAP, WRAP))
         c8.addView(sRow, lin(MATCH, WRAP))
+        val snapRow = LinearLayout(this)
+        snapRow.orientation = LinearLayout.HORIZONTAL
+        val snapGo = pill("Buscar no SnapTube", Palette.pinkSoft, Palette.pinkDark, 13f, "search")
+        snapGo.setOnClickListener { startSnap() }
+        val snapLast = pill("Pegar o último baixado", Palette.pinkSoft, Palette.pinkDark, 13f, "download")
+        snapLast.setOnClickListener { checkSnap(System.currentTimeMillis() - 60L * 60L * 1000L) }
+        snapRow.addView(snapGo, lin(WRAP, WRAP, r = 8))
+        snapRow.addView(snapLast, lin(WRAP, WRAP))
+        c8.addView(snapRow, lin(MATCH, WRAP, t = 8))
+        c8.addView(
+            label("Toque em Buscar no SnapTube, baixe como MP3 e volte: o app acha o arquivo sozinho.", 11.5f, Palette.muted),
+            lin(MATCH, WRAP, t = 6)
+        )
         refreshSoundtrack()
         col.addView(c8, lin(MATCH, WRAP, t = 12))
 
@@ -745,6 +761,96 @@ class EditActivity : AppCompatActivity() {
                 }
             }
             .show()
+    }
+
+    // ---------------- SnapTube
+
+    private fun startSnap() {
+        val t = titleIn.text.toString().trim()
+        val nm = soundtrackNameIn.text.toString().trim()
+        snapQuery = if (nm.isNotEmpty()) nm else if (t.isNotEmpty()) "$t OST" else "dorama OST"
+        if (!SnapTube.hasPermission(this)) {
+            requestPermissions(arrayOf(SnapTube.permission()), 301)
+            return
+        }
+        launchSnap()
+    }
+
+    private fun launchSnap() {
+        snapSince = System.currentTimeMillis() - 15000L
+        if (SnapTube.open(this, snapQuery)) {
+            snapWaiting = true
+            Toast.makeText(this, "Busca copiada. Baixe o MP3 e volte para cá.", Toast.LENGTH_LONG).show()
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle("SnapTube não encontrado")
+                .setMessage("Não consegui abrir o SnapTube. Baixe a música por lá e depois toque em \"Pegar o último baixado\", ou escolha o arquivo.")
+                .setPositiveButton("Escolher áudio") { _, _ -> pickSoundtrack() }
+                .setNegativeButton("Fechar", null)
+                .show()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 302) {
+            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                checkSnap(System.currentTimeMillis() - 60L * 60L * 1000L)
+            }
+            return
+        }
+        if (requestCode != 301) return
+        if (grantResults.isEmpty() || grantResults[0] != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Sem a permissão não consigo achar o MP3 sozinho: use \"Escolher áudio\" depois de baixar.", Toast.LENGTH_LONG).show()
+        }
+        launchSnap()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (snapWaiting) {
+            snapWaiting = false
+            val since = snapSince
+            window.decorView.postDelayed({ if (!isFinishing) checkSnap(since) }, 700L)
+        }
+    }
+
+    private fun checkSnap(since: Long) {
+        if (!SnapTube.hasPermission(this)) {
+            requestPermissions(arrayOf(SnapTube.permission()), 302)
+            return
+        }
+        val list = SnapTube.recent(this, since)
+        if (list.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Ainda não achei o MP3")
+                .setMessage("Se o download ainda está terminando, espere acabar e toque em Tentar de novo.")
+                .setPositiveButton("Tentar de novo") { _, _ -> checkSnap(since) }
+                .setNeutralButton("Escolher arquivo") { _, _ -> pickSoundtrack() }
+                .setNegativeButton("Fechar", null)
+                .show()
+            return
+        }
+        val names = Array(list.size) { list[it].title.ifEmpty { "Música baixada" } }
+        AlertDialog.Builder(this)
+            .setTitle("Usar qual música como trilha?")
+            .setItems(names) { _, i -> useSnapFile(list[i]) }
+            .setNeutralButton("Tentar de novo") { _, _ -> checkSnap(since) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun useSnapFile(f: SnapFile) {
+        val p = Store.saveAudio(f.uri)
+        if (p == null) {
+            Toast.makeText(this, "Não consegui abrir esse arquivo.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        createdFiles.add(p)
+        soundtrackPath = p
+        if (soundtrackNameIn.text.toString().isBlank()) soundtrackNameIn.setText(f.title)
+        refreshSoundtrack()
+        Toast.makeText(this, "Trilha pronta ✓", Toast.LENGTH_SHORT).show()
     }
 
     private fun pickSoundtrack() {
