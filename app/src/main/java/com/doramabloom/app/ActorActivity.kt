@@ -141,7 +141,9 @@ class ActorActivity : AppCompatActivity() {
         root.background = bg
         val clipper = FrameLayout(this)
         clip(clipper, 32)
-        clipper.addView(PetalsView(this, listOf("petal", "sparkle", "blossom"), acc, 12), FrameLayout.LayoutParams(MATCH, MATCH))
+        val petals = PetalsView(this, listOf("petal", "sparkle", "blossom"), acc, 12)
+        petals.alpha = 0.5f
+        clipper.addView(petals, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(clipper, FrameLayout.LayoutParams(MATCH, MATCH))
 
         val c = LinearLayout(this)
@@ -166,14 +168,30 @@ class ActorActivity : AppCompatActivity() {
         val ring = if (medalRank) Actors.medal(rank) else acc
         val ph = FrameLayout(this)
         ph.clipChildren = false
+        ph.clipToPadding = false
+        val avTop = if (medalRank) 36 else 0
+        if (medalRank) {
+            // aura (brilho, raios, louros) atrás da foto, com o mesmo centro dela
+            val aSize = (big * 1.62f).toInt()
+            ph.addView(
+                HeroAuraView(this, big, rank),
+                FrameLayout.LayoutParams(dp(aSize), dp(aSize), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also {
+                    it.topMargin = dp(avTop + big / 2 - aSize / 2)
+                }
+            )
+        }
         ph.addView(
             avatarView(a.photo, big, ring, Actors.soft(g), acc),
-            FrameLayout.LayoutParams(dp(big), dp(big), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+            FrameLayout.LayoutParams(dp(big), dp(big), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(avTop) }
         )
         if (medalRank) {
-            val crown = IconView(this, "crown", Actors.medal(rank), 30)
-            crown.rotation = -8f
-            ph.addView(crown, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+            // a base da coroa entra na foto: coroa "usada", não solta no ar
+            val crown = CrownView(this, rank, acc)
+            crown.elevation = dp(8).toFloat()
+            ph.addView(
+                crown,
+                FrameLayout.LayoutParams(dp(64), dp(50), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(avTop + 14 - 47) }
+            )
         }
         val cam = FrameLayout(this)
         val cb = GradientDrawable()
@@ -181,15 +199,18 @@ class ActorActivity : AppCompatActivity() {
         cb.setColor(acc)
         cb.setStroke(dp(2), Color.WHITE)
         cam.background = cb
+        cam.elevation = dp(6).toFloat()
         cam.addView(IconView(this, "image", Color.WHITE, 16), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
-        val camLp = FrameLayout.LayoutParams(dp(36), dp(36), Gravity.BOTTOM or Gravity.END)
-        camLp.rightMargin = dp(8)
+        val camLp = FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+        camLp.topMargin = dp(avTop + big - 38)
+        camLp.leftMargin = dp(big / 2 - 16)
         ph.addView(cam, camLp)
         ph.setOnClickListener { scrollToView(photoAnchor) }
         ph.pressable(0.96f)
-        c.addView(ph, lin(dp(big + 28), dp(big + if (medalRank) 22 else 0), t = 4))
+        c.addView(ph, lin(dp(big + 28), dp(big + avTop), t = 4))
 
         val nm = label(a.name, 26f, deep, true, true)
+        nm.setShadowLayer(dp(5).toFloat(), 0f, 0f, Actors.soft(g))
         nm.gravity = Gravity.CENTER
         nm.maxLines = 2
         nm.ellipsize = TextUtils.TruncateAt.END
@@ -356,6 +377,7 @@ class ActorActivity : AppCompatActivity() {
             bb.setColor(acc)
             bb.setStroke(dp(2), Color.WHITE)
             b.background = bb
+            b.elevation = dp(6).toFloat()
             b.addView(IconView(this, "check", Color.WHITE, 12), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
             fr.addView(b, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.BOTTOM or Gravity.END))
         }

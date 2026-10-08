@@ -1,3 +1,10 @@
+#id 2026-10-08-zr
+#titulo Pódio de verdade no Top 10 e correções no perfil
+- Top 10: o 1º lugar ganhou aura dourada com raios girando, fio de pérolas que cintila, coroa de louros, estrelinhas orbitando, coroa de metal com joias e brilho passando (agora assentada na cabeça, não solta no ar) e uma faixa dourada com o nome.
+- 2º e 3º lugar viraram degraus de prata e bronze, de alturas diferentes, com número gravado, brilho que passa, coroinha na foto, nota em corações e medalhinha.
+- Do 4º ao 10º: linhas com medalhinha, nota com coraçãozinho e barrinha.
+- Perfil da pessoa: a coroa agora usa o mesmo desenho assentado na foto, ganhou a aura do pódio, e o botão da galeria e o selinho de foto escolhida não ficam mais cortados atrás do anel. As pétalas do fundo ficaram mais suaves para não atrapalhar o nome.
+
 #id 2026-10-08-zq
 #titulo Página do dorama: "por EP"
 - O quadradinho da duração agora diz "70 min por EP" e cabe inteiro, sem cortar o texto.

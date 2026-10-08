@@ -389,16 +389,35 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
     val maxCount = maxOf(1, top[0].count)
 
     val hero = heroCell(top[0], onOpen)
-    c.addView(hero, lin(MATCH, WRAP, t = 8))
+    c.addView(hero, lin(MATCH, WRAP, t = 6))
     hero.riseIn(80L)
 
+    // degraus de prata e bronze (2º e 3º), lado a lado, cada um mais baixo que o outro
     if (top.size > 1) {
+        val pod = LinearLayout(this)
+        pod.orientation = LinearLayout.HORIZONTAL
+        pod.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        pod.clipChildren = false
+        val c2 = podiumCell(top[1], 2, onOpen)
+        pod.addView(c2, lin(0, WRAP, 1f, r = 3))
+        c2.riseIn(180L)
+        if (top.size > 2) {
+            val c3 = podiumCell(top[2], 3, onOpen)
+            pod.addView(c3, lin(0, WRAP, 1f, l = 3))
+            c3.riseIn(260L)
+        } else {
+            pod.addView(View(this), lin(0, 1, 1f, l = 3))
+        }
+        c.addView(pod, lin(MATCH, WRAP, t = 10))
+    }
+
+    if (top.size > 3) {
         val rows = LinearLayout(this)
         rows.orientation = LinearLayout.VERTICAL
-        for (i in 1 until top.size) {
+        for (i in 3 until top.size) {
             val r = actorRow(top[i], i + 1, maxCount, onOpen)
-            rows.addView(r, lin(MATCH, WRAP, t = if (i == 1) 0 else 6))
-            r.riseIn(160L + i * 45L)
+            rows.addView(r, lin(MATCH, WRAP, t = if (i == 3) 0 else 6))
+            r.riseIn(320L + (i - 3) * 45L)
         }
         c.addView(rows, lin(MATCH, WRAP, t = 12))
     }
@@ -420,56 +439,59 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
     return root
 }
 
-/** O 1º lugar: foto grande com brilho dourado, coroa e medalha. */
+/** O 1º lugar: foto grande com aura, louros e raios, coroa assentada na cabeça e faixa dourada com o nome. */
 private fun Context.heroCell(a: Actor, onOpen: (Actor) -> Unit): View {
     val acc = Actors.accent(a.gender)
+    val tone = Metal.tone(1)
     val cell = LinearLayout(this)
     cell.orientation = LinearLayout.VERTICAL
     cell.gravity = Gravity.CENTER_HORIZONTAL
-    cell.setPadding(dp(2), dp(2), dp(2), dp(4))
+    cell.setPadding(dp(2), 0, dp(2), dp(6))
 
     val stage = FrameLayout(this)
     stage.clipChildren = false
-    val glow = View(this)
-    val gd = GradientDrawable()
-    gd.shape = GradientDrawable.OVAL
-    gd.gradientType = GradientDrawable.RADIAL_GRADIENT
-    gd.setGradientRadius(dp(64).toFloat())
-    gd.setColors(intArrayOf(Color.argb(if (Palette.dark) 120 else 150, 245, 184, 61), Color.argb(0, 245, 184, 61)))
-    glow.background = gd
-    stage.addView(glow, FrameLayout.LayoutParams(dp(128), dp(128), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
-
+    stage.clipToPadding = false
+    stage.addView(
+        HeroAuraView(this, 84, 1),
+        FrameLayout.LayoutParams(dp(136), dp(136), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(14) }
+    )
     val wrap = FrameLayout(this)
     wrap.clipChildren = false
     wrap.addView(
-        avatarView(a.photo, 84, Actors.GOLD, Actors.soft(a.gender), acc),
-        FrameLayout.LayoutParams(dp(84), dp(84), Gravity.TOP or Gravity.START)
+        avatarView(a.photo, 84, tone.mid, Actors.soft(a.gender), acc),
+        FrameLayout.LayoutParams(dp(84), dp(84), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
     )
     val badge = FrameLayout(this)
-    val bb = GradientDrawable()
-    bb.shape = GradientDrawable.OVAL
-    bb.setColor(Actors.GOLD)
-    bb.setStroke(dp(2), Color.WHITE)
-    badge.background = bb
+    badge.background = Metal.medal(1, dp(2))
     badge.elevation = dp(6).toFloat()
-    val num = label("1", 13f, Color.WHITE, true, true)
+    val num = label("1", 13f, Color.parseColor("#4A2E00"), true, true)
     num.gravity = Gravity.CENTER
     badge.addView(num, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
     wrap.addView(badge, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.BOTTOM or Gravity.END))
-    stage.addView(wrap, FrameLayout.LayoutParams(dp(92), dp(90), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
+    stage.addView(wrap, FrameLayout.LayoutParams(dp(90), dp(90), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(40) })
+    // a base da coroa entra uns dp na foto: ela fica "usada", não solta no ar
+    val crown = CrownView(this, 1, acc)
+    crown.elevation = dp(8).toFloat()
+    stage.addView(crown, FrameLayout.LayoutParams(dp(46), dp(36), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(14) })
+    cell.addView(stage, lin(MATCH, dp(150)))
 
-    val crown = IconView(this, "crown", Actors.GOLD, 28)
-    crown.rotation = -8f
-    crown.elevation = dp(6).toFloat()
-    stage.addView(crown, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(4) })
-    cell.addView(stage, lin(MATCH, dp(132)))
-
-    val nm = label(a.name, 15f, Palette.text, true, true)
+    // faixa dourada com o nome
+    val banner = LinearLayout(this)
+    banner.gravity = Gravity.CENTER
+    banner.setPadding(dp(10), dp(5), dp(10), dp(5))
+    val bg = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(tone.hi, tone.mid, mixColor(tone.lo, tone.mid, 0.3f)))
+    bg.cornerRadius = dp(12).toFloat()
+    bg.setStroke(dp(1), Color.argb(210, 255, 255, 255))
+    banner.background = bg
+    banner.elevation = dp(3).toFloat()
+    val nm = label(a.name, 14.5f, Color.parseColor("#4A2E00"), true, true)
     nm.gravity = Gravity.CENTER
     nm.maxLines = 2
     nm.ellipsize = TextUtils.TruncateAt.END
-    cell.addView(nm, lin(MATCH, WRAP, t = 4))
-    cell.addView(vividPill(dramasText(a.count), null, listOf(acc), 10.5f), lin(WRAP, WRAP, t = 6))
+    banner.addView(nm, lin(WRAP, WRAP))
+    cell.addView(banner, lin(MATCH, WRAP, l = 4, r = 4, t = -12))
+
+    cell.addView(vividPill(dramasText(a.count), null, listOf(acc), 10.5f), lin(WRAP, WRAP, t = 8))
     if (a.avg > 0) {
         val rv = RatingView(this, 12, false)
         rv.score = Math.round(a.avg).toInt()
@@ -479,6 +501,56 @@ private fun Context.heroCell(a: Actor, onOpen: (Actor) -> Unit): View {
     }
     cell.setOnClickListener { onOpen(a) }
     cell.pressable(0.96f)
+    return cell
+}
+
+/** 2º e 3º lugar: foto com coroinha de prata ou bronze, nome, nota e um degrau de metal embaixo. */
+private fun Context.podiumCell(a: Actor, rank: Int, onOpen: (Actor) -> Unit): View {
+    val acc = Actors.accent(a.gender)
+    val tone = Metal.tone(rank)
+    val cell = LinearLayout(this)
+    cell.orientation = LinearLayout.VERTICAL
+    cell.gravity = Gravity.CENTER_HORIZONTAL
+    cell.clipChildren = false
+
+    val block = FrameLayout(this)
+    block.clipChildren = false
+    val avSize = 54
+    block.addView(
+        avatarView(a.photo, avSize, tone.mid, Actors.soft(a.gender), acc),
+        FrameLayout.LayoutParams(dp(avSize), dp(avSize), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(15) }
+    )
+    val badge = FrameLayout(this)
+    badge.background = Metal.medal(rank, dp(1))
+    badge.elevation = dp(6).toFloat()
+    val num = label(rank.toString(), 10f, tone.edge, true, true)
+    num.gravity = Gravity.CENTER
+    badge.addView(num, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+    block.addView(badge, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.TOP or Gravity.END).also {
+        it.topMargin = dp(15 + avSize - 18)
+        it.rightMargin = dp(2)
+    })
+    val crown = CrownView(this, rank, acc)
+    crown.elevation = dp(8).toFloat()
+    // avatar começa em y = 15; a base da coroa entra uns dp na foto
+    block.addView(crown, FrameLayout.LayoutParams(dp(30), dp(24), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(1) })
+    cell.addView(block, lin(MATCH, dp(15 + avSize + 2)))
+
+    val nm = label(a.name, 12f, Palette.text, true, true)
+    nm.gravity = Gravity.CENTER
+    nm.maxLines = 2
+    nm.ellipsize = TextUtils.TruncateAt.END
+    cell.addView(nm, lin(MATCH, WRAP, t = 4, l = 2, r = 2))
+    cell.addView(label(dramasText(a.count), 10f, Palette.muted), lin(WRAP, WRAP, t = 1))
+    if (a.avg > 0) {
+        val rv = RatingView(this, 9, false)
+        rv.score = Math.round(a.avg).toInt()
+        rv.color = acc
+        cell.addView(rv, lin(WRAP, WRAP, t = 4))
+    }
+    cell.addView(PedestalView(this, rank), lin(MATCH, dp(if (rank == 2) 46 else 34), t = 8))
+    cell.setOnClickListener { onOpen(a) }
+    cell.pressable(0.95f)
     return cell
 }
 
@@ -525,12 +597,17 @@ private fun Context.actorRow(a: Actor, rank: Int, maxCount: Int, onOpen: (Actor)
     nl.addView(nm, lin(0, WRAP, 1f))
     if (a.favorite) nl.addView(IconView(this, "heart", acc, 11), lin(WRAP, WRAP, l = 3))
     mid.addView(nl, lin(MATCH, WRAP))
-    var subTxt = dramasText(a.count)
-    if (a.avg > 0) subTxt += "  ·  " + "%.1f".format(a.avg)
-    val subL = label(subTxt, 10.5f, Palette.muted)
+    val subRow = LinearLayout(this)
+    subRow.orientation = LinearLayout.HORIZONTAL
+    subRow.gravity = Gravity.CENTER_VERTICAL
+    val subL = label(dramasText(a.count), 10.5f, Palette.muted)
     subL.maxLines = 1
-    subL.ellipsize = TextUtils.TruncateAt.END
-    mid.addView(subL, lin(MATCH, WRAP, t = 1))
+    subRow.addView(subL, lin(WRAP, WRAP))
+    if (a.avg > 0) {
+        subRow.addView(IconView(this, "heart", acc, 9), lin(WRAP, WRAP, l = 6, r = 2))
+        subRow.addView(label("%.1f".format(a.avg), 10.5f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
+    }
+    mid.addView(subRow, lin(MATCH, WRAP, t = 1))
     val bar = SoftBar(this)
     bar.barColor = ring
     bar.animateTo(a.count.toFloat() / maxCount, 0f, 300L + rank * 50L, 700L)
