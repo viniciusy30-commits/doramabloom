@@ -1,3 +1,14 @@
+#id 2026-10-07-zk
+#titulo Números: Top 10 de atores e atrizes, com perfil de cada um
+- Números: dois rankings novos, Top 10 atores e Top 10 atrizes, com pódio dos 3 primeiros (coroinha no 1º lugar), as outras posições logo abaixo e o botão "Ver todas". Ganha quem aparece em mais doramas; empate é decidido pela nota média.
+- O mesmo nome vira uma pessoa só, mesmo com fotos diferentes em cada elenco (não importa acento, maiúscula ou hífen).
+- Classificar: como o app não sabe quem é ator e quem é atriz, aparece um aviso na aba Números. Toque em "Classificar" e responda pessoa por pessoa com um toque (Atriz, Ator ou Pular).
+- Perfil: toque em qualquer pessoa do ranking, ou no elenco de um dorama, para abrir a página dela, com foto grande, posição no ranking, favoritar, número de doramas, nota média, horas assistidas, gêneros e países.
+- Escolher a foto: o perfil mostra todas as fotos diferentes dela que já estão nos seus elencos. Toque na que você mais gosta e ela passa a valer em todo o app (Números e elenco do dorama). Também dá para escolher uma nova da galeria ou buscar na internet.
+- Editar informações: nome (muda em todos os doramas), tipo, nascimento e anotações sobre ela ou ele.
+- Doramas que fez: lista com capa, status, gênero e nota; toque para abrir o dorama. Embaixo, quem costuma aparecer junto (2 doramas ou mais), também tocável.
+- O backup .zip agora também leva os perfis e as fotos escolhidas.
+
 #id 2026-10-07-zj
 #titulo Contorno do card, backup completo e imagens direto da internet
 - Início: saíram as ondas entre a capa e as informações. No lugar entrou um contorno brilhante na cor do gênero: friso com degradê, fio de pérolas que cintilam em onda, estrelinhas, reflexo de luz que passa e um medalhão com o símbolo do gênero no meio.

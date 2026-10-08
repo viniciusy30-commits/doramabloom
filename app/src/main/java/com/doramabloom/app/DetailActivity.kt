@@ -1235,7 +1235,7 @@ class DetailActivity : AppCompatActivity() {
             item.setPadding(dp(4), dp(14), dp(4), dp(12))
             val ph = FrameLayout(this)
             ph.clipChildren = false
-            ph.addView(avatarView(p.photo, 84, g.primary, g.soft, g.primary), FrameLayout.LayoutParams(dp(84), dp(84)))
+            ph.addView(avatarView(Store.castPhoto(p), 84, g.primary, g.soft, g.primary), FrameLayout.LayoutParams(dp(84), dp(84)))
             item.addView(ph, lin(dp(84), dp(84)))
 
             val nm = label(p.name, 13f, Palette.text, true)
@@ -1249,6 +1249,9 @@ class DetailActivity : AppCompatActivity() {
             for (k in 0 until 3) line.addView(IconView(this, if (k == 1) g.icon else "sparkle", g.primary, if (k == 1) 12 else 9), lin(WRAP, WRAP, l = 2, r = 2))
             item.addView(line, lin(WRAP, WRAP, t = 6))
             item.fadeScaleIn(minOf(i, 6) * 60L, 300L)
+            // tocar na pessoa abre o perfil dela (foto, doramas, informações)
+            item.setOnClickListener { openActor(p.name) }
+            item.pressable(0.95f)
             castItems.add(item)
             row.addView(item, lin(dp(116), WRAP, r = 8))
         }
@@ -1273,6 +1276,15 @@ class DetailActivity : AppCompatActivity() {
         }
         c.addView(hs, lin(MATCH, WRAP))
         return root
+    }
+
+    private fun openActor(name: String) {
+        val k = Store.personKey(name)
+        if (k.isEmpty()) return
+        val i = Intent(this, ActorActivity::class.java)
+        i.putExtra("key", k)
+        startActivity(i)
+        overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
     }
 
     /** Casal favorito: polaroid grande e centralizada (veja coupleCard em FlairUi.kt). */

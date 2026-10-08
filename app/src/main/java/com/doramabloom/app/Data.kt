@@ -308,6 +308,22 @@ val countries: List<String> = listOf(
 /** Ator ou atriz do elenco, com foto opcional (caminho do arquivo). */
 class CastPerson(var name: String, var photo: String = "")
 
+/**
+ * Perfil de um ator ou atriz (vale para todos os doramas em que o nome aparece).
+ * A chave é o nome sem acento, maiúscula ou pontuação, então "Lee Min-ho" e "lee min ho" são a mesma pessoa.
+ * [photo] é a foto escolhida (arquivo próprio, em files/people); vazia = usa uma foto do elenco.
+ * [gender] é "m" (ator), "f" (atriz) ou vazio (ainda sem classificar).
+ */
+data class PersonInfo(
+    var key: String,
+    var name: String,
+    var gender: String = "",
+    var photo: String = "",
+    var birth: String = "",
+    var note: String = "",
+    var favorite: Boolean = false
+)
+
 data class Drama(
     var id: Long,
     var title: String,
@@ -635,6 +651,7 @@ object Store {
         loadGenreEdits()
         loadOtherGenres()
         load()
+        loadPeople()
         loaded = true
     }
 
@@ -981,6 +998,202 @@ object Store {
         prefs.edit().putString(KEY, arr.toString()).apply()
     }
 
+    // ------------------------------------------------------------------ PESSOAS (atores e atrizes)
+
+    private const val PKEY = "people"
+    private val peopleMap = LinkedHashMap<String, PersonInfo>()
+    private var photoSeq = 0
+
+    /** Nome sem acento, maiúscula nem pontuação: serve para saber se dois nomes são a mesma pessoa. */
+    fun personKey(name: String): String {
+        val n = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+        return n.replace(Regex("\\p{M}+"), "")
+            .lowercase(Locale.ROOT)
+            .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+            .trim()
+    }
+
+    private fun personToJson(p: PersonInfo): JSONObject {
+        val o = JSONObject()
+        o.put("key", p.key)
+        o.put("name", p.name)
+        o.put("gender", p.gender)
+        o.put("photo", p.photo)
+        o.put("birth", p.birth)
+        o.put("note", p.note)
+        o.put("favorite", p.favorite)
+        return o
+    }
+
+    private fun personFromJson(o: JSONObject): PersonInfo? {
+        val name = o.optString("name", "").trim()
+        var key = o.optString("key", "")
+        if (key.isBlank()) key = personKey(name)
+        if (key.isBlank()) return null
+        val g = o.optString("gender", "")
+        return PersonInfo(
+            key, if (name.isEmpty()) key else name,
+            if (g == "m" || g == "f") g else "",
+            o.optString("photo", ""), o.optString("birth", ""), o.optString("note", ""),
+            o.optBoolean("favorite", false)
+        )
+    }
+
+    private fun loadPeople() {
+        peopleMap.clear()
+        try {
+            val arr = JSONArray(prefs.getString(PKEY, "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val p = personFromJson(arr.getJSONObject(i)) ?: continue
+                peopleMap[p.key] = p
+            }
+        } catch (e: Exception) {
+            // dados corrompidos: sem perfis
+        }
+    }
+
+    fun persistPeople() {
+        version++
+        val arr = JSONArray()
+        for (p in peopleMap.values) arr.put(personToJson(p))
+        prefs.edit().putString(PKEY, arr.toString()).apply()
+    }
+
+    fun personInfo(key: String): PersonInfo? = peopleMap[key]
+
+    fun savePersonInfo(p: PersonInfo) {
+        peopleMap[p.key] = p
+        persistPeople()
+    }
+
+    /** Cópia dos perfis no momento do pedido (usada pelo backup, que grava em segundo plano). */
+    fun peopleSnapshot(): List<PersonInfo> {
+        for (t in 0 until 3) {
+            try {
+                return peopleMap.values.map { it.copy() }
+            } catch (e: Exception) {
+                // mudou no meio da cópia: tenta de novo
+            }
+        }
+        return emptyList()
+    }
+
+    /** Foto a mostrar para quem está no elenco: a foto escolhida no perfil, ou a do próprio elenco. */
+    fun castPhoto(p: CastPerson): String {
+        val ph = peopleMap[personKey(p.name)]?.photo ?: ""
+        return if (ph.isNotEmpty() && File(ph).exists()) ph else p.photo
+    }
+
+    private fun personPhotoDir(): File {
+        val d = File(appContext.filesDir, "people")
+        d.mkdirs()
+        return d
+    }
+
+    /** Copia uma foto para a pasta das pessoas (arquivo só do perfil: não some se o dorama for apagado). */
+    fun copyPersonPhoto(src: String): String? {
+        return try {
+            val s = File(src)
+            if (!s.exists() || !s.isFile) return null
+            val f = File(personPhotoDir(), "p" + System.currentTimeMillis() + "_" + (photoSeq++) + ".jpg")
+            s.copyTo(f, true)
+            f.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Foto nova (galeria ou internet) já reduzida e guardada na pasta das pessoas. */
+    fun savePersonPhoto(uri: Uri): String? {
+        val tmp = saveCover(uri) ?: return null
+        val r = copyPersonPhoto(tmp)
+        try {
+            File(tmp).delete()
+        } catch (e: Exception) {
+        }
+        return r
+    }
+
+    fun deletePersonFile(path: String) {
+        if (path.isEmpty()) return
+        try {
+            File(path).delete()
+        } catch (e: Exception) {
+        }
+        Covers.clear()
+    }
+
+    /** Muda o nome da pessoa em todos os doramas e leva o perfil junto. Devolve em quantos doramas mudou. */
+    fun renamePerson(oldKey: String, newName: String): Int {
+        val nn = newName.trim()
+        if (nn.isEmpty()) return 0
+        val newKey = personKey(nn)
+        if (newKey.isEmpty()) return 0
+        var n = 0
+        for (d in list) {
+            var hit = false
+            for (p in d.castPeople) {
+                if (personKey(p.name) == oldKey) {
+                    p.name = nn
+                    hit = true
+                }
+            }
+            if (hit) n++
+        }
+        val info = peopleMap.remove(oldKey)
+        if (info != null) {
+            info.name = nn
+            val other = peopleMap[newKey]
+            if (other == null) {
+                info.key = newKey
+                peopleMap[newKey] = info
+            } else {
+                // o novo nome já tinha perfil: junta, mantendo o que já estava preenchido lá
+                if (other.gender.isEmpty()) other.gender = info.gender
+                if (other.birth.isEmpty()) other.birth = info.birth
+                if (other.note.isEmpty()) other.note = info.note
+                if (other.photo.isEmpty()) other.photo = info.photo else deletePersonFile(info.photo)
+                if (info.favorite) other.favorite = true
+            }
+        }
+        persist()
+        persistPeople()
+        return n
+    }
+
+    /** Devolve os perfis de um backup: foto vem de media/people/..., o resto do JSON. */
+    private fun restorePeople(root: JSONObject?, media: Map<String, File>, replace: Boolean) {
+        val arr = root?.optJSONArray("people") ?: return
+        if (replace) {
+            for (p in peopleMap.values) deletePersonFile(p.photo)
+            peopleMap.clear()
+        }
+        val dir = personPhotoDir()
+        val stamp = System.currentTimeMillis()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val p = personFromJson(o) ?: continue
+            if (peopleMap.containsKey(p.key)) continue
+            val entry = o.optString("photo", "")
+            p.photo = ""
+            val src = if (entry.isEmpty()) null else media[entry]
+            if (src != null && src.exists() && src.length() > 0L) {
+                val dst = File(dir, "p" + stamp + "_" + i + ".jpg")
+                try {
+                    if (!src.renameTo(dst)) {
+                        src.copyTo(dst, true)
+                        src.delete()
+                    }
+                    p.photo = dst.absolutePath
+                } catch (e: Exception) {
+                    p.photo = ""
+                }
+            }
+            peopleMap[p.key] = p
+        }
+        persistPeople()
+    }
+
     fun all(): List<Drama> = list.toList()
 
     fun get(id: Long): Drama? = list.firstOrNull { it.id == id }
@@ -1196,7 +1409,7 @@ object Store {
      * com TODOS os arquivos: capas, trilhas sonoras, fotos do elenco e foto do casal.
      * Devolve false se der erro.
      */
-    fun writeBackup(dramas: List<Drama>, out: OutputStream): Boolean {
+    fun writeBackup(dramas: List<Drama>, out: OutputStream, people: List<PersonInfo> = peopleSnapshot()): Boolean {
         return try {
             val zip = ZipOutputStream(BufferedOutputStream(out, 64 * 1024))
             val arr = JSONArray()
@@ -1224,12 +1437,27 @@ object Store {
                 o.put("castPeople", cp)
                 arr.put(o)
             }
+            val pa = JSONArray()
+            for ((i, p) in people.withIndex()) {
+                val po = personToJson(p)
+                var entry = ""
+                if (p.photo.isNotEmpty()) {
+                    val f = File(p.photo)
+                    if (f.exists() && f.isFile) {
+                        entry = "media/people/" + i + "." + extOf(p.photo, "jpg")
+                        files.add(Pair(entry, f))
+                    }
+                }
+                po.put("photo", entry)
+                pa.put(po)
+            }
             val ga = JSONArray()
             for (g in Genres.custom()) ga.put(genreToJson(g))
             val ea = JSONArray()
             for (g in Genres.edited().values) ea.put(genreToJson(g))
             val root = JSONObject()
             root.put("app", "MyDoramas")
+            root.put("people", pa)
             root.put("backupVersion", 3)
             root.put("createdAt", System.currentTimeMillis())
             root.put("settings", settingsJson())
@@ -1473,6 +1701,7 @@ object Store {
                     applySettings(root.optJSONObject("settings"), false)
                 }
             }
+            restorePeople(root, media, replace)
             Covers.clear()
             persist()
             keep.size

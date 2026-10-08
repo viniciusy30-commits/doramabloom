@@ -1186,6 +1186,13 @@ class MainActivity : AppCompatActivity() {
 
     // --------------------------------------------------------------- NÚMEROS
 
+    private fun openActor(a: Actor) {
+        val i = Intent(this, ActorActivity::class.java)
+        i.putExtra("key", a.key)
+        startActivity(i)
+        overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
+    }
+
     private fun statBox(icon: String, value: String, name: String, count: Int? = null, fmt: (Int) -> String = { it.toString() }): LinearLayout {
         val b = card(12, 20)
         b.gravity = Gravity.CENTER_HORIZONTAL
@@ -1260,6 +1267,14 @@ class MainActivity : AppCompatActivity() {
             favCard.addView(favRow)
             favCard.pressable(0.98f)
             col.addView(favCard, lin(MATCH, WRAP, t = 14))
+
+            // top 10 de atores e de atrizes (quem mais aparece nos elencos)
+            addActorSections(col, { a -> openActor(a) }, {
+                showClassifyDialog {
+                    seenVersion = Store.version
+                    if (tab == 3) showTab(3, false)
+                }
+            })
 
             // anel por status
             col.addView(section("Minha estante", "bookmark"))
@@ -1692,12 +1707,13 @@ class MainActivity : AppCompatActivity() {
     private fun doExport(uri: Uri) {
         Toast.makeText(this, "Gerando o backup…", Toast.LENGTH_SHORT).show()
         val snapshot = Store.backupSnapshot()
+        val peopleSnap = Store.peopleSnapshot()
         Thread {
             var ok = false
             try {
                 val os = contentResolver.openOutputStream(uri, "wt")
                 if (os != null) {
-                    os.use { ok = Store.writeBackup(snapshot, it) }
+                    os.use { ok = Store.writeBackup(snapshot, it, peopleSnap) }
                 }
             } catch (e: Exception) {
                 ok = false
