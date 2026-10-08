@@ -305,8 +305,8 @@ val countries: List<String> = listOf(
     "Coreia do Sul", "Japão", "China", "Tailândia", "Taiwan", "Outro"
 )
 
-/** Ator ou atriz do elenco, com foto opcional (caminho do arquivo). */
-class CastPerson(var name: String, var photo: String = "")
+/** Ator ou atriz do elenco, com foto opcional (caminho do arquivo) e o nome do personagem que fez. */
+class CastPerson(var name: String, var photo: String = "", var role: String = "")
 
 /**
  * Perfil de um ator ou atriz (vale para todos os doramas em que o nome aparece).
@@ -528,7 +528,7 @@ private fun castFromJson(a: JSONArray?, oldText: String): List<CastPerson> {
         for (i in 0 until a.length()) {
             val po = a.optJSONObject(i) ?: continue
             val n = po.optString("name", "").trim()
-            if (n.isNotEmpty()) r.add(CastPerson(n, po.optString("photo", "")))
+            if (n.isNotEmpty()) r.add(CastPerson(n, po.optString("photo", ""), po.optString("role", "").trim()))
         }
     } else {
         for (n in oldText.split(",", ";", "/")) {
@@ -580,6 +580,7 @@ private fun Drama.toJson(): JSONObject {
         val po = JSONObject()
         po.put("name", p.name)
         po.put("photo", p.photo)
+        po.put("role", p.role)
         cp.put(po)
     }
     o.put("castPeople", cp)
@@ -1433,6 +1434,7 @@ object Store {
                     val po = JSONObject()
                     po.put("name", p.name)
                     po.put("photo", add(p.photo, "cast" + i + "." + extOf(p.photo, "jpg")))
+                    po.put("role", p.role)
                     cp.put(po)
                 }
                 o.put("castPeople", cp)

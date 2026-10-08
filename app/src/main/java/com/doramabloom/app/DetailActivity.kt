@@ -1227,6 +1227,32 @@ class DetailActivity : AppCompatActivity() {
             nm.maxLines = 2
             nm.ellipsize = TextUtils.TruncateAt.END
             item.addView(nm, lin(MATCH, WRAP, t = 9))
+            val role = p.role.trim()
+            if (role.isNotEmpty()) {
+                // "— COMO —" e o personagem numa plaquinha, tudo centralizado
+                val sep = LinearLayout(this)
+                sep.orientation = LinearLayout.HORIZONTAL
+                sep.gravity = Gravity.CENTER_VERTICAL
+                val lineC = mixColor(g.primary, Color.WHITE, 0.45f)
+                val l1 = View(this)
+                l1.setBackgroundColor(lineC)
+                val l2 = View(this)
+                l2.setBackgroundColor(lineC)
+                val como = label("COMO", 9.5f, g.primary, true)
+                como.letterSpacing = 0.2f
+                como.gravity = Gravity.CENTER
+                sep.addView(l1, lin(0, dp(1), 1f))
+                sep.addView(como, lin(WRAP, WRAP, l = 6, r = 6))
+                sep.addView(l2, lin(0, dp(1), 1f))
+                item.addView(sep, lin(MATCH, WRAP, t = 8, l = 6, r = 6))
+                val rl = label(role, 12.5f, g.dark, true, true)
+                rl.gravity = Gravity.CENTER
+                rl.maxLines = 3
+                rl.ellipsize = android.text.TextUtils.TruncateAt.END
+                rl.setPadding(dp(10), dp(5), dp(10), dp(5))
+                rl.background = roundRect(mixColor(g.soft, g.primary, 0.14f), dp(14).toFloat(), mixColor(g.primary, Color.WHITE, 0.4f), dp(1))
+                item.addView(rl, lin(WRAP, WRAP, t = 6))
+            }
             val line = LinearLayout(this)
             line.orientation = LinearLayout.HORIZONTAL
             line.gravity = Gravity.CENTER

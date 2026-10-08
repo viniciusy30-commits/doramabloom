@@ -92,7 +92,7 @@ class EditActivity : AppCompatActivity() {
             kind = ex.kind
             soundtrackPath = ex.soundtrack
             couplePhotoPath = ex.couplePhoto
-            for (p in ex.castPeople) castList.add(CastPerson(p.name, p.photo))
+            for (p in ex.castPeople) castList.add(CastPerson(p.name, p.photo, p.role))
             if (ex.soundtrack.isNotEmpty()) originalFiles.add(ex.soundtrack)
             if (ex.couplePhoto.isNotEmpty()) originalFiles.add(ex.couplePhoto)
             for (p in ex.castPeople) if (p.photo.isNotEmpty()) originalFiles.add(p.photo)
@@ -717,9 +717,16 @@ class EditActivity : AppCompatActivity() {
                 pickImage(104, "Escolher foto", p.name.trim())
             }
             row.addView(av, lin(dp(52), dp(52), r = 10))
-            val nm = input("Nome", p.name, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+            val fields = LinearLayout(this)
+            fields.orientation = LinearLayout.VERTICAL
+            val nm = input("Nome do ator ou atriz", p.name, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
             nm.doAfterTextChanged { p.name = it?.toString() ?: "" }
-            row.addView(nm, lin(0, WRAP, 1f))
+            fields.addView(nm, lin(MATCH, WRAP))
+            val rl = input("Personagem (ex.: Kim Sun-woo)", p.role, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
+            rl.textSize = 13.5f
+            rl.doAfterTextChanged { p.role = it?.toString() ?: "" }
+            fields.addView(rl, lin(MATCH, WRAP, t = 6))
+            row.addView(fields, lin(0, WRAP, 1f))
             val rm = label("✕", 16f, Palette.pinkDark, true)
             rm.setPadding(dp(12), dp(8), dp(4), dp(8))
             rm.setOnClickListener {
@@ -976,7 +983,7 @@ class EditActivity : AppCompatActivity() {
             kind = kind,
             soundtrack = soundtrackPath,
             soundtrackName = if (soundtrackPath.isEmpty()) "" else soundtrackNameIn.text.toString().trim(),
-            castPeople = castList.filter { it.name.isNotBlank() }.map { CastPerson(it.name.trim(), it.photo) },
+            castPeople = castList.filter { it.name.isNotBlank() }.map { CastPerson(it.name.trim(), it.photo, it.role.trim()) },
             couplePhoto = couplePhotoPath,
             shelfTags = shelf.filter { tags.contains(it) && it != genreKey }
         )

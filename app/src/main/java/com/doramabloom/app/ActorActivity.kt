@@ -649,6 +649,13 @@ class ActorActivity : AppCompatActivity() {
         if (d.year.isNotBlank()) bits.add(d.year)
         if (d.country.isNotBlank()) bits.add(d.country)
         if (bits.isNotEmpty()) mid.addView(label(bits.joinToString("  ·  "), 11f, Palette.muted), lin(MATCH, WRAP, t = 2))
+        val role = d.castPeople.firstOrNull { Store.personKey(it.name) == Store.personKey(listName) }?.role?.trim() ?: ""
+        if (role.isNotEmpty()) {
+            val rl = label("como $role", 12.5f, g.dark, true, true)
+            rl.maxLines = 2
+            rl.ellipsize = TextUtils.TruncateAt.END
+            mid.addView(rl, lin(MATCH, WRAP, t = 3))
+        }
         val fl = FlowLayout(this)
         fl.hGap = dp(6)
         fl.vGap = dp(6)

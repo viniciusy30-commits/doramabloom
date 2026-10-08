@@ -1,3 +1,10 @@
+#id 2026-10-08-zs
+#titulo Personagem de cada ator no elenco
+- Edição do dorama: em cada pessoa do elenco agora tem o campo "Personagem" embaixo do nome do ator ou atriz.
+- Página do dorama: no cartão do Elenco, cada crachá mostra "— COMO —" e uma plaquinha com o nome do personagem, centralizado debaixo do nome do ator.
+- Perfil do ator ou atriz: na lista de doramas que fez aparece "como [personagem]" em cada um.
+- A busca da estante também acha pelo nome do personagem, e o backup leva os personagens junto.
+
 #id 2026-10-08-zr
 #titulo Pódio de verdade no Top 10 e correções no perfil
 - Top 10: o 1º lugar ganhou aura dourada com raios girando, fio de pérolas que cintila, coroa de louros, estrelinhas orbitando, coroa de metal com joias e brilho passando (agora assentada na cabeça, não solta no ar) e uma faixa dourada com o nome.

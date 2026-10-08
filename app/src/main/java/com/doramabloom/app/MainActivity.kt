@@ -601,7 +601,7 @@ class MainActivity : AppCompatActivity() {
             l = l.filter {
                 it.title.contains(query, true) || it.original.contains(query, true) ||
                     it.cast.contains(query, true) || Streamings.names(it.platform).contains(query, true) ||
-                    it.couple.contains(query, true)
+                    it.couple.contains(query, true) || it.castPeople.any { p -> p.role.contains(query, true) }
             }
         }
         return when (sortMode) {
