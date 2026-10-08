@@ -711,7 +711,7 @@ class CoverView(ctx: Context, radiusDp: Int = 16, private val fit: Boolean = fal
             // margens pequenas: a capa ocupa quase tudo, mas a moldura e os enfeites dos cantos cabem sem cortar
             val padX = dp(18)
             val padTop = dp(18)
-            val padBottom = dp(26)
+            val padBottom = dp(30)
             val availW = w - 2 * padX - 2 * border
             val availH = h - padTop - padBottom - 2 * border
             if (availW > 0 && availH > 0) {

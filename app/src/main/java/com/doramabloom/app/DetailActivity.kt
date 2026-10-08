@@ -322,6 +322,7 @@ class DetailActivity : AppCompatActivity() {
     /** Player da trilha sonora: vinil girando, botão com símbolos do gênero em volta e ondas para pular. */
     private fun buildMusicBar(d: Drama, g: Genre): View {
         val sv = SoundtrackView(this, g, d.id)
+        sv.title = d.soundtrackName.trim()
         swipeBlock = sv
 
         musicReset = {
@@ -508,6 +509,8 @@ class DetailActivity : AppCompatActivity() {
         top.orientation = LinearLayout.HORIZONTAL
         top.gravity = Gravity.CENTER_VERTICAL
         top.addView(roundBtn("back", g.dark, false, 18) { finish() }, lin(dp(40), dp(40)))
+        // espaço do mesmo tamanho dos botões da direita (editar + favoritar), para o texto do meio ficar no centro do card
+        top.addView(View(this), lin(dp(52), dp(1)))
         val pos = ids.indexOf(id)
         if (listName.isNotBlank() || (ids.size > 1 && pos >= 0)) {
             val mid = LinearLayout(this)
@@ -577,8 +580,8 @@ class DetailActivity : AppCompatActivity() {
         heroCol.addView(top, lin(MATCH, WRAP, t = 6, l = 12, r = 12))
 
         // palco da capa
-        val cw = dp(180)
-        val ch = dp(270)
+        val cw = dp(215)
+        val ch = dp(322)
         val stage = FrameLayout(this)
         stage.clipChildren = false
         val ghosts = ArrayList<CoverView>()
@@ -590,7 +593,7 @@ class DetailActivity : AppCompatActivity() {
             ghost.rotation = side * 9f
             ghost.scaleX = 0.86f
             ghost.scaleY = 0.86f
-            ghost.translationX = side * dp(80).toFloat()
+            ghost.translationX = side * dp(100).toFloat()
             stage.addView(ghost, FrameLayout.LayoutParams(cw, ch, Gravity.CENTER))
             ghosts.add(ghost)
         }
@@ -745,8 +748,8 @@ class DetailActivity : AppCompatActivity() {
         // ---- encaixe: o card inteiro cabe na tela, no topo (o botão de continuar fica logo abaixo, ao descer).
         // Se sobrar altura a capa cresce até o tamanho original; se faltar, ela encolhe só o necessário.
         var curCh = ch
-        val minCh = dp(150)
-        val maxCh = dp(280)
+        val minCh = dp(250)
+        val maxCh = dp(340)
         // Importante: depois de mudar o tamanho da capa, hero.height ainda é o valor VELHO até o próximo
         // layout. Se o encaixe rodasse de novo nesse intervalo, corrigiria em dobro e a capa ficaria
         // pulando entre grande e pequena (o "piscar"). Por isso: um encaixe por vez, esperando o layout
@@ -777,7 +780,7 @@ class DetailActivity : AppCompatActivity() {
                 glp.width = nw
                 glp.height = nh
                 gh.layoutParams = glp
-                gh.translationX = (if (i == 0) -1 else 1) * dp(80) * k
+                gh.translationX = (if (i == 0) -1 else 1) * dp(100) * k
             }
             // só volta a medir depois que o layout novo foi desenhado
             fitBusy = true
@@ -1087,25 +1090,6 @@ class DetailActivity : AppCompatActivity() {
             nc.addView(label(d.notes, 14f, Palette.text), lin(MATCH, WRAP, t = 8))
             col.addView(nc, lin(MATCH, WRAP, t = 12))
         }
-
-        // ---- excluir
-        val del = pill("Excluir dorama", Color.parseColor("#FFE0E6"), Color.parseColor("#C2185B"), 14f, "delete")
-        del.setPadding(dp(18), dp(12), dp(18), dp(12))
-        del.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Excluir dorama?")
-                .setMessage("\"" + d.title + "\" será removido da sua estante.")
-                .setPositiveButton("Excluir") { _, _ ->
-                    sv.animate().alpha(0f).translationY(dp(30).toFloat()).setDuration(260).withEndAction {
-                        Store.delete(d.id)
-                        sync()
-                        finish()
-                    }.start()
-                }
-                .setNegativeButton("Cancelar", null)
-                .show()
-        }
-        col.addView(del, lin(MATCH, WRAP, t = 18))
 
         root.addView(fxTop, FrameLayout.LayoutParams(MATCH, MATCH))
 

@@ -1,3 +1,19 @@
+#id 2026-10-08-zn
+#titulo Números: Top 10 no final e foto só no ranking
+- Números: o Top 10 de atores e o de atrizes agora são as últimas partes da aba.
+- A foto que você escolhe no perfil de uma pessoa vale só nos rankings e no perfil dela. Em cada dorama, o elenco continua com a foto que você colocou naquele dorama.
+
+#id 2026-10-08-zm
+#titulo Página do dorama: capa maior e topo centralizado
+- A capa da página do dorama ficou bem maior. Quando o dorama tem muitos gêneros e a tela é pequena, a página agora rola um pouco em vez de encolher a capa.
+- O nome da lista (como "Todos") e o "4 de 4" no topo agora ficam exatamente no centro do card.
+
+#id 2026-10-07-zl
+#titulo Faixas por gênero, nome da música e excluir na edição
+- Início: o medalhão do meio da faixa saiu e o fio fino do contorno do card agora continua por cima da capa, igual ao de baixo. A faixa de cada gênero tem a sua, sem selo: renda e pérolas (Romance), bandeirinhas e confete (Comédia), listras de energia (Ação), espinhos (Terror), trepadeira mágica (Fantasia), telhas e dancheong (Histórico), corrente (Mistério), régua (Escolar), chuva (Drama), rolo de filme (Suspense), batimento (Médico), colcha xadrez (Família), pauta musical (Musical), bandeira quadriculada (Esporte), coroa com joias (Realeza), painel de luzes (Ficção científica), pesponto (Vida real), pingos (Vingança) e fita de isolamento (Crime). Gêneros criados por você usam uma faixa de pérolas com o símbolo do gênero.
+- Música: na edição do dorama, em "Tipo e trilha sonora", dá para escrever o nome da música. Ele aparece no player da página do dorama no lugar de "Trilha sonora"; sem nome, continua "Trilha sonora". O nome também vai no backup.
+- Excluir: o botão "Excluir dorama" saiu da página do dorama e agora fica no fim da página de edição.
+
 #id 2026-10-07-zk
 #titulo Números: Top 10 de atores e atrizes, com perfil de cada um
 - Números: dois rankings novos, Top 10 atores e Top 10 atrizes, com pódio dos 3 primeiros (coroinha no 1º lugar), as outras posições logo abaixo e o botão "Ver todas". Ganha quem aparece em mais doramas; empate é decidido pela nota média.

@@ -126,6 +126,12 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         }
     var posMs = 0
     var durMs = 0
+    /** Nome da música; vazio = aparece "TRILHA SONORA". */
+    var title: String = ""
+        set(v) {
+            field = v
+            invalidate()
+        }
     var onToggle: (() -> Unit)? = null
     var onSeek: ((Float) -> Unit)? = null
 
@@ -453,12 +459,28 @@ class SoundtrackView(ctx: Context, private val g: Genre, seed: Long) : View(ctx)
         tp.alpha = 225
         tp.letterSpacing = 0.14f
         tp.textAlign = Paint.Align.LEFT
-        c.drawText("TRILHA SONORA", pad, 137f * u, tp)
-        tp.letterSpacing = 0.02f
-        tp.textAlign = Paint.Align.RIGHT
+        // tempo (direita) primeiro, para saber quanto sobra de espaço para o nome da música
         val shownPos = if (seeking && durMs > 0) (seekFrac * durMs).toInt() else posMs
         val txt = if (durMs > 0) fmtTime(shownPos) + " / " + fmtTime(durMs) else if (playing) "tocando…" else "toque no play"
+        tp.letterSpacing = 0.02f
+        tp.textAlign = Paint.Align.RIGHT
         c.drawText(txt, w - pad, 137f * u, tp)
+        val timeW = tp.measureText(txt)
+        // esquerda: nome da música (se tiver) ou "TRILHA SONORA"
+        tp.textAlign = Paint.Align.LEFT
+        val room = (w - 2f * pad - timeW - 10f * u).coerceAtLeast(40f * u)
+        if (title.isNotBlank()) {
+            tp.letterSpacing = 0.02f
+            tp.textSize = 11.5f * u
+            val shown = android.text.TextUtils.ellipsize(title, android.text.TextPaint(tp), room, android.text.TextUtils.TruncateAt.END).toString()
+            tp.alpha = 255
+            c.drawText(shown, pad, 137f * u, tp)
+            tp.textSize = 9.5f * u
+        } else {
+            tp.letterSpacing = 0.14f
+            val shown = android.text.TextUtils.ellipsize("TRILHA SONORA", android.text.TextPaint(tp), room, android.text.TextUtils.TruncateAt.END).toString()
+            c.drawText(shown, pad, 137f * u, tp)
+        }
 
         // ---- ondas: quem já tocou fica branco; toque para pular
         val barW = 3.4f * u

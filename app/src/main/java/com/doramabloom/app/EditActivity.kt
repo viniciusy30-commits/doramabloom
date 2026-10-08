@@ -71,6 +71,7 @@ class EditActivity : AppCompatActivity() {
     private lateinit var castBox: LinearLayout
     private lateinit var coupleBox: FrameLayout
     private lateinit var soundtrackTv: TextView
+    private lateinit var soundtrackNameIn: EditText
     private lateinit var serieBtn: TextView
     private lateinit var filmeBtn: TextView
     private lateinit var coupleIn: EditText
@@ -319,6 +320,11 @@ class EditActivity : AppCompatActivity() {
         c8.addView(fieldLabel("Trilha sonora"))
         soundtrackTv = label("", 13f, Palette.muted)
         c8.addView(soundtrackTv, lin(MATCH, WRAP, b = 8))
+        c8.addView(fieldLabel("Nome da música"))
+        soundtrackNameIn = input("Se ficar vazio, aparece só \"Trilha sonora\"", ex?.soundtrackName ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
+        soundtrackNameIn.maxLines = 1
+        soundtrackNameIn.setSingleLine(true)
+        c8.addView(soundtrackNameIn, lin(MATCH, WRAP, b = 8))
         val sRow = LinearLayout(this)
         sRow.orientation = LinearLayout.HORIZONTAL
         val sPick = pill("Escolher áudio", Palette.pinkSoft, Palette.pinkDark, 13f, "music")
@@ -326,6 +332,7 @@ class EditActivity : AppCompatActivity() {
         val sClear = pill("Tirar", Palette.pinkSoft, Palette.pinkDark, 13f)
         sClear.setOnClickListener {
             soundtrackPath = ""
+            soundtrackNameIn.setText("")
             refreshSoundtrack()
         }
         sRow.addView(sPick, lin(WRAP, WRAP, r = 8))
@@ -367,6 +374,27 @@ class EditActivity : AppCompatActivity() {
         notesIn = input("O que você achou? Cenas e frases favoritas...", ex?.notes ?: "", InputType.TYPE_CLASS_TEXT, true)
         c7.addView(notesIn, lin(MATCH, WRAP))
         col.addView(c7, lin(MATCH, WRAP, t = 12))
+
+        // ---------------- excluir (só aparece ao editar um dorama que já existe)
+        if (ex != null) {
+            val del = pill("Excluir dorama", Color.parseColor("#FFE0E6"), Color.parseColor("#C2185B"), 14f, "delete")
+            del.setPadding(dp(18), dp(12), dp(18), dp(12))
+            del.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Excluir dorama?")
+                    .setMessage("\"" + ex.title + "\" será removido da sua estante.")
+                    .setPositiveButton("Excluir") { _, _ ->
+                        sv.animate().alpha(0f).translationY(dp(30).toFloat()).setDuration(260).withEndAction {
+                            Store.delete(ex.id)
+                            Toast.makeText(this, "Dorama excluído", Toast.LENGTH_SHORT).show()
+                            finish()
+                        }.start()
+                    }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
+            }
+            col.addView(del, lin(MATCH, WRAP, t = 18))
+        }
 
         // ---------------- botão salvar fixo
         val saveBtn = label("Salvar", 18f, Color.WHITE, true, true)
@@ -841,6 +869,7 @@ class EditActivity : AppCompatActivity() {
             order = old?.order ?: 0L,
             kind = kind,
             soundtrack = soundtrackPath,
+            soundtrackName = if (soundtrackPath.isEmpty()) "" else soundtrackNameIn.text.toString().trim(),
             castPeople = castList.filter { it.name.isNotBlank() }.map { CastPerson(it.name.trim(), it.photo) },
             couplePhoto = couplePhotoPath,
             shelfTags = shelf.filter { tags.contains(it) && it != genreKey }

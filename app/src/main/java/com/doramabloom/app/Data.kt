@@ -357,6 +357,8 @@ data class Drama(
     var kind: String = "serie",
     /** Arquivo de áudio da trilha sonora (cópia dentro do app); vazio = sem trilha. */
     var soundtrack: String = "",
+    /** Nome da música (aparece no player da página do dorama); vazio = só "Trilha sonora". */
+    var soundtrackName: String = "",
     var castPeople: List<CastPerson> = emptyList(),
     var couplePhoto: String = "",
     /** Até 3 gêneros extras escolhidos para aparecer no cartão da Estante (vazio = os 3 primeiros). */
@@ -570,6 +572,7 @@ private fun Drama.toJson(): JSONObject {
     o.put("order", order)
     o.put("kind", kind)
     o.put("soundtrack", soundtrack)
+    o.put("soundtrackName", soundtrackName)
     o.put("couplePhoto", couplePhoto)
     o.put("shelfTags", JSONArray().also { a -> for (t in shelfTags) a.put(t) })
     val cp = JSONArray()
@@ -622,6 +625,7 @@ private fun dramaFromJson(o: JSONObject): Drama {
         order = o.optLong("order", 0L),
         kind = o.optString("kind", "serie"),
         soundtrack = o.optString("soundtrack", ""),
+        soundtrackName = o.optString("soundtrackName", ""),
         castPeople = castFromJson(o.optJSONArray("castPeople"), o.optString("cast", "")),
         couplePhoto = o.optString("couplePhoto", ""),
         shelfTags = jsonStrings(o.optJSONArray("shelfTags"))
@@ -1078,11 +1082,8 @@ object Store {
         return emptyList()
     }
 
-    /** Foto a mostrar para quem está no elenco: a foto escolhida no perfil, ou a do próprio elenco. */
-    fun castPhoto(p: CastPerson): String {
-        val ph = peopleMap[personKey(p.name)]?.photo ?: ""
-        return if (ph.isNotEmpty() && File(ph).exists()) ph else p.photo
-    }
+    /** Foto de quem está no elenco de UM dorama: sempre a do próprio dorama (a foto escolhida no perfil só vale no Top 10). */
+    fun castPhoto(p: CastPerson): String = p.photo
 
     private fun personPhotoDir(): File {
         val d = File(appContext.filesDir, "people")

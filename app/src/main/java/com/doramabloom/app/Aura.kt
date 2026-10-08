@@ -175,7 +175,7 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
         val t = (System.nanoTime() - start) / 1_000_000_000f
 
         c.save()
-        c.clipRect(0f, 0f, w, h - 10f * u)
+        c.clipRect(0f, 0f, w, h - 12f * u)
         // a capa fica de fora: nada passa por cima dela
         val hasPoster = cover.posterRect(poster)
         if (hasPoster) {
@@ -352,127 +352,40 @@ class AuraView(ctx: Context, private val cover: CoverView) : View(ctx) {
         if (isShown) postInvalidateOnAnimation()
     }
 
-    // contorno de baixo (a "costura" entre a cena e as informações): gradientes guardados para não recriar a cada quadro
-    private var seamKey = 0L
-    private var seamGlow: LinearGradient? = null
-    private var seamBody: LinearGradient? = null
-    private var seamMedal: RadialGradient? = null
+    // faixa decorada de cada gênero (embaixo, entre a cena e as informações)
+    private val band = GenreBand(u)
+    private val edgePath = Path()
+    private val edgeRect = RectF()
+    private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     /**
-     * Contorno brilhante na cor do gênero que liga a cena (em cima) ao painel de informações (embaixo):
-     * um friso metálico com fio de pérolas que cintilam em onda, estrelinhas, reflexo de luz que
-     * passa e um medalhão com o símbolo do gênero no meio. Ocupa só a faixa de baixo do destaque.
+     * Faixa brilhante na cor do gênero, com desenhos do tema (GenreBand), e o fio fino do contorno do card,
+     * que continua por cima da capa (o mesmo que já aparece em volta das informações, lá embaixo).
      */
     private fun drawSeam(c: Canvas, t: Float, gg: Genre) {
         val w = width.toFloat()
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
-        val col = gg.primary
-        val barTop = h - 9f * u
-        val barMid = h - 4.6f * u
-        val cx = w / 2f
-        val mr = 10.5f * u
-        val mcy = h - 11.5f * u
+        band.draw(c, w, h, false, 13f * u, t, gg)
 
-        val key = (h.toBits().toLong() shl 32) xor (col.toLong() and 0xFFFFFFFFL)
-        if (seamKey != key || seamGlow == null) {
-            seamKey = key
-            seamGlow = LinearGradient(
-                0f, h - 24f * u, 0f, barTop,
-                intArrayOf(al(col, 0f), al(col, 110f)), null, Shader.TileMode.CLAMP
-            )
-            seamBody = LinearGradient(
-                0f, barTop, 0f, h,
-                intArrayOf(mixColor(col, Color.WHITE, 0.6f), col, mixColor(col, Color.BLACK, 0.25f)),
-                floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP
-            )
-            seamMedal = RadialGradient(
-                0f, 0f, mr,
-                intArrayOf(mixColor(col, Color.WHITE, 0.45f), col, mixColor(col, Color.BLACK, 0.2f)),
-                floatArrayOf(0f, 0.65f, 1f), Shader.TileMode.CLAMP
-            )
-        }
-
-        // luz suave subindo da barra para dentro da cena
-        p.style = Paint.Style.FILL
-        p.shader = seamGlow
-        p.alpha = 255
-        c.drawRect(0f, h - 24f * u, w, barTop, p)
-
-        // corpo do friso: degradê de tubo (claro em cima, cor do tema no meio, mais escuro embaixo)
-        p.shader = seamBody
-        p.alpha = 255
-        c.drawRect(0f, barTop, w, h, p)
-        p.shader = null
-
-        // fio de brilho no alto e fio claro embaixo (igual à borda do painel de informações)
-        p.color = al(Color.WHITE, 190f)
-        c.drawRect(0f, barTop, w, barTop + 1.1f * u, p)
-        p.color = mixColor(col, Color.WHITE, 0.6f)
-        c.drawRect(0f, h - 1.3f * u, w, h, p)
-
-        // fio de pérolas: o brilho corre pela fileira em onda
-        val step = 11f * u
-        var x = step / 2f
-        while (x < w) {
-            if (kotlin.math.abs(x - cx) > mr + 8f * u) {
-                val tw = 0.5f + 0.5f * sin(t * 2.4f - x / (34f * u))
-                p.color = al(Color.WHITE, 120f + 135f * tw)
-                c.drawCircle(x, barMid, (1.0f + 0.35f * tw) * u, p)
-            }
-            x += step
-        }
-
-        // reflexo de luz que passa pelo friso de tempos em tempos
-        val ph = (t % 5f) / 1.4f
-        if (ph < 1f) {
-            val e = ph * ph * (3f - 2f * ph)
-            val bw = 120f * u
-            val bx = -bw + e * (w + bw * 2f)
-            c.save()
-            c.clipRect(0f, barTop, w, h)
-            c.translate(bx, barTop)
-            c.scale(bw, h - barTop)
-            p.shader = sweep
-            p.alpha = 255
-            c.drawRect(0f, 0f, 1f, 1f, p)
-            c.restore()
-            p.shader = null
-        }
-
-        // estrelinhas cintilando ao longo do friso
-        val fr = floatArrayOf(0.12f, 0.27f, 0.73f, 0.88f)
-        for (i in fr.indices) {
-            val a = 0.55f + 0.45f * sin(t * 2.0f + i * 1.9f)
-            val big = if (i == 0 || i == 3) 5.2f else 4f
-            drawStar(c, w * fr[i], barMid, big * u * (0.85f + 0.15f * a), 0f, a)
-        }
-
-        // medalhão no meio, com o símbolo do gênero
-        val pulse = 0.5f + 0.5f * sin(t * 1.6f)
-        p.style = Paint.Style.FILL
-        p.shader = null
-        p.color = al(col, 55f + 45f * pulse)
-        c.drawCircle(cx, mcy, mr + 3f * u + 1f * u * pulse, p)
-        c.save()
-        c.translate(cx, mcy)
-        p.shader = seamMedal
-        p.alpha = 255
-        c.drawCircle(0f, 0f, mr, p)
-        p.shader = null
-        c.restore()
-        p.style = Paint.Style.STROKE
-        p.strokeWidth = 1.6f * u
-        p.color = al(Color.WHITE, 235f)
-        c.drawCircle(cx, mcy, mr, p)
-        p.strokeWidth = 0.9f * u
-        p.color = al(Color.WHITE, 120f)
-        c.drawCircle(cx, mcy, mr - 3f * u, p)
-        p.style = Paint.Style.FILL
-        drawIcon(c, gg.icon, Color.WHITE, cx, mcy, 12.5f * u, 0f)
-        p.style = Paint.Style.FILL
-        p.shader = null
-        p.alpha = 255
+        // contorno fininho em volta do destaque: sobe pelas laterais e acompanha os cantos redondos do card
+        val sw = 1f * u
+        val r = 34f * u
+        val l = sw / 2f
+        val rt = w - sw / 2f
+        edgePath.rewind()
+        edgePath.moveTo(l, h)
+        edgePath.lineTo(l, l + r)
+        edgeRect.set(l, l, l + 2f * r, l + 2f * r)
+        edgePath.arcTo(edgeRect, 180f, 90f)
+        edgePath.lineTo(rt - r, l)
+        edgeRect.set(rt - 2f * r, l, rt, l + 2f * r)
+        edgePath.arcTo(edgeRect, 270f, 90f)
+        edgePath.lineTo(rt, h)
+        edgePaint.style = Paint.Style.STROKE
+        edgePaint.strokeWidth = sw
+        edgePaint.color = Palette.line
+        c.drawPath(edgePath, edgePaint)
     }
 
     /** Trecho [a, b] do contorno medido (dá a volta se precisar). */

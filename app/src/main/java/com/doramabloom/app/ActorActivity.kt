@@ -307,7 +307,7 @@ class ActorActivity : AppCompatActivity() {
         val c = card(14, 24)
         c.addView(sectionTitle("Escolha a foto", "image", acc))
         val hint = label(
-            "O mesmo nome pode ter fotos diferentes em cada elenco. Toque na que você mais gosta: ela passa a valer no app todo.",
+            "O mesmo nome pode ter fotos diferentes em cada elenco. Toque na que você mais gosta: ela aparece só nos rankings e no perfil. Cada dorama continua com a própria foto no elenco.",
             12f, Palette.muted
         )
         c.addView(hint, lin(MATCH, WRAP, t = 8))

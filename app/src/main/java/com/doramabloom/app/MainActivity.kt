@@ -1268,14 +1268,6 @@ class MainActivity : AppCompatActivity() {
             favCard.pressable(0.98f)
             col.addView(favCard, lin(MATCH, WRAP, t = 14))
 
-            // top 10 de atores e de atrizes (quem mais aparece nos elencos)
-            addActorSections(col, { a -> openActor(a) }, {
-                showClassifyDialog {
-                    seenVersion = Store.version
-                    if (tab == 3) showTab(3, false)
-                }
-            })
-
             // anel por status
             col.addView(section("Minha estante", "bookmark"))
             val sc = card(16, 24)
@@ -1362,6 +1354,14 @@ class MainActivity : AppCompatActivity() {
                 }
                 col.addView(tc, lin(MATCH, WRAP))
             }
+
+            // top 10 de atores e de atrizes (quem mais aparece nos elencos): são as últimas partes da aba
+            addActorSections(col, { a -> openActor(a) }, {
+                showClassifyDialog {
+                    seenVersion = Store.version
+                    if (tab == 3) showTab(3, false)
+                }
+            })
         }
 
         return sv
