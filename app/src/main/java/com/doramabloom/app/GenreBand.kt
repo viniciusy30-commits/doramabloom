@@ -204,6 +204,7 @@ class GenreBand(private val u: Float) {
                 "vida" -> vida(c)
                 "vinganca" -> vinganca(c)
                 "crime" -> crime(c)
+                "lgbt" -> lgbt(c)
                 else -> padrao(c)
             }
         } catch (e: Exception) {
@@ -245,6 +246,40 @@ class GenreBand(private val u: Float) {
         "scifi" -> intArrayOf(lite(col, 0.2f), dark(col, 0.25f), dark(deep, 0.5f))
         "musical", "drama" -> intArrayOf(lite(col, 0.5f), col, dark(col, 0.3f))
         else -> intArrayOf(lite(col, 0.6f), col, dark(col, 0.25f))
+    }
+
+    // ------------------------------------------------------------------ LGBTQ+: arco-íris ondulando com corações e brilhos
+
+    private fun lgbt(c: Canvas) {
+        val cols = intArrayOf(
+        Color.parseColor("#E8505B"), Color.parseColor("#FF7A3D"), Color.parseColor("#F5D547"),
+        Color.parseColor("#5DB56E"), Color.parseColor("#4F6D9A"), Color.parseColor("#A068E0")
+        )
+        c.save()
+        clipBand(c)
+        val sh = bh / cols.size
+        p.style = Paint.Style.FILL
+        p.shader = null
+        for (i in cols.indices) {
+            // cada listra ondula um pouquinho, uma depois da outra
+            val dy = sin(t * 1.6f + i * 0.7f) * 0.35f * u
+            p.color = al(cols[i], 245f)
+            c.drawRect(0f, i * sh + dy, w, (i + 1) * sh + dy + 0.6f * u, p)
+        }
+        c.restore()
+        // corações brancos e brilhos passeando pela faixa
+        var k = 0
+        var x = 22f * u
+        while (x < w) {
+            val bob = sin(t * 2f + k * 1.3f) * 1.4f * u
+            icon(c, if (k % 3 == 2) "sparkle" else "heart", al(Color.WHITE, 235f), x, bh * 0.5f + bob, 8f * u, sin(t + k) * 10f)
+            x += 58f * u
+            k++
+        }
+        for (i in 0 until 4) {
+            val a = 0.55f + 0.45f * sin(t * 2f + i * 1.9f)
+            sparkle(c, w * (0.1f + 0.27f * i), bh * 0.5f, 3.4f * u * (0.85f + 0.15f * a), a)
+        }
     }
 
     // ------------------------------------------------------------------ faixa padrão (gêneros criados por você)

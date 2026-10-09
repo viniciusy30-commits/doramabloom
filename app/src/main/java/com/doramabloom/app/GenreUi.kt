@@ -291,6 +291,7 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         return
     }
     var color = existing?.base ?: genreColorChoices[0]
+    val extraCols = ArrayList<Int>(existing?.extra ?: emptyList())
     var icon = existing?.icon ?: genreIconChoices[0]
     val autoTag = if (existing != null) "Seu gênero " + existing.label else ""
     val startTag = if (existing == null || existing.tagline == autoTag) "" else existing.tagline
@@ -352,8 +353,8 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         val low = lowIn.text.toString().trim()
         val n9 = ""
         val n10 = l10In.text.toString().trim()
-        if (existing != null && !existing.custom) return Genres.editBuiltin(existing, label, icon, color, tag, low, mid, n9, n10)
-        return Genres.makeCustom("preview", label, icon, color, tag, low, mid, n9, n10)
+        if (existing != null && !existing.custom) return Genres.editBuiltin(existing, label, icon, color, tag, low, mid, n9, n10, extraCols.toList())
+        return Genres.makeCustom("preview", label, icon, color, tag, low, mid, n9, n10, extraCols.toList())
     }
 
     fun restyle() {
@@ -362,7 +363,8 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         prevLabel.text = g.label
         prevLabel.setTextColor(g.dark)
         prevTag.text = g.tagline
-        prevBox.background = roundRect(g.soft, dp(20).toFloat(), mixColor(g.primary, Color.WHITE, 0.5f), dp(1))
+        prevBox.background = if (g.extra.isEmpty()) roundRect(g.soft, dp(20).toFloat(), mixColor(g.primary, Color.WHITE, 0.5f), dp(1))
+        else multiColorBg(g.colors, false, dp(20).toFloat(), dp(1))
         for (i in iconCells.indices) {
             val sel = genreIconChoices[i] == icon
             iconCells[i].background = roundRect(if (sel) color else Palette.pinkSoft, dp(16).toFloat())
@@ -376,6 +378,38 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         seal.pop(1.3f)
     }
     col.addView(picker, lin(MATCH, WRAP))
+
+    // mesclar com mais cores (degradê, como o arco-íris do LGBTQ+)
+    col.addView(label("Mesclar com mais cores (opcional)", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 2))
+    col.addView(
+        label("Toque nas cores para misturar com a principal num degradê. Toque de novo para tirar.", 11.5f, Palette.muted),
+        lin(MATCH, WRAP, b = 8)
+    )
+    val mixFlow = FlowLayout(this)
+    mixFlow.hGap = dp(8)
+    mixFlow.vGap = dp(8)
+    val mixCells = ArrayList<Pair<View, Int>>()
+    fun styleMix() {
+        for ((v, cc) in mixCells) {
+            val on = extraCols.contains(cc)
+            v.background = roundRect(cc, dp(18).toFloat(), if (on) Palette.text else Color.TRANSPARENT, dp(3))
+            v.alpha = if (on) 1f else 0.55f
+        }
+    }
+    for (cc in genreColorChoices) {
+        val v = View(this)
+        mixCells.add(Pair(v, cc))
+        v.setOnClickListener {
+            if (extraCols.contains(cc)) extraCols.remove(cc) else extraCols.add(cc)
+            styleMix()
+            restyle()
+            seal.pop(1.2f)
+        }
+        v.pressable(0.88f)
+        mixFlow.addView(v, lin(dp(36), dp(36)))
+    }
+    styleMix()
+    col.addView(mixFlow, lin(MATCH, WRAP))
 
     // ícones
     col.addView(label("Ícone", 12.5f, Palette.muted, true), lin(WRAP, WRAP, t = 14, b = 8))
@@ -436,15 +470,15 @@ fun Activity.showGenreEditor(existing: Genre?, onDone: (Genre) -> Unit) {
         val n9 = ""
         val n10 = l10In.text.toString().trim()
         if (existing == null) {
-            val g = Genres.makeCustom("c" + System.currentTimeMillis(), nm, icon, color, tag, low, mid, n9, n10)
+            val g = Genres.makeCustom("c" + System.currentTimeMillis(), nm, icon, color, tag, low, mid, n9, n10, extraCols.toList())
             Store.addGenre(g)
             dlg.dismiss()
             onDone(g)
         } else {
             val g = if (existing.custom) {
-                Genres.makeCustom(existing.key, nm, icon, color, tag, low, mid, n9, n10)
+                Genres.makeCustom(existing.key, nm, icon, color, tag, low, mid, n9, n10, extraCols.toList())
             } else {
-                Genres.editBuiltin(existing, nm, icon, color, tag, low, mid, n9, n10)
+                Genres.editBuiltin(existing, nm, icon, color, tag, low, mid, n9, n10, extraCols.toList())
             }
             Store.updateGenre(g)
             dlg.dismiss()

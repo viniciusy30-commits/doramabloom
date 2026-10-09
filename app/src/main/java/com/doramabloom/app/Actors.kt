@@ -601,14 +601,19 @@ private fun Context.actorRow(a: Actor, rank: Int, maxCount: Int, onOpen: (Actor)
 
 // ===================================================================== CLASSIFICAR (ator ou atriz)
 
-/** Passa pessoa por pessoa perguntando se é ator ou atriz. Cada toque já fica salvo. */
+/**
+ * Passa pessoa por pessoa. Para cada uma o app pesquisa sozinho (Wikidata) se é ator ou atriz e mostra a
+ * sugestão; você confirma tocando no botão. Também dá para classificar todo mundo automaticamente.
+ */
 fun Activity.showClassifyDialog(onDone: () -> Unit) {
-    val todo = Actors.all().filter { it.gender.isEmpty() }.sortedWith(Actors.order)
+    var todo = Actors.all().filter { it.gender.isEmpty() }.sortedWith(Actors.order)
     if (todo.isEmpty()) {
         onDone()
         return
     }
     var idx = 0
+    var token = 0
+    var closed = false
     val box = LinearLayout(this)
     box.orientation = LinearLayout.VERTICAL
     box.gravity = Gravity.CENTER_HORIZONTAL
@@ -616,15 +621,120 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
     box.background = roundRect(Palette.card, dp(28).toFloat())
     val dialog = AlertDialog.Builder(this).setView(box).create()
 
-    fun choose(g: String) {
-        val a = todo[idx]
+    fun saveGender(a: Actor, g: String) {
         val info = Store.personInfo(a.key) ?: PersonInfo(a.key, a.name)
         info.gender = g
         Store.savePersonInfo(info)
-        idx++
     }
 
-    fun render() {
+    fun spinner(color: Int, size: Int): android.widget.ProgressBar {
+        val pb = android.widget.ProgressBar(this)
+        pb.isIndeterminate = true
+        pb.indeterminateTintList = android.content.res.ColorStateList.valueOf(color)
+        pb.layoutParams = LinearLayout.LayoutParams(dp(size), dp(size))
+        return pb
+    }
+
+    fun genderWord(g: String) = if (g == "f") "atriz" else "ator"
+
+    lateinit var render: () -> Unit
+
+    // ---------- classificar todo mundo sozinho
+    fun runAuto() {
+        val list = todo.drop(idx)
+        val my = ++token
+        box.removeAllViews()
+        val neutral = Actors.accent("")
+        box.addView(label("Classificando sozinho", 17f, Palette.text, true, true))
+        box.addView(label("Pesquisando cada pessoa no Wikidata", 12f, Palette.muted), lin(WRAP, WRAP, t = 2))
+        val bar = SoftBar(this)
+        bar.barColor = neutral
+        box.addView(bar, lin(MATCH, dp(6), t = 14))
+        val counter = label("0 de " + list.size, 12f, Palette.muted, true)
+        box.addView(counter, lin(WRAP, WRAP, t = 6))
+        val cur = LinearLayout(this)
+        cur.orientation = LinearLayout.HORIZONTAL
+        cur.gravity = Gravity.CENTER_VERTICAL
+        cur.addView(spinner(neutral, 22))
+        val curName = label("", 14f, Palette.text, true)
+        curName.maxLines = 1
+        curName.ellipsize = TextUtils.TruncateAt.END
+        cur.addView(curName, lin(0, WRAP, 1f, l = 10))
+        box.addView(cur, lin(MATCH, WRAP, t = 14))
+        val step = label("", 11.5f, Palette.muted)
+        box.addView(step, lin(MATCH, WRAP, t = 4))
+        val logBox = LinearLayout(this)
+        logBox.orientation = LinearLayout.VERTICAL
+        box.addView(logBox, lin(MATCH, WRAP, t = 12))
+        val stop = pill("Parar", Palette.pinkSoft, Palette.pinkDark, 12.5f, "close")
+        box.addView(stop, lin(WRAP, WRAP, t = 14))
+        stop.setOnClickListener { token++ ; render() }
+
+        var okCount = 0
+        var failCount = 0
+        Thread {
+            for ((i, a) in list.withIndex()) {
+                if (my != token || closed) return@Thread
+                runOnUiThread {
+                    if (my == token && !closed) {
+                        counter.text = (i + 1).toString() + " de " + list.size
+                        bar.progress = i.toFloat() / list.size
+                        curName.text = a.name
+                        step.text = "Começando…"
+                    }
+                }
+                val r = GenderLookup.lookup(a.name) { st ->
+                    runOnUiThread { if (my == token && !closed) step.text = st }
+                }
+                runOnUiThread {
+                    if (my != token || closed) return@runOnUiThread
+                    val line = LinearLayout(this)
+                    line.orientation = LinearLayout.HORIZONTAL
+                    line.gravity = Gravity.CENTER_VERTICAL
+                    if (r.gender.isNotEmpty()) {
+                        saveGender(a, r.gender)
+                        okCount++
+                        line.addView(IconView(this, if (r.gender == "f") "heart" else "star", Actors.accent(r.gender), 14))
+                        val t = label(a.name + "  →  " + genderWord(r.gender), 12f, Palette.text)
+                        t.maxLines = 1
+                        t.ellipsize = TextUtils.TruncateAt.END
+                        line.addView(t, lin(0, WRAP, 1f, l = 8))
+                    } else {
+                        failCount++
+                        line.addView(IconView(this, "forward", Palette.muted, 14))
+                        val t = label(a.name + "  →  não achei", 12f, Palette.muted)
+                        t.maxLines = 1
+                        t.ellipsize = TextUtils.TruncateAt.END
+                        line.addView(t, lin(0, WRAP, 1f, l = 8))
+                    }
+                    logBox.addView(line, 0, lin(MATCH, WRAP, t = 3))
+                    while (logBox.childCount > 4) logBox.removeViewAt(logBox.childCount - 1)
+                }
+                try { Thread.sleep(120) } catch (e: Exception) {}
+            }
+            runOnUiThread {
+                if (my != token || closed) return@runOnUiThread
+                bar.progress = 1f
+                box.removeAllViews()
+                box.addView(label("Pronto!", 20f, Palette.text, true, true))
+                box.addView(
+                    label(okCount.toString() + " classificados sozinhos" + (if (failCount > 0) "\n" + failCount + " para você decidir" else ""), 13f, Palette.muted)
+                        .also { it.gravity = Gravity.CENTER },
+                    lin(MATCH, WRAP, t = 8)
+                )
+                val go = bigPill(if (failCount > 0) "Revisar o resto" else "Concluir", Actors.accent("f"), Color.WHITE, 15f, "heart")
+                go.setOnClickListener {
+                    todo = Actors.all().filter { it.gender.isEmpty() }.sortedWith(Actors.order)
+                    idx = 0
+                    if (todo.isEmpty()) dialog.dismiss() else render()
+                }
+                box.addView(go, lin(MATCH, WRAP, t = 16))
+            }
+        }.start()
+    }
+
+    // ---------- uma pessoa por vez, com sugestão automática
+    render = fun() {
         box.removeAllViews()
         if (idx >= todo.size) {
             dialog.dismiss()
@@ -648,27 +758,47 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
         sub.gravity = Gravity.CENTER
         box.addView(sub, lin(MATCH, WRAP, t = 4))
 
+        // área da pesquisa automática
+        val auto = LinearLayout(this)
+        auto.orientation = LinearLayout.VERTICAL
+        auto.gravity = Gravity.CENTER_HORIZONTAL
+        auto.setPadding(dp(12), dp(10), dp(12), dp(10))
+        auto.background = roundRect(mixColor(Palette.card, neutral, if (Palette.dark) 0.18f else 0.10f), dp(16).toFloat())
+        box.addView(auto, lin(MATCH, WRAP, t = 14))
+        val loadRow = LinearLayout(this)
+        loadRow.orientation = LinearLayout.HORIZONTAL
+        loadRow.gravity = Gravity.CENTER_VERTICAL
+        loadRow.addView(spinner(neutral, 20))
+        val stepTv = label("Pesquisando…", 12f, Palette.muted)
+        loadRow.addView(stepTv, lin(0, WRAP, 1f, l = 10))
+        auto.addView(loadRow, lin(MATCH, WRAP))
+
         val btns = LinearLayout(this)
         btns.orientation = LinearLayout.HORIZONTAL
         val bf = bigPill("Atriz", Actors.accent("f"), Color.WHITE, 15f, "heart")
         bf.setOnClickListener {
-            choose("f")
+            token++
+            saveGender(a, "f")
+            idx++
             render()
         }
         val bm = bigPill("Ator", Actors.accent("m"), Color.WHITE, 15f, "star")
         bm.setOnClickListener {
-            choose("m")
+            token++
+            saveGender(a, "m")
+            idx++
             render()
         }
         btns.addView(bf, lin(0, WRAP, 1f, r = 6))
         btns.addView(bm, lin(0, WRAP, 1f, l = 6))
-        box.addView(btns, lin(MATCH, WRAP, t = 18))
+        box.addView(btns, lin(MATCH, WRAP, t = 14))
 
         val foot = LinearLayout(this)
         foot.orientation = LinearLayout.HORIZONTAL
         foot.gravity = Gravity.CENTER_HORIZONTAL
         val skip = pill("Pular", Palette.pinkSoft, Palette.pinkDark, 12.5f, "forward")
         skip.setOnClickListener {
+            token++
             idx++
             render()
         }
@@ -677,14 +807,60 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
         foot.addView(skip, lin(WRAP, WRAP, r = 8))
         foot.addView(close, lin(WRAP, WRAP))
         box.addView(foot, lin(MATCH, WRAP, t = 12))
+        if (todo.size - idx > 1) {
+            val all = pill("Classificar todos sozinho", Actors.soft("f"), Actors.accent("f"), 12.5f, "star")
+            all.setOnClickListener { runAuto() }
+            box.addView(all, lin(WRAP, WRAP, t = 10))
+        }
         box.riseIn(0L, 10, 260L)
+
+        // pesquisa em segundo plano
+        val my = ++token
+        Thread {
+            val r = GenderLookup.lookup(a.name) { st ->
+                runOnUiThread { if (my == token && !closed) stepTv.text = st }
+            }
+            runOnUiThread {
+                if (my != token || closed) return@runOnUiThread
+                auto.removeAllViews()
+                if (r.gender.isEmpty()) {
+                    val t = label("Não consegui descobrir sozinho. Escolha você.", 12.5f, Palette.muted)
+                    t.gravity = Gravity.CENTER
+                    auto.addView(t, lin(MATCH, WRAP))
+                } else {
+                    val col = Actors.accent(r.gender)
+                    val head = LinearLayout(this)
+                    head.orientation = LinearLayout.HORIZONTAL
+                    head.gravity = Gravity.CENTER_VERTICAL
+                    head.addView(IconView(this, if (r.gender == "f") "heart" else "star", col, 18))
+                    head.addView(label("Parece ser " + genderWord(r.gender), 14.5f, col, true), lin(WRAP, WRAP, l = 8))
+                    auto.addView(head, lin(WRAP, WRAP))
+                    val who = r.foundName + (if (r.description.isNotBlank()) " · " + r.description else "")
+                    val d = label(who, 11.5f, Palette.muted)
+                    d.gravity = Gravity.CENTER
+                    d.maxLines = 2
+                    d.ellipsize = TextUtils.TruncateAt.END
+                    auto.addView(d, lin(MATCH, WRAP, t = 4))
+                    auto.addView(
+                        label(if (r.confidence >= 2) "Confiança alta · fonte: Wikidata" else "Confiança média · confira antes de tocar", 10.5f, Palette.muted, true),
+                        lin(WRAP, WRAP, t = 4)
+                    )
+                    // destaca o botão sugerido
+                    (if (r.gender == "f") bm else bf).alpha = 0.45f
+                }
+                auto.riseIn(0L, 6, 220L)
+            }
+        }.start()
     }
 
-    dialog.setOnDismissListener { onDone() }
+    dialog.setOnDismissListener {
+        closed = true
+        token++
+        onDone()
+    }
     render()
     dialog.show()
 }
-
 
 // ===================================================================== REORDENAR O TOP 10 ARRASTANDO
 

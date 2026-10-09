@@ -43,8 +43,13 @@ data class Genre(
     /** Frase da nota 9. */
     val line9: String = DEFAULT_LINE_9,
     /** Frase da nota 10. */
-    val line10: String = DEFAULT_LINE_10
+    val line10: String = DEFAULT_LINE_10,
+    /** Cores extras para mesclar com a principal (vazio = cor única). */
+    val extra: List<Int> = emptyList()
 ) {
+    /** Todas as cores do gênero, sem repetir (a primeira é a principal). */
+    val colors: List<Int> get() = (listOf(primary) + extra).distinct()
+
     /** Cor principal; no modo escuro as muito escuras (preto, cinza) são clareadas para aparecer. */
     val primary: Int
         get() {
@@ -94,6 +99,10 @@ object Genres {
         Genre("romance", "Romance", "heart", c("#FF6B9D"), c("#FFE4EE"), c("#A3305B"),
             listOf("petal", "blossom", "sparkle"), "Para suspirar abraçada na almofada",
             line9 = "Suspirei tanto que faltou ar, amei demais", line10 = "Final perfeito: meu coração virou geleia e não quer voltar"),
+        Genre("lgbt", "LGBTQ+", "rainbow", c("#E8505B"), mixColor(c("#E8505B"), Color.WHITE, 0.84f), mixColor(c("#E8505B"), Color.BLACK, 0.42f),
+            listOf("rainbow", "heart", "sparkle"), "Amor sem rótulo e orgulho em cada cena",
+            line9 = "Representatividade linda: eu me vi em cada cena", line10 = "Arco-íris completo: amei, chorei e me senti em casa",
+            extra = listOf(c("#FF7A3D"), c("#F5D547"), c("#5DB56E"), c("#4F6D9A"), c("#A068E0"))),
         Genre("comedia", "Comédia", "smile", c("#FFB84D"), c("#FFF3D6"), c("#8A5A00"),
             listOf("star", "sparkle"), "Risadinhas garantidas",
             line9 = "Chorei de rir, a barriga até doeu", line10 = "Obra-prima do humor: ri do começo ao fim sem parar"),
@@ -167,8 +176,9 @@ object Genres {
     fun factoryOf(k: String): Genre? = factory.firstOrNull { it.key == k }
 
     /** Gênero de fábrica com nome, ícone, cor e frase novos (mantém o resto se a cor não mudou). */
-    fun editBuiltin(base: Genre, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = "", l9: String = "", l10: String = ""): Genre {
+    fun editBuiltin(base: Genre, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = "", l9: String = "", l10: String = "", extra: List<Int>? = null): Genre {
         val orig = factoryOf(base.key) ?: base
+        val ex = (extra ?: if (primary == orig.base) orig.extra else emptyList()).filter { it != primary }.distinct()
         val n9 = if (l9.isBlank()) orig.line9 else l9
         val n10 = if (l10.isBlank()) orig.line10 else l10
         val tag = if (tagline.isBlank()) orig.tagline else tagline
@@ -176,13 +186,13 @@ object Genres {
         val mi = if (mid.isBlank()) DEFAULT_MID_LINE else mid
         val pet = if (icon == orig.icon) orig.petals else (listOf(icon) + orig.petals.drop(1)).distinct()
         return if (primary == orig.base) {
-            orig.copy(label = label, icon = icon, tagline = tag, petals = pet, lowLine = lo, midLine = mi, line9 = n9, line10 = n10)
+            orig.copy(label = label, icon = icon, tagline = tag, petals = pet, lowLine = lo, midLine = mi, line9 = n9, line10 = n10, extra = ex)
         } else {
             orig.copy(
                 label = label, icon = icon, base = primary,
                 softL = mixColor(primary, Color.WHITE, 0.84f),
                 darkL = mixColor(primary, Color.BLACK, 0.42f),
-                tagline = tag, petals = pet, lowLine = lo, midLine = mi, line9 = n9, line10 = n10
+                tagline = tag, petals = pet, lowLine = lo, midLine = mi, line9 = n9, line10 = n10, extra = ex
             )
         }
     }
@@ -201,7 +211,7 @@ object Genres {
     fun byKey(k: String): Genre = all.firstOrNull { it.key == k } ?: builtin[0]
 
     /** Monta um gênero novo a partir de nome, ícone e cor; o resto (tons claro e escuro) sai da cor. */
-    fun makeCustom(key: String, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = "", l9: String = "", l10: String = ""): Genre =
+    fun makeCustom(key: String, label: String, icon: String, primary: Int, tagline: String, low: String = "", mid: String = "", l9: String = "", l10: String = "", extra: List<Int> = emptyList()): Genre =
         Genre(
             key, label, icon, primary,
             mixColor(primary, Color.WHITE, 0.84f),
@@ -212,7 +222,8 @@ object Genres {
             if (low.isBlank()) DEFAULT_LOW_LINE else low,
             if (mid.isBlank()) DEFAULT_MID_LINE else mid,
             if (l9.isBlank()) DEFAULT_LINE_9 else l9,
-            if (l10.isBlank()) DEFAULT_LINE_10 else l10
+            if (l10.isBlank()) DEFAULT_LINE_10 else l10,
+            extra.filter { it != primary }.distinct()
         )
 }
 
@@ -392,8 +403,30 @@ data class Drama(
     var castPeople: List<CastPerson> = emptyList(),
     var couplePhoto: String = "",
     /** Até 3 gêneros extras escolhidos para aparecer no cartão da Estante (vazio = os 3 primeiros). */
-    var shelfTags: List<String> = emptyList()
+    var shelfTags: List<String> = emptyList(),
+    /** Supremacy: os pouquíssimos doramas acima de todos os favoritos. */
+    var supremacy: Boolean = false
 )
+
+/**
+ * Anos de lançamento: aceita 2019, 19 ou várias temporadas ("19-22", "2019, 2020, 2022") e deixa tudo em
+ * 4 dígitos. Com mais de um ano vira o período, por exemplo "2019–2022".
+ */
+fun normalizeYears(raw: String): String {
+    val ys = Regex("\\d+").findAll(raw).mapNotNull { m ->
+        val n = m.value
+        val v = n.toIntOrNull() ?: return@mapNotNull null
+        when (n.length) {
+            2 -> if (v <= 69) 2000 + v else 1900 + v
+            4 -> v
+            else -> null
+        }
+    }.toList()
+    if (ys.isEmpty()) return raw.trim()
+    val lo = ys.minOrNull() ?: 0
+    val hi = ys.maxOrNull() ?: 0
+    return if (lo == hi) lo.toString() else "$lo–$hi"
+}
 
 /** Gêneros extras que aparecem no cartão da Estante: os escolhidos (até 3) ou, sem escolha, os 3 primeiros. */
 fun shelfPick(d: Drama): List<String> {
@@ -605,6 +638,7 @@ private fun Drama.toJson(): JSONObject {
     o.put("soundtrackName", soundtrackName)
     o.put("couplePhoto", couplePhoto)
     o.put("shelfTags", JSONArray().also { a -> for (t in shelfTags) a.put(t) })
+    o.put("supremacy", supremacy)
     val cp = JSONArray()
     for (p in castPeople) {
         val po = JSONObject()
@@ -659,10 +693,16 @@ private fun dramaFromJson(o: JSONObject): Drama {
         soundtrackName = o.optString("soundtrackName", ""),
         castPeople = castFromJson(o.optJSONArray("castPeople"), o.optString("cast", "")),
         couplePhoto = o.optString("couplePhoto", ""),
-        shelfTags = jsonStrings(o.optJSONArray("shelfTags"))
+        shelfTags = jsonStrings(o.optJSONArray("shelfTags")),
+        supremacy = o.optBoolean("supremacy", false)
     )
     normalize(d)
     return d
+}
+
+private fun colorsOf(o: JSONObject): List<Int> {
+    val a = o.optJSONArray("extra") ?: return emptyList()
+    return (0 until a.length()).map { a.optInt(it) }
 }
 
 object Store {
@@ -784,6 +824,7 @@ object Store {
         o.put("mid", g.midLine)
         o.put("l9", g.line9)
         o.put("l10", g.line10)
+        o.put("extra", JSONArray(g.extra))
         return o
     }
 
@@ -799,7 +840,7 @@ object Store {
                 r.add(
                     Genres.makeCustom(
                         k, l, o.optString("icon", "heart"),
-                        o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
+                        o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", ""), colorsOf(o)
                     )
                 )
             }
@@ -834,7 +875,8 @@ object Store {
         if (l.isEmpty()) return null
         return Genres.editBuiltin(
             base, l, o.optString("icon", base.icon),
-            o.optInt("color", base.base), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
+            o.optInt("color", base.base), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", ""),
+            if (o.has("extra")) colorsOf(o) else null
         )
     }
 
@@ -1421,7 +1463,7 @@ object Store {
                         cur.add(
                             Genres.makeCustom(
                                 k, l, o.optString("icon", "heart"),
-                                o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
+                                o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", ""), colorsOf(o)
                             )
                         )
                     }
@@ -1640,7 +1682,7 @@ object Store {
             r.add(
                 Genres.makeCustom(
                     k, l, o.optString("icon", "heart"),
-                    o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", "")
+                    o.optInt("color", Palette.pink), o.optString("tagline", ""), o.optString("low", ""), o.optString("mid", ""), o.optString("l9", ""), o.optString("l10", ""), colorsOf(o)
                 )
             )
         }

@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -55,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private var effBanner: ShelfBanner? = null
     private var filterPanel: LinearLayout? = null
     private var filterPill: TextView? = null
+    private var sortPill: TextView? = null
     private var filtersOpen = false
     private var effIcon: IconView? = null
     private var effSeal: SealView? = null
@@ -282,6 +284,7 @@ class MainActivity : AppCompatActivity() {
             }
             1 -> when {
                 genreFilter != "all" -> Genres.byKey(genreFilter).primary
+                statusFilter == "sup" -> Color.parseColor("#E0A100")
                 statusFilter == "fav" -> Palette.pink
                 statusFilter != "all" -> Statuses.byKey(statusFilter).color
                 else -> Palette.pink
@@ -308,6 +311,7 @@ class MainActivity : AppCompatActivity() {
             navIndicator.background = roundRect(c, dp(22).toFloat())
             searchBox?.background = roundRect(Palette.card, dp(24).toFloat(), if (tab == 1) c else Palette.line, dp(if (c == Palette.pink) 1 else 2))
             listInfo?.setTextColor(c)
+            if (tab == 1) stylePills(c)
         }
     }
 
@@ -346,6 +350,45 @@ class MainActivity : AppCompatActivity() {
                 if (inner is LinearLayout) inner.staggerIn(60L)
             }
         }
+    }
+
+    /** Faixa dourada com os doramas Supremacy. */
+    private fun supremacyHall(list: List<Drama>): View {
+        val wrap = LinearLayout(this)
+        wrap.orientation = LinearLayout.VERTICAL
+        wrap.setPadding(dp(14), dp(12), dp(14), dp(14))
+        wrap.background = gradient(Color.parseColor("#FFD669"), Color.parseColor("#E39A00"), dp(24).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
+        val head = LinearLayout(this)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.addView(IconView(this, "crown", Color.WHITE, 22))
+        val t = label("Supremacy", 18f, Color.WHITE, true, true)
+        t.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), Color.argb(70, 0, 0, 0))
+        head.addView(t, lin(0, WRAP, 1f, l = 8))
+        head.addView(label(list.size.toString() + (if (list.size == 1) " dorama" else " doramas"), 12f, Color.parseColor("#F2FFFFFF"), true))
+        wrap.addView(head, lin(MATCH, WRAP))
+        wrap.addView(label("Acima de todos os favoritos", 11.5f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 1))
+        val hs = android.widget.HorizontalScrollView(this)
+        hs.isHorizontalScrollBarEnabled = false
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        for (d in list) {
+            val item = LinearLayout(this)
+            item.orientation = LinearLayout.VERTICAL
+            val cv = CoverView(this, 14)
+            cv.bind(d, dp(96))
+            item.addView(cv, lin(dp(84), dp(124)))
+            val nm = label(d.title, 10.5f, Color.WHITE, true)
+            nm.maxLines = 2
+            nm.ellipsize = TextUtils.TruncateAt.END
+            item.addView(nm, lin(dp(84), WRAP, t = 4))
+            item.setOnClickListener { open(d, list, "Supremacy") }
+            item.pressable(0.95f)
+            row.addView(item, lin(WRAP, WRAP, r = 10))
+        }
+        hs.addView(row)
+        wrap.addView(hs, lin(MATCH, WRAP, t = 10))
+        return wrap
     }
 
     /** Abre o dorama; [list] é a lista em que ele está (dá para deslizar entre eles). */
@@ -423,6 +466,10 @@ class MainActivity : AppCompatActivity() {
         paintHi(homeWatching.getOrNull(homePage)?.let { Genres.byKey(it.genre) })
 
         col.addView(hiWrap, lin(MATCH, WRAP))
+
+        // Salão Supremacy: os poucos doramas acima de todos os favoritos (só aparece se houver algum)
+        val sup = all.filter { it.supremacy }.sortedWith(compareByDescending<Drama> { it.score }.thenBy { it.title.lowercase() })
+        if (sup.isNotEmpty()) col.addView(supremacyHall(sup), lin(MATCH, WRAP, t = 10))
 
         // destaque: ocupa todo o espaço entre o cartão e a barra de baixo
         val feat = FrameLayout(this)
@@ -591,7 +638,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun filteredFor(key: String): List<Drama> {
         var l = Store.all()
-        if (statusFilter == "fav") {
+        if (statusFilter == "sup") {
+            l = l.filter { it.supremacy }
+        } else if (statusFilter == "fav") {
             l = l.filter { it.favorite }
         } else if (statusFilter != "all") {
             l = l.filter { it.status == statusFilter }
@@ -626,7 +675,8 @@ class MainActivity : AppCompatActivity() {
     /** Nome da lista aberta na Estante (ex.: "Assistindo · Romance"). */
     private fun shelfListName(key: String = genreFilter): String {
         val parts = ArrayList<String>()
-        if (statusFilter == "fav") parts.add("Favoritos")
+        if (statusFilter == "sup") parts.add("Supremacy")
+        else if (statusFilter == "fav") parts.add("Favoritos")
         else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
         if (key != "all") parts.add(Genres.byKey(key).label)
         if (query.isNotBlank()) parts.add("Busca")
@@ -634,13 +684,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Botão "Filtros": cheio de cor quando o painel está aberto ou tem filtro ligado. */
-    private fun styleFilterPill() {
+    private fun styleFilterPill(c: Int = accent) {
         val f = filterPill ?: return
         val on = filtersOpen || statusFilter != "all"
-        val fg = if (on) Color.WHITE else Palette.pink
-        f.background = roundRect(if (on) Palette.pink else Palette.card, dp(20).toFloat())
+        val fg = if (on) Color.WHITE else c
+        f.background = roundRect(if (on) c else Palette.card, dp(20).toFloat())
         f.setTextColor(fg)
         f.setCompoundDrawables(iconDrawable("filter", fg, dp(16)), null, null, null)
+    }
+
+    private fun recolorPill(tv: TextView, bg: Int, fg: Int, icon: String) {
+        tv.background = roundRect(bg, dp(20).toFloat())
+        tv.setTextColor(fg)
+        tv.setCompoundDrawables(iconDrawable(icon, fg, dp(16)), null, null, null)
+    }
+
+    /** Filtros, Limpar e Recentes seguem a cor da categoria aberta. */
+    private fun stylePills(c: Int) {
+        styleFilterPill(c)
+        sortPill?.let { recolorPill(it, Palette.card, c, "sort") }
+        clearPill?.let { recolorPill(it, mixColor(Palette.card, c, if (Palette.dark) 0.30f else 0.16f), c, "close") }
     }
 
     /** Abre ou fecha o painel de filtros deslizando. */
@@ -1037,6 +1100,7 @@ class MainActivity : AppCompatActivity() {
         // status
         val statusOpts = ArrayList<Opt>()
         statusOpts.add(Opt("all", "Todos", Palette.pink, "heart"))
+        statusOpts.add(Opt("sup", "Supremacy", Color.parseColor("#E0A100"), "crown"))
         statusOpts.add(Opt("fav", "Favoritos", Palette.pink, "star"))
         for (s in Statuses.all) statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
         fp.addView(chipScroller(statusOpts, statusFilter) {
@@ -1049,7 +1113,7 @@ class MainActivity : AppCompatActivity() {
         val genreOpts = ArrayList<Opt>()
         for (k in shelfKeys) {
             if (k == "all") genreOpts.add(Opt("all", "Todos", Palette.pink, "tag"))
-            else Genres.byKey(k).let { genreOpts.add(Opt(it.key, it.label, it.primary, it.icon)) }
+            else Genres.byKey(k).let { genreOpts.add(Opt(it.key, it.label, it.primary, it.icon, it.colors)) }
         }
         val gchips = chipScroller(genreOpts, genreFilter) { k ->
             val i = shelfKeys.indexOf(k)
@@ -1166,6 +1230,7 @@ class MainActivity : AppCompatActivity() {
             refreshList()
             if (sortMode == 4) softToast("Segure um dorama e arraste para mudar a ordem", Palette.pink, "sort")
         }
+        sortPill = sb
         info.addView(sb, lin(WRAP, WRAP))
         col.addView(info, lin(MATCH, WRAP, t = 10, b = 2))
         col.addView(fp, lin(MATCH, WRAP))
@@ -1179,7 +1244,7 @@ class MainActivity : AppCompatActivity() {
         gb.setOnClickListener { switchView(true) }
 
         applyPager(rv)
-        styleFilterPill()
+        stylePills(accent)
         updateClear()
         return col
     }

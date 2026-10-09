@@ -36,6 +36,8 @@ class EditActivity : AppCompatActivity() {
     private var country = countries[0]
     private var score = 0
     private var favorite = false
+    private var supremacy = false
+    private var supPill: TextView? = null
     private var rewatch = 0
     private var startDate = 0L
     private var endDate = 0L
@@ -112,6 +114,7 @@ class EditActivity : AppCompatActivity() {
             country = ex.country
             score = ex.score
             favorite = ex.favorite
+            supremacy = ex.supremacy
             rewatch = ex.rewatch
             startDate = ex.startDate
             endDate = ex.endDate
@@ -265,6 +268,22 @@ class EditActivity : AppCompatActivity() {
         styleFavPill()
         c4.addView(favTv, lin(WRAP, WRAP, t = 12))
 
+        val supTv = pill("Marcar como Supremacy", Palette.card, Color.parseColor("#E0A100"), 15f, "crown")
+        supTv.setPadding(dp(18), dp(10), dp(20), dp(10))
+        supPill = supTv
+        supTv.setOnClickListener {
+            supremacy = !supremacy
+            if (supremacy) {
+                favorite = true // quem é Supremacy também é favorito
+                styleFavPill()
+            }
+            styleSupPill()
+            supTv.pop(1.3f)
+        }
+        styleSupPill()
+        c4.addView(supTv, lin(WRAP, WRAP, t = 8))
+        c4.addView(label("Supremacy é para os pouquíssimos doramas acima de todos os favoritos.", 11f, Palette.muted), lin(WRAP, WRAP, t = 4))
+
         val rwRow = LinearLayout(this)
         rwRow.orientation = LinearLayout.HORIZONTAL
         rwRow.gravity = Gravity.CENTER_VERTICAL
@@ -296,7 +315,7 @@ class EditActivity : AppCompatActivity() {
         c5.addView(streamFlow, lin(MATCH, WRAP))
         refreshStreams()
         c5.addView(fieldLabel("Ano"))
-        yearIn = input("Ano", ex?.year ?: "", InputType.TYPE_CLASS_NUMBER)
+        yearIn = input("Ano (várias temporadas? ex.: 19-22)", ex?.year ?: "", InputType.TYPE_CLASS_TEXT)
         c5.addView(yearIn, lin(MATCH, WRAP))
         c5.addView(fieldLabel("Datas (só os números; o ano pode ter 2 dígitos: 22 vira 2022)"))
         val dRow = LinearLayout(this)
@@ -475,7 +494,7 @@ class EditActivity : AppCompatActivity() {
         )
 
         val gOpts = ArrayList<Opt>()
-        for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon))
+        for (g in Genres.all) gOpts.add(Opt(g.key, g.label, g.primary, g.icon, g.colors))
         val flow = chipFlow(gOpts, genreKey) {
             genreKey = it
             stylePanel()
@@ -528,7 +547,7 @@ class EditActivity : AppCompatActivity() {
         }
         if (Genres.exists(k)) {
             val g = Genres.byKey(k)
-            return Opt(g.key, g.label, g.primary, g.icon)
+            return Opt(g.key, g.label, g.primary, g.icon, g.colors)
         }
         return null
     }
@@ -557,6 +576,18 @@ class EditActivity : AppCompatActivity() {
         box.addView(multiFlow(opts, shelf.toSet(), 3) { chosen ->
             shelf = ArrayList(avail.filter { chosen.contains(it) })
         }, lin(MATCH, WRAP))
+    }
+
+    /** Botão Supremacy: dourado. */
+    private fun styleSupPill() {
+        val tv = supPill ?: return
+        val gold = Color.parseColor("#E0A100")
+        val fg = if (supremacy) Color.WHITE else gold
+        tv.text = if (supremacy) "Supremacy" else "Marcar como Supremacy"
+        tv.background = roundRect(if (supremacy) gold else Palette.card, dp(24).toFloat(), gold, dp(2))
+        tv.setTextColor(fg)
+        tv.setCompoundDrawables(iconDrawable("crown", fg, dp(24)), null, null, null)
+        tv.compoundDrawablePadding = dp(8)
     }
 
     /** Botão de favorito na cor do gênero escolhido. */
@@ -970,7 +1001,7 @@ class EditActivity : AppCompatActivity() {
             seasonEps = ArrayList(seasonTotals),
             watched = ArrayList(seasonWatched),
             epMinutes = minutesIn.text.toString().toIntOrNull() ?: 0,
-            year = yearIn.text.toString().trim().let { y -> if (y.length == 2 && y.all { it.isDigit() }) fullYear(y.toInt()).toString() else y },
+                        year = normalizeYears(yearIn.text.toString()),
             platform = Streamings.encode(streams),
             cast = castList.map { it.name.trim() }.filter { it.isNotEmpty() }.joinToString(", "),
             couple = coupleIn.text.toString().trim(),
@@ -979,6 +1010,7 @@ class EditActivity : AppCompatActivity() {
             rewatch = rewatch,
             notes = notesIn.text.toString().trim(),
             favorite = favorite,
+            supremacy = supremacy,
             cover = coverPath,
             addedAt = if (old != null) old.addedAt else System.currentTimeMillis(),
             link = old?.link ?: "",

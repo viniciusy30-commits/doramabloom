@@ -569,7 +569,11 @@ class DetailActivity : AppCompatActivity() {
 
         // ---- hero: capa grande no centro, fundo liso e enfeitado (nada borrado), duas capas com a foto atrás
         val hero = FrameLayout(this)
-        hero.background = gradient(g.primary, g.deep, dp(34).toFloat(), GradientDrawable.Orientation.TL_BR)
+        hero.background = if (g.extra.isEmpty()) {
+            gradient(g.primary, g.deep, dp(34).toFloat(), GradientDrawable.Orientation.TL_BR)
+        } else {
+            (multiColorBg(g.colors, true, dp(34).toFloat()) as GradientDrawable).also { it.orientation = GradientDrawable.Orientation.TL_BR }
+        }
         hero.elevation = 0f
         hero.clipToOutline = true
         hero.addView(HeroDecor(this, g), FrameLayout.LayoutParams(MATCH, MATCH))
@@ -628,12 +632,12 @@ class DetailActivity : AppCompatActivity() {
         flow.center = true
         flow.hGap = dp(6)
         flow.vGap = dp(6)
-        flow.addView(genrePill(g.label, g.icon, g.primary))
+        flow.addView(genrePill(g.label, g.icon, g.primary, g.colors))
         for (tk in d.tags) {
             if (tk == d.genre) continue
             if (Genres.exists(tk)) {
                 val tg = Genres.byKey(tk)
-                flow.addView(genrePill(tg.label, tg.icon, tg.primary))
+                flow.addView(genrePill(tg.label, tg.icon, tg.primary, tg.colors))
             } else if (OtherGenres.exists(tk)) {
                 // "outros gêneros" também aparecem, com a própria cor e o próprio símbolo
                 val og = OtherGenres.byKey(tk)
@@ -1071,7 +1075,7 @@ class DetailActivity : AppCompatActivity() {
             while (ic.childCount > 0) ic.removeViewAt(0)
             ic.addView(sectionTitle("Informações", "tag", g.primary))
             if (d.platform.isNotBlank()) ic.addView(infoRowView("tv", "Onde assistir", streamRow(d.platform, 12f), g.primary))
-            if (d.year.isNotBlank()) ic.addView(infoRow("calendar", "Ano de lançamento", d.year, g.primary))
+            if (d.year.isNotBlank()) ic.addView(infoRow("calendar", if (d.year.contains("–")) "Anos de lançamento" else "Ano de lançamento", d.year, g.primary))
             if (d.startDate > 0L) ic.addView(infoRow("play", "Comecei em", fmt(d.startDate), g.primary))
             if (d.endDate > 0L) ic.addView(infoRow("check", "Terminei em", fmt(d.endDate), g.primary))
             ic.addView(infoRow("calendar", "Adicionado em", fmt(d.addedAt), g.primary))

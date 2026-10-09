@@ -4,6 +4,12 @@
 - Frases dos gêneros: cada gênero agora tem uma frase para as notas 8 e 9 e outra, diferente, só para a nota 10. Ao criar ou editar um gênero dá para escrever as duas.
 - Top 10 de atores e atrizes: novo botão "Reordenar". Segure e arraste para escolher quem fica em 1º, 2º, 3º... mesmo com empate. "Automático" volta para a ordem por doramas e nota.
 - SnapTube: ele continua abrindo já na pesquisa, agora em uma tela separada do app (para a tela não tremer).
+- Novo gênero principal: LGBTQ+, com as mesmas cores do arco-íris das etiquetas: faixa colorida ondulando com corações e brilhos, e uma cena animada com arco-íris pulsando, nuvens, corações coloridos subindo e estrelinhas.
+- Mesclar cores: agora os gêneros principais também podem ter várias cores em degradê. Na hora de criar ou editar um gênero, toque nas cores em "Mesclar com mais cores". O degradê aparece nas etiquetas, nos filtros e no cartão do topo da página do dorama.
+- Supremacy: nova categoria dourada, acima dos favoritos, para os pouquíssimos doramas que são o máximo. Marque na tela de editar (ela também marca como favorito). Eles aparecem num Salão Supremacy dourado no topo do Início e num filtro "Supremacy" na Estante. A barra de baixo continua igual, com o botão de adicionar no centro.
+- Cores da categoria: os botões Filtros, Limpar e Recentes agora usam a cor do gênero aberto.
+- Várias temporadas: o campo Ano aceita 19-22 (ou 2019, 2020, 2022) e mostra o período, por exemplo 2019–2022.
+- Classificar atores: o app agora pesquisa sozinho (Wikidata) se cada pessoa do elenco é ator ou atriz, com bolinha carregando, etapas da busca e a sugestão destacada. Tem também o botão "Classificar todos sozinho".
 - Adicionar dorama: se você sair do app e voltar, o que já tinha digitado continua lá (fica guardado como rascunho até você salvar ou sair da tela).
 
 #id 2026-10-08-zt

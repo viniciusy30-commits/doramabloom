@@ -174,7 +174,8 @@ object AuraScenes {
         "familia" to FamiliaScene(),
         "vida" to VidaScene(),
         "vinganca" to VingancaScene(),
-        "crime" to CrimeScene()
+        "crime" to CrimeScene(),
+        "lgbt" to LgbtScene()
     )
 
     fun forKey(key: String): AuraScene? = map[key]
