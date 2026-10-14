@@ -1293,7 +1293,7 @@ class DetailActivity : AppCompatActivity() {
     }
 
     private fun openActor(name: String) {
-        val k = Store.personKey(name)
+        val k = PeopleIdentity.canonOfName(name)
         if (k.isEmpty()) return
         val i = Intent(this, ActorActivity::class.java)
         i.putExtra("key", k)

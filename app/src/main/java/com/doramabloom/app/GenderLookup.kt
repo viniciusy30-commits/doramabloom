@@ -16,7 +16,11 @@ object GenderLookup {
         val gender: String,
         val confidence: Int,
         val foundName: String,
-        val description: String
+        val description: String,
+        /** Id da pessoa no Wikidata (ex.: Q483669); vazio se não achou. */
+        val qid: String = "",
+        /** true quando o nome pesquisado bate com o nome (ou apelido) da pessoa achada: seguro para juntar duplicatas. */
+        val exact: Boolean = false
     )
 
     private val cache = HashMap<String, Result>()
@@ -44,10 +48,50 @@ object GenderLookup {
         return res
     }
 
+    /** Ator ou atriz (P21) de uma pessoa do Wikidata; "" se não consta. */
+    fun genderOfQid(qid: String): String {
+        val body = get("https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&property=P21&entity=$qid") ?: return ""
+        return try {
+            val id = JSONObject(body).optJSONObject("claims")?.optJSONArray("P21")?.optJSONObject(0)
+                ?.optJSONObject("mainsnak")?.optJSONObject("datavalue")?.optJSONObject("value")?.optString("id", "") ?: ""
+            when (id) {
+                "Q6581072", "Q1052281" -> "f"
+                "Q6581097", "Q2449503" -> "m"
+                else -> ""
+            }
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    /**
+     * Reconhece a pessoa PELO ELENCO dos doramas em que ela foi adicionada (mais certeiro que só o nome):
+     * acha cada dorama no Wikidata, lê o elenco oficial e vê quem ali é a pessoa. [names] são as grafias
+     * dela. Se não estiver em nenhum elenco achado, pesquisa só pelo nome, como antes.
+     */
+    fun lookupInDramas(names: List<String>, dramas: List<Drama>, onStep: (String) -> Unit): Result {
+        val ns = names.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (ns.isEmpty()) return Result("", 0, "", "")
+        for (d in dramas.take(4)) {
+            val cast = DramaCast.load(d, onStep) ?: continue
+            for (m in cast.members) {
+                val hit = ns.any { n -> m.names.any { PeopleIdentity.sameName(n, it) } }
+                if (!hit) continue
+                onStep("Achei no elenco de \"" + d.title + "\". Conferindo o gênero…")
+                val g = genderOfQid(m.qid)
+                return Result(g, if (g.isNotEmpty()) 2 else 0, m.names.firstOrNull() ?: "", "no elenco de " + d.title, m.qid, true)
+            }
+        }
+        return lookup(ns[0], onStep)
+    }
+
     private fun tryName(name: String, onStep: (String) -> Unit): Result {
         val none = Result("", 0, "", "")
         onStep("Buscando \"$name\" no Wikidata…")
-        val url = "https://www.wikidata.org/w/api.php?action=wbsearchentities&type=item&language=en&uselang=en&limit=10&format=json&search=" +
+        // nome em coreano (hangul) é pesquisado em coreano; o resto, em inglês
+        val hangul = Regex("[\\uAC00-\\uD7A3\\u1100-\\u11FF\\u3130-\\u318F]").containsMatchIn(name)
+        val lang = if (hangul) "ko" else "en"
+        val url = "https://www.wikidata.org/w/api.php?action=wbsearchentities&type=item&language=$lang&uselang=en&limit=10&format=json&search=" +
             URLEncoder.encode(name, "UTF-8")
         val body = get(url) ?: return none
         val arr = try { JSONObject(body).optJSONArray("search") } catch (e: Exception) { null } ?: return none
@@ -57,6 +101,7 @@ object GenderLookup {
         var bestLabel = ""
         var bestDesc = ""
         var bestScore = 0
+        var bestExact = false
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             val desc = o.optString("description", "").lowercase()
@@ -66,11 +111,17 @@ object GenderLookup {
             if (ASIA.containsMatchIn(desc)) sc += 2
             val label = o.optString("label", "")
             if (label.equals(name, ignoreCase = true)) sc += 1
+            // o texto que casou com a pesquisa (nome ou apelido) é o mesmo nome, só escrito de outro jeito?
+            val matchText = o.optJSONObject("match")?.optString("text", "") ?: ""
+            val same = (matchText.isNotEmpty() && PeopleIdentity.sameName(name, matchText)) ||
+                (label.isNotEmpty() && PeopleIdentity.sameName(name, label))
+            if (same) sc += 2
             if (sc > bestScore) {
                 bestScore = sc
                 bestId = o.optString("id", "")
                 bestLabel = label
                 bestDesc = o.optString("description", "")
+                bestExact = same
             }
         }
         if (bestId.isEmpty()) return none
@@ -103,10 +154,10 @@ object GenderLookup {
         if (g.isEmpty()) return none
         // alta: o cadastro do gênero e a descrição (ator/atriz) concordam ou o nome bate certinho
         val conf = if (fromDesc.isNotEmpty() && fromDesc == g) 2 else 1
-        return Result(g, conf, bestLabel, bestDesc)
+        return Result(g, conf, bestLabel, bestDesc, bestId, bestExact)
     }
 
-    private fun get(url: String): String? {
+    fun get(url: String): String? {
         var c: HttpURLConnection? = null
         return try {
             c = URL(url).openConnection() as HttpURLConnection

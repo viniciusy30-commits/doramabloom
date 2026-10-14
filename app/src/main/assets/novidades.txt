@@ -1,3 +1,30 @@
+#id 2026-10-14-dt
+#titulo Desempate do Top 10 à sua escolha
+- Pódios: acima do Top 10 há um cartão "Desempate do Top 10". Quando duas pessoas têm o mesmo número de doramas, você escolhe quem passa na frente: pela nota dos doramas em que ela(e) aparece, pelas horas de tela somadas, ou pela nota que você mesmo deu à pessoa.
+- Minha nota: no perfil de cada ator e atriz, em "Editar informações", dá para dar uma nota de 0 a 10 (aceita decimal, como 8,5). Ela só vale quando o desempate escolhido é "Minha nota".
+- O número ao lado do nome no Top 10 acompanha o critério escolhido (nota, horas ou sua nota). Se ainda empatar, o app desempata pela nota média, depois pelas horas e por fim pela ordem alfabética. "Reordenar" continua mandando em tudo.
+- O critério escolhido entra no backup.
+
+#id 2026-10-14-pe
+#titulo Reconhecimento pelo elenco do dorama
+- Pódios: o app agora acha o dorama no Wikidata, lê o elenco oficial dele e confere a pessoa dentro dessa lista. Isso é bem mais certeiro do que procurar só pelo nome e evita confundir atores com o mesmo nome.
+- Se a pessoa não estiver no elenco achado, o app ainda pesquisa só pelo nome, como antes. Os títulos em coreano e o título original do dorama também são usados na busca.
+- "Conferir de novo" nos Pódios refaz o reconhecimento de todo mundo pelo elenco, inclusive de quem já tinha sido reconhecido só pelo nome.
+
+#id 2026-10-14-pd
+#titulo Pódios com reconhecimento automático do elenco
+- Pódios: o mesmo ator ou atriz não aparece mais repetido. "Kim Soo-hyun", "Kim Soohyun" e "Soo Hyun Kim" (espaço, hífen ou sobrenome em outra ordem) viram uma pessoa só, sem você fazer nada.
+- Reconhecimento automático: ao abrir a aba Pódios, o app pesquisa sozinho (Wikidata) quem é cada pessoa do elenco. Grafias diferentes da mesma pessoa, como "Kim Soo-hyun" e "Kim Su-hyeon", são juntadas, e quem for reconhecido com segurança já entra como ator ou atriz.
+- Um cartão no topo dos Pódios mostra o andamento e o resultado, e tem o botão "Reconhecer agora" / "Conferir de novo". Quem não foi achado fica para você classificar em "Classificar", como antes.
+- Ao editar o nome de uma pessoa, o novo nome vale para todas as grafias dela nos doramas. O perfil (foto, favorita, nota) e a ordem arrastada do Top 10 acompanham quando as repetições são juntadas. O backup também guarda esse reconhecimento.
+
+#id 2026-10-14-sp
+#titulo Enquadrar fotos, aba Supremacy, aba Pódios e notas clicáveis
+- Enquadrar foto: ao escolher a capa, a foto do elenco ou a foto do casal, abre uma tela para arrastar e aproximar com dois dedos. A moldura mostra o que será salvo (capa 2:3, pessoas em quadrado/círculo). Tem Girar e Centralizar. Para ajustar uma foto que já existe, use o botão "Enquadrar" ao lado da capa, ou toque na foto da pessoa e escolha "Enquadrar a foto atual".
+- Supremacy: virou uma aba própria na barra de baixo, com fundo dourado animado, coroa, carrossel de pôsteres com moldura de ouro e brilho, painel com a nota do dorama do centro e o Salão da fama. Saiu do topo do Início e do filtro da Estante.
+- Pódios: o Top 10 de atores e atrizes saiu da aba Números e ganhou aba própria. Assim o botão de adicionar fica no centro da barra.
+- Notas: em Números, toque em uma nota da "Distribuição das notas" para ver quais doramas têm essa nota e abrir qualquer um.
+
 #id 2026-10-08-zv
 #titulo Ano curto, frases por nota, Top 10 arrastável e correções
 - Datas: agora dá para digitar o ano com 2 dígitos (07/10/22 vira 07/10/2022). O campo "Ano" também aceita 22 e salva 2022.

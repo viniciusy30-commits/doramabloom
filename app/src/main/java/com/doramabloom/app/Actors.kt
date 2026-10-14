@@ -46,6 +46,17 @@ class Actor(
             return if (r.isEmpty()) 0.0 else r.map { it.score }.sum().toDouble() / r.size
         }
 
+    /** Horas de tela somadas de todos os doramas dele(a) (episódios que você assistiu x duração). */
+    val hours: Double
+        get() {
+            var h = 0.0
+            for (d in dramas) h += hoursWatched(d)
+            return h
+        }
+
+    /** A nota que você mesmo deu à pessoa (0 a 10); 0 = sem nota. */
+    val manual: Double get() = info?.rating ?: 0.0
+
     val favorite: Boolean get() = info?.favorite == true
 }
 
@@ -89,18 +100,49 @@ object Actors {
         else -> NEUTRAL
     }
 
-    /** Mais doramas primeiro; empate: nota média maior, depois ordem alfabética. */
-    val order: Comparator<Actor> = Comparator { a, b ->
-        if (a.count != b.count) {
-            b.count - a.count
-        } else {
-            val c = b.avg.compareTo(a.avg)
-            if (c != 0) c else a.name.compareTo(b.name, true)
-        }
+    /** O número que decide o empate, conforme o critério escolhido. */
+    fun tieValue(a: Actor, mode: String): Double = when (mode) {
+        "hours" -> Math.round(a.hours * 10.0) / 10.0
+        "manual" -> a.manual
+        else -> a.avg
     }
+
+    /** Ícone e texto curto do critério de desempate (null = a pessoa não tem esse valor). */
+    fun tieIcon(mode: String): String = when (mode) {
+        "hours" -> "clock"
+        "manual" -> "star"
+        else -> "heart"
+    }
+
+    fun tieText(a: Actor, mode: String): String? = when (mode) {
+        "hours" -> if (a.hours >= 0.5) "%.0f h".format(a.hours) else null
+        "manual" -> if (a.manual > 0.0) "%.1f".format(a.manual) else null
+        else -> if (a.avg > 0.0) "%.1f".format(a.avg) else null
+    }
+
+    /**
+     * Mais doramas primeiro. Empate: vale o critério que você escolheu (nota dos doramas, horas de tela ou a nota
+     * que você deu à pessoa); se ainda empatar, nota média, horas de tela e por fim ordem alfabética.
+     */
+    val order: Comparator<Actor>
+        get() {
+            val mode = Store.tiebreak
+            return Comparator { a, b ->
+                if (a.count != b.count) {
+                    b.count - a.count
+                } else {
+                    var c = tieValue(b, mode).compareTo(tieValue(a, mode))
+                    if (c == 0) c = b.avg.compareTo(a.avg)
+                    if (c == 0) c = tieValue(b, "hours").compareTo(tieValue(a, "hours"))
+                    if (c != 0) c else a.name.compareTo(b.name, true)
+                }
+            }
+        }
 
     /** Todas as pessoas que aparecem em algum elenco. */
     fun all(): List<Actor> {
+        // junta os perfis das variações do mesmo nome antes de montar a lista
+        PeopleIdentity.consolidate()
         val dramas = Store.all().sortedByDescending { it.addedAt }
         val byKey = LinkedHashMap<String, ArrayList<Drama>>()
         val spell = HashMap<String, LinkedHashMap<String, Int>>()
@@ -110,7 +152,8 @@ object Actors {
             for (p in d.castPeople) {
                 val nm = p.name.trim()
                 if (nm.isEmpty()) continue
-                val k = Store.personKey(nm)
+                // chave oficial: "Kim Soo-hyun", "Kim Soohyun" e "Soo Hyun Kim" são UMA pessoa só
+                val k = PeopleIdentity.canonOfName(nm)
                 if (k.isEmpty()) continue
                 val m = spell.getOrPut(k) { LinkedHashMap() }
                 m[nm] = (m[nm] ?: 0) + 1
@@ -137,7 +180,7 @@ object Actors {
     /** Quem você arrastou para uma posição fica nela; o resto vem depois, na ordem automática. */
     fun ranked(list: List<Actor>, gender: String): List<Actor> {
         val auto = autoRanked(list, gender)
-        val pinned = Store.actorOrder(gender)
+        val pinned = Store.actorOrder(gender).map { PeopleIdentity.canon(it) }.distinct()
         if (pinned.isEmpty()) return auto
         val byKey = auto.associateBy { it.key }
         val head = pinned.mapNotNull { byKey[it] }
@@ -188,7 +231,7 @@ object Actors {
         }
         for (d in a.dramas) {
             for (p in d.castPeople) {
-                if (Store.personKey(p.name) != a.key) continue
+                if (PeopleIdentity.canonOfName(p.name) != a.key) continue
                 if (p.photo.isEmpty() || !File(p.photo).exists()) continue
                 val s = sig(p.photo)
                 if (seen.add(s)) out.add(PhotoOpt(p.photo, d.title, s, false))
@@ -205,7 +248,7 @@ object Actors {
         for (d in a.dramas) {
             val seenHere = HashSet<String>()
             for (p in d.castPeople) {
-                val k = Store.personKey(p.name)
+                val k = PeopleIdentity.canonOfName(p.name)
                 if (k.isEmpty() || k == a.key) continue
                 if (seenHere.add(k)) together[k] = (together[k] ?: 0) + 1
             }
@@ -244,12 +287,36 @@ fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClass
     val st = sectionTitle("Top 10 do elenco", "crown", Actors.GOLD)
     st.setPadding(dp(4), dp(20), 0, dp(10))
     col.addView(st, lin(MATCH, WRAP))
+    col.addView(tieBreakCard(onReordered), lin(MATCH, WRAP, b = 12))
     val both = LinearLayout(this)
     both.orientation = LinearLayout.HORIZONTAL
     both.isBaselineAligned = false
     both.addView(actorColumn("m", Actors.ranked(everyone, "m"), onOpen, onReordered), lin(0, MATCH, 1f, r = 5))
     both.addView(actorColumn("f", Actors.ranked(everyone, "f"), onOpen, onReordered), lin(0, MATCH, 1f, l = 5))
     col.addView(both, lin(MATCH, WRAP))
+}
+
+/** Escolha do critério de desempate: nota dos doramas, horas de tela ou a nota que você deu à pessoa. */
+private fun Context.tieBreakCard(onChanged: () -> Unit): View {
+    val mode = Store.tiebreak
+    val c = card(14, 20)
+    c.addView(label("Desempate do Top 10", 14.5f, Palette.text, true, true))
+    val hint = when (mode) {
+        "hours" -> "Com o mesmo número de doramas, fica na frente quem tem mais horas de tela somadas (episódios que você assistiu)."
+        "manual" -> "Com o mesmo número de doramas, fica na frente quem tem a maior nota que você deu à pessoa. Dê a nota no perfil dela, em \"Editar informações\"."
+        else -> "Com o mesmo número de doramas, fica na frente quem tem a maior nota média nos doramas em que aparece."
+    }
+    c.addView(label(hint, 11.5f, Palette.muted), lin(MATCH, WRAP, t = 2, b = 8))
+    val opts = listOf(
+        Opt("avg", "Nota dos doramas", Actors.accent("f"), "heart"),
+        Opt("hours", "Horas de tela", Actors.accent("m"), "clock"),
+        Opt("manual", "Minha nota", Actors.GOLD, "star")
+    )
+    c.addView(chipFlow(opts, mode) {
+        Store.tiebreak = it
+        onChanged()
+    }, lin(MATCH, WRAP))
+    return c
 }
 
 private fun Context.classifyBanner(n: Int, onClick: () -> Unit): View {
@@ -516,12 +583,14 @@ private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): 
     nm.ellipsize = TextUtils.TruncateAt.END
     TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(nm, 8, 11, 1, TypedValue.COMPLEX_UNIT_SP)
     cell.addView(nm, lin(MATCH, WRAP, t = 6))
-    if (a.avg > 0) {
+    val tieMode = Store.tiebreak
+    val tieTxt = Actors.tieText(a, tieMode)
+    if (tieTxt != null) {
         val sc = LinearLayout(this)
         sc.orientation = LinearLayout.HORIZONTAL
         sc.gravity = Gravity.CENTER
-        sc.addView(IconView(this, "heart", acc, 9), lin(WRAP, WRAP, r = 2))
-        sc.addView(label("%.1f".format(a.avg), 10f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
+        sc.addView(IconView(this, Actors.tieIcon(tieMode), acc, 9), lin(WRAP, WRAP, r = 2))
+        sc.addView(label(tieTxt, 10f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
         cell.addView(sc, lin(MATCH, WRAP, t = 2))
     }
     val dr = label(dramasText(a.count), 9f, Palette.muted)
@@ -583,9 +652,11 @@ private fun Context.actorRow(a: Actor, rank: Int, maxCount: Int, onOpen: (Actor)
     val subL = label(dramasText(a.count), 10.5f, Palette.muted)
     subL.maxLines = 1
     subRow.addView(subL, lin(WRAP, WRAP))
-    if (a.avg > 0) {
-        subRow.addView(IconView(this, "heart", acc, 9), lin(WRAP, WRAP, l = 6, r = 2))
-        subRow.addView(label("%.1f".format(a.avg), 10.5f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
+    val tieMode = Store.tiebreak
+    val tieTxt = Actors.tieText(a, tieMode)
+    if (tieTxt != null) {
+        subRow.addView(IconView(this, Actors.tieIcon(tieMode), acc, 9), lin(WRAP, WRAP, l = 6, r = 2))
+        subRow.addView(label(tieTxt, 10.5f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
     }
     mid.addView(subRow, lin(MATCH, WRAP, t = 1))
     val bar = SoftBar(this)
@@ -672,6 +743,9 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
 
         var okCount = 0
         var failCount = 0
+        // as grafias de cada pessoa são lidas aqui (thread principal) para a pesquisa em segundo plano
+        val namesOf = HashMap<String, List<String>>()
+        for (x in list) namesOf[x.key] = listOf(x.name) + PeopleIdentity.membersOf(x.key)
         Thread {
             for ((i, a) in list.withIndex()) {
                 if (my != token || closed) return@Thread
@@ -683,11 +757,12 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
                         step.text = "Começando…"
                     }
                 }
-                val r = GenderLookup.lookup(a.name) { st ->
+                val r = GenderLookup.lookupInDramas(namesOf[a.key] ?: listOf(a.name), a.dramas) { st ->
                     runOnUiThread { if (my == token && !closed) step.text = st }
                 }
                 runOnUiThread {
                     if (my != token || closed) return@runOnUiThread
+                    ActorAuto.rememberGroup(a.key, r)
                     val line = LinearLayout(this)
                     line.orientation = LinearLayout.HORIZONTAL
                     line.gravity = Gravity.CENTER_VERTICAL
@@ -816,12 +891,14 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
 
         // pesquisa em segundo plano
         val my = ++token
+        val nameList = listOf(a.name) + PeopleIdentity.membersOf(a.key)
         Thread {
-            val r = GenderLookup.lookup(a.name) { st ->
+            val r = GenderLookup.lookupInDramas(nameList, a.dramas) { st ->
                 runOnUiThread { if (my == token && !closed) stepTv.text = st }
             }
             runOnUiThread {
                 if (my != token || closed) return@runOnUiThread
+                ActorAuto.rememberGroup(a.key, r)
                 auto.removeAllViews()
                 if (r.gender.isEmpty()) {
                     val t = label("Não consegui descobrir sozinho. Escolha você.", 12.5f, Palette.muted)

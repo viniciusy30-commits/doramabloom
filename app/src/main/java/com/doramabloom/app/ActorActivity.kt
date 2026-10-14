@@ -43,6 +43,7 @@ class ActorActivity : AppCompatActivity() {
         Store.init(this)
         ThemeMode.refresh(this)
         key = intent.getStringExtra("key") ?: ""
+        key = PeopleIdentity.canon(key)
         if (Actors.find(key) == null) {
             finish()
             return
@@ -532,6 +533,8 @@ class ActorActivity : AppCompatActivity() {
             c.addView(infoLine("cake", "Nascimento", if (birth.isBlank()) "Não informado" else birth, acc, birth.isBlank()))
             val note = info?.note ?: ""
             c.addView(infoLine("book", "Sobre", if (note.isBlank()) "Nada anotado ainda" else note, acc, note.isBlank()))
+            val my = info?.rating ?: 0.0
+            c.addView(infoLine("star", "Minha nota", if (my > 0.0) "%.1f".format(my) else "Sem nota (vale no desempate do Top 10)", acc, my <= 0.0))
             val b = pill("Editar informações", acc, Color.WHITE, 13f, "edit")
             b.setOnClickListener { toggleEdit() }
             c.addView(b, lin(WRAP, WRAP, t = 14))
@@ -556,11 +559,16 @@ class ActorActivity : AppCompatActivity() {
         c.addView(fieldLabel("Sobre"))
         val noteIn = input("Anotações, curiosidades, por que você gosta...", info?.note ?: "", InputType.TYPE_CLASS_TEXT, true)
         c.addView(noteIn, lin(MATCH, WRAP))
+        c.addView(fieldLabel("Minha nota (0 a 10)"))
+        val my = info?.rating ?: 0.0
+        val ratingIn = input("Ex.: 8,5 (vazio = sem nota)", if (my > 0.0) "%.1f".format(my) else "", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL)
+        c.addView(ratingIn, lin(MATCH, WRAP))
+        c.addView(label("Serve de desempate no Top 10 quando você escolhe \"Minha nota\" nos Pódios.", 11f, Palette.muted), lin(MATCH, WRAP, t = 4))
 
         val btns = LinearLayout(this)
         btns.orientation = LinearLayout.HORIZONTAL
         val save = bigPill("Salvar", acc, Color.WHITE, 14f, "check")
-        save.setOnClickListener { saveInfo(a, nameIn, gSel, birthIn, noteIn) }
+        save.setOnClickListener { saveInfo(a, nameIn, gSel, birthIn, noteIn, ratingIn) }
         val cancel = bigPill("Cancelar", Palette.pinkSoft, Palette.pinkDark, 14f, "close")
         cancel.setOnClickListener { toggleEdit() }
         btns.addView(save, lin(0, WRAP, 1f, r = 6))
@@ -569,7 +577,7 @@ class ActorActivity : AppCompatActivity() {
         return c
     }
 
-    private fun saveInfo(a: Actor, nameIn: EditText, gender: String, birthIn: EditText, noteIn: EditText) {
+    private fun saveInfo(a: Actor, nameIn: EditText, gender: String, birthIn: EditText, noteIn: EditText, ratingIn: EditText) {
         val acc = Actors.accent(gender)
         val nn = nameIn.text.toString().trim()
         if (nn.isEmpty()) {
@@ -580,11 +588,17 @@ class ActorActivity : AppCompatActivity() {
         info.gender = gender
         info.birth = birthIn.text.toString().trim()
         info.note = noteIn.text.toString().trim()
+        val rt = ratingIn.text.toString().trim().replace(',', '.')
+        if (rt.isNotEmpty() && rt.toDoubleOrNull() == null) {
+            softToast("Nota inválida: use um número de 0 a 10", acc, "close")
+            return
+        }
+        info.rating = Math.round((rt.toDoubleOrNull() ?: 0.0).coerceIn(0.0, 10.0) * 10.0) / 10.0
         Store.savePersonInfo(info)
         val nk = Store.personKey(nn)
         if (nk.isNotEmpty() && nn != a.name) {
             Store.renamePerson(key, nn)
-            key = nk
+            key = PeopleIdentity.canon(nk)
         }
         editing = false
         softToast("Salvo com carinho!", acc, "check")
@@ -640,7 +654,7 @@ class ActorActivity : AppCompatActivity() {
         if (d.year.isNotBlank()) bits.add(d.year)
         if (d.country.isNotBlank()) bits.add(d.country)
         if (bits.isNotEmpty()) mid.addView(label(bits.joinToString("  ·  "), 11f, Palette.muted), lin(MATCH, WRAP, t = 2))
-        val role = d.castPeople.firstOrNull { Store.personKey(it.name) == Store.personKey(listName) }?.role?.trim() ?: ""
+        val role = d.castPeople.firstOrNull { PeopleIdentity.canonOfName(it.name) == PeopleIdentity.canonOfName(listName) }?.role?.trim() ?: ""
         if (role.isNotEmpty()) {
             val rl = label("como $role", 12.5f, g.dark, true, true)
             rl.maxLines = 2

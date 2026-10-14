@@ -362,7 +362,9 @@ data class PersonInfo(
     var photo: String = "",
     var birth: String = "",
     var note: String = "",
-    var favorite: Boolean = false
+    var favorite: Boolean = false,
+    /** Nota que você mesmo deu à pessoa (0 a 10; 0 = sem nota). Vale no desempate do Top 10. */
+    var rating: Double = 0.0
 )
 
 data class Drama(
@@ -727,6 +729,7 @@ object Store {
         loadOtherGenres()
         load()
         loadPeople()
+        loadWd()
         loaded = true
     }
 
@@ -810,6 +813,20 @@ object Store {
         prefs.edit().putString("actorOrder_$g", arr.toString()).apply()
         version++
     }
+
+    /**
+     * Critério de desempate do Top 10 quando duas pessoas têm o mesmo número de doramas:
+     * "avg" = nota média dos doramas (padrão), "hours" = horas de tela somadas, "manual" = a nota que você deu à pessoa.
+     */
+    var tiebreak: String
+        get() {
+            val v = prefs.getString("tiebreak", "avg") ?: "avg"
+            return if (v == "hours" || v == "manual") v else "avg"
+        }
+        set(v) {
+            prefs.edit().putString("tiebreak", v).apply()
+            version++
+        }
 
     private const val GKEY = "customGenres"
 
@@ -1146,6 +1163,7 @@ object Store {
         o.put("birth", p.birth)
         o.put("note", p.note)
         o.put("favorite", p.favorite)
+        if (p.rating > 0.0) o.put("rating", p.rating)
         return o
     }
 
@@ -1159,7 +1177,8 @@ object Store {
             key, if (name.isEmpty()) key else name,
             if (g == "m" || g == "f") g else "",
             o.optString("photo", ""), o.optString("birth", ""), o.optString("note", ""),
-            o.optBoolean("favorite", false)
+            o.optBoolean("favorite", false),
+            o.optDouble("rating", 0.0).coerceIn(0.0, 10.0)
         )
     }
 
@@ -1183,11 +1202,80 @@ object Store {
         prefs.edit().putString(PKEY, arr.toString()).apply()
     }
 
-    fun personInfo(key: String): PersonInfo? = peopleMap[key]
+    /** O perfil da pessoa (se a chave for uma variação do nome, vale o perfil da pessoa "oficial" do grupo). */
+    fun personInfo(key: String): PersonInfo? = peopleMap[PeopleIdentity.canon(key)] ?: peopleMap[key]
 
     fun savePersonInfo(p: PersonInfo) {
+        p.key = PeopleIdentity.canon(p.key)
         peopleMap[p.key] = p
         persistPeople()
+    }
+
+    // acesso "cru" (sem juntar variações): usado só pelo reconhecimento de pessoas
+    fun rawPersonInfo(key: String): PersonInfo? = peopleMap[key]
+    fun putRawPerson(p: PersonInfo) {
+        peopleMap[p.key] = p
+    }
+    fun removeRawPerson(key: String) {
+        peopleMap.remove(key)
+    }
+
+    // ---- reconhecimento automático: grafia do nome -> pessoa do Wikidata (ex.: Q483669)
+    private const val WDKEY = "personWd"
+    private const val MISSKEY = "personAutoMiss2"
+    private val wdMap = HashMap<String, String>()
+    private val missMap = HashMap<String, Long>()
+
+    private fun loadWd() {
+        wdMap.clear()
+        missMap.clear()
+        try {
+            val o = JSONObject(prefs.getString(WDKEY, "{}") ?: "{}")
+            for (k in o.keys()) {
+                val v = o.optString(k, "")
+                if (v.isNotEmpty()) wdMap[k] = v
+            }
+        } catch (e: Exception) {
+        }
+        try {
+            val o = JSONObject(prefs.getString(MISSKEY, "{}") ?: "{}")
+            for (k in o.keys()) missMap[k] = o.optLong(k, 0L)
+        } catch (e: Exception) {
+        }
+    }
+
+    private fun saveWd() {
+        val o = JSONObject()
+        for ((k, v) in wdMap) o.put(k, v)
+        prefs.edit().putString(WDKEY, o.toString()).apply()
+    }
+
+    fun wdOf(key: String): String = wdMap[key] ?: ""
+
+    fun wdSnapshot(): Map<String, String> = HashMap(wdMap)
+
+    /** Guarda quem é a pessoa (id do Wikidata) para esta grafia do nome. */
+    fun setWd(key: String, qid: String) {
+        if (key.isBlank() || qid.isBlank() || wdMap[key] == qid) return
+        wdMap[key] = qid
+        missMap.remove(key)
+        saveWd()
+        version++
+    }
+
+    /** Quando o app tentou reconhecer esta grafia sem achar (0 = nunca). */
+    fun autoMissAt(key: String): Long = missMap[key] ?: 0L
+
+    fun setAutoMiss(key: String) {
+        missMap[key] = System.currentTimeMillis()
+        val o = JSONObject()
+        for ((k, v) in missMap) o.put(k, v)
+        prefs.edit().putString(MISSKEY, o.toString()).apply()
+    }
+
+    fun clearAutoMiss() {
+        missMap.clear()
+        prefs.edit().remove(MISSKEY).apply()
     }
 
     /** Cópia dos perfis no momento do pedido (usada pelo backup, que grava em segundo plano). */
@@ -1250,32 +1338,48 @@ object Store {
         if (nn.isEmpty()) return 0
         val newKey = personKey(nn)
         if (newKey.isEmpty()) return 0
+        // a pessoa pode estar escrita de várias formas nos elencos: muda todas
+        val members = HashSet<String>(PeopleIdentity.membersOf(oldKey))
+        members.add(oldKey)
         var n = 0
         for (d in list) {
             var hit = false
             for (p in d.castPeople) {
-                if (personKey(p.name) == oldKey) {
+                if (personKey(p.name) in members) {
                     p.name = nn
                     hit = true
                 }
             }
             if (hit) n++
         }
-        val info = peopleMap.remove(oldKey)
-        if (info != null) {
-            info.name = nn
-            val other = peopleMap[newKey]
-            if (other == null) {
+        var qid = ""
+        for (m in members) {
+            if (qid.isEmpty()) qid = wdOf(m)
+        }
+        var target: PersonInfo? = peopleMap[newKey]
+        for (m in members) {
+            if (m == newKey) continue
+            val info = peopleMap.remove(m) ?: continue
+            if (target == null) {
                 info.key = newKey
+                info.name = nn
+                target = info
                 peopleMap[newKey] = info
             } else {
-                // o novo nome já tinha perfil: junta, mantendo o que já estava preenchido lá
+                // o novo nome já tem perfil: junta, mantendo o que já estava preenchido lá
+                val other = target
                 if (other.gender.isEmpty()) other.gender = info.gender
                 if (other.birth.isEmpty()) other.birth = info.birth
                 if (other.note.isEmpty()) other.note = info.note
-                if (other.photo.isEmpty()) other.photo = info.photo else deletePersonFile(info.photo)
+                if (other.photo.isEmpty()) other.photo = info.photo else if (other.photo != info.photo) deletePersonFile(info.photo)
                 if (info.favorite) other.favorite = true
+                if (other.rating <= 0.0) other.rating = info.rating
             }
+        }
+        if (target != null) target.name = nn
+        if (qid.isNotEmpty()) {
+            wdMap[newKey] = qid
+            saveWd()
         }
         persist()
         persistPeople()
@@ -1519,6 +1623,10 @@ object Store {
         s.put("askedName", askedName)
         s.put("actorOrderM", JSONArray(actorOrder("m")))
         s.put("actorOrderF", JSONArray(actorOrder("f")))
+        s.put("tiebreak", tiebreak)
+        val wd = JSONObject()
+        for ((k, v) in wdMap) wd.put(k, v)
+        s.put("personWd", wd)
         return s
     }
 
@@ -1691,11 +1799,26 @@ object Store {
 
     private fun applySettings(s: JSONObject?, overwrite: Boolean) {
         if (s == null) return
+        s.optJSONObject("personWd")?.let { o ->
+            var any = false
+            for (k in o.keys()) {
+                val v = o.optString(k, "")
+                if (v.isNotEmpty() && !wdMap.containsKey(k)) {
+                    wdMap[k] = v
+                    any = true
+                }
+            }
+            if (any) {
+                saveWd()
+                version++
+            }
+        }
         if (overwrite) {
             for ((jk, g) in listOf("actorOrderM" to "m", "actorOrderF" to "f")) {
                 val a = s.optJSONArray(jk) ?: continue
                 setActorOrder(g, (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() })
             }
+            if (s.has("tiebreak")) tiebreak = s.optString("tiebreak", "avg")
             if (s.has("themeMode")) themeMode = s.optInt("themeMode", 0)
             if (s.has("textZoom")) textZoom = s.optInt("textZoom", 100)
             if (s.has("homeUrl")) homeUrl = s.optString("homeUrl", DEFAULT_HOME)
@@ -1909,6 +2032,19 @@ object Store {
             dir.mkdirs()
             val f = File(dir, "c" + System.currentTimeMillis() + ".jpg")
             FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+            f.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Salva uma imagem já pronta (por exemplo, o enquadramento escolhido) como JPEG em covers/. */
+    fun saveBitmap(bmp: Bitmap): String? {
+        return try {
+            val dir = File(appContext.filesDir, "covers")
+            dir.mkdirs()
+            val f = File(dir, "c" + System.currentTimeMillis() + "f.jpg")
+            FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
             f.absolutePath
         } catch (e: Exception) {
             null

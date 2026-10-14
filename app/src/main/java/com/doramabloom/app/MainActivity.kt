@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildNav(): View {
         val bar = FrameLayout(this)
-        bar.setPadding(dp(8), dp(8), dp(8), dp(8))
+        bar.setPadding(dp(4), dp(8), dp(4), dp(8))
         bar.background = roundRect(Palette.card, dp(30).toFloat(), Palette.line, dp(1))
         bar.elevation = 0f
         navBar = bar
@@ -191,13 +191,13 @@ class MainActivity : AppCompatActivity() {
         val holder = FrameLayout(this)
         holder.clipToPadding = false
         holder.clipChildren = false
-        holder.setPadding(dp(14), dp(4), dp(14), dp(12))
+        holder.setPadding(dp(8), dp(4), dp(8), dp(12))
         holder.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP))
 
         navItems.clear()
-        val icons = listOf("home", "grid", "add", "chart", "tune")
-        val names = listOf("Início", "Estante", "", "Números", "Config.")
-        val tabs = listOf(0, 1, -1, 2, 4)
+        val icons = listOf("home", "grid", "crown", "add", "chart", "trophy", "tune")
+        val names = listOf("Início", "Estante", "Supremacy", "", "Números", "Pódios", "Config.")
+        val tabs = listOf(0, 1, 5, -1, 2, 3, 4)
         for (i in icons.indices) {
             val box = LinearLayout(this)
             box.orientation = LinearLayout.VERTICAL
@@ -212,19 +212,21 @@ class MainActivity : AppCompatActivity() {
                 box.addView(circle, lin(dp(48), dp(48)))
                 box.setOnClickListener { openEdit(circle) }
                 box.pressable(0.9f)
-                navRow.addView(box, lin(0, WRAP, 1f, l = 2, r = 2))
+                navRow.addView(box, lin(0, WRAP, 1f, l = 1, r = 1))
                 navItems.add(NavItem(box, null, null, -1))
             } else {
-                box.setPadding(dp(2), dp(8), dp(2), dp(8))
-                val ic = IconView(this, icons[i], Palette.muted, 22)
-                val tx = label(names[i], 11f, Palette.muted, true)
+                box.setPadding(dp(1), dp(8), dp(1), dp(8))
+                val ic = IconView(this, icons[i], Palette.muted, 21)
+                val tx = label(names[i], 10f, Palette.muted, true)
                 tx.maxLines = 1
+                tx.gravity = Gravity.CENTER
+                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(tx, 7, 10, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
                 box.addView(ic, lin(WRAP, WRAP))
-                box.addView(tx, lin(WRAP, WRAP, t = 2))
+                box.addView(tx, lin(MATCH, WRAP, t = 2))
                 val target = tabs[i]
                 box.setOnClickListener { if (tab != target) showTab(target, true) else box.pop() }
                 box.pressable(0.92f)
-                navRow.addView(box, lin(0, WRAP, 1f, l = 2, r = 2))
+                navRow.addView(box, lin(0, WRAP, 1f, l = 1, r = 1))
                 navItems.add(NavItem(box, ic, tx, target))
             }
         }
@@ -237,14 +239,14 @@ class MainActivity : AppCompatActivity() {
         val box = navItems.firstOrNull { it.tab == tab }?.box ?: return
         if (box.width <= 0) return
         val lp = navIndicator.layoutParams as FrameLayout.LayoutParams
-        val wide = box.width - dp(4)
+        val wide = box.width - dp(2)
         val tall = navRow.height
         if (lp.width != wide || lp.height != tall) {
             lp.width = wide
             lp.height = tall
             navIndicator.layoutParams = lp
         }
-        val x = box.left.toFloat() + dp(2)
+        val x = box.left.toFloat() + dp(1)
         if (animated) {
             navIndicator.animate().translationX(x).setDuration(380)
                 .setInterpolator(OvershootInterpolator(1.1f)).start()
@@ -284,11 +286,11 @@ class MainActivity : AppCompatActivity() {
             }
             1 -> when {
                 genreFilter != "all" -> Genres.byKey(genreFilter).primary
-                statusFilter == "sup" -> Color.parseColor("#E0A100")
                 statusFilter == "fav" -> Palette.pink
                 statusFilter != "all" -> Statuses.byKey(statusFilter).color
                 else -> Palette.pink
             }
+            5 -> Color.parseColor("#E0A100")
             else -> Palette.pink
         }
     }
@@ -300,6 +302,7 @@ class MainActivity : AppCompatActivity() {
                 if (d != null) Atmosphere.ofDrama(d) else Atmosphere.of("all", "all", "all")
             }
             1 -> Atmosphere.of(genreFilter, statusFilter, "all")
+            5 -> Atmosphere.of("all", "sup", "all")
             else -> Atmosphere.of("all", "all", "all")
         }
         petals.setTheme(a.icons, a.tints)
@@ -332,6 +335,8 @@ class MainActivity : AppCompatActivity() {
                     0 -> buildHome()
                     1 -> buildListTab()
                     4 -> buildSettings()
+                    5 -> buildSupremacy()
+                    3 -> buildPodiums()
                     else -> buildStats()
                 }
             }
@@ -350,45 +355,6 @@ class MainActivity : AppCompatActivity() {
                 if (inner is LinearLayout) inner.staggerIn(60L)
             }
         }
-    }
-
-    /** Faixa dourada com os doramas Supremacy. */
-    private fun supremacyHall(list: List<Drama>): View {
-        val wrap = LinearLayout(this)
-        wrap.orientation = LinearLayout.VERTICAL
-        wrap.setPadding(dp(14), dp(12), dp(14), dp(14))
-        wrap.background = gradient(Color.parseColor("#FFD669"), Color.parseColor("#E39A00"), dp(24).toFloat(), GradientDrawable.Orientation.LEFT_RIGHT)
-        val head = LinearLayout(this)
-        head.orientation = LinearLayout.HORIZONTAL
-        head.gravity = Gravity.CENTER_VERTICAL
-        head.addView(IconView(this, "crown", Color.WHITE, 22))
-        val t = label("Supremacy", 18f, Color.WHITE, true, true)
-        t.setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), Color.argb(70, 0, 0, 0))
-        head.addView(t, lin(0, WRAP, 1f, l = 8))
-        head.addView(label(list.size.toString() + (if (list.size == 1) " dorama" else " doramas"), 12f, Color.parseColor("#F2FFFFFF"), true))
-        wrap.addView(head, lin(MATCH, WRAP))
-        wrap.addView(label("Acima de todos os favoritos", 11.5f, Color.parseColor("#E6FFFFFF")), lin(WRAP, WRAP, t = 1))
-        val hs = android.widget.HorizontalScrollView(this)
-        hs.isHorizontalScrollBarEnabled = false
-        val row = LinearLayout(this)
-        row.orientation = LinearLayout.HORIZONTAL
-        for (d in list) {
-            val item = LinearLayout(this)
-            item.orientation = LinearLayout.VERTICAL
-            val cv = CoverView(this, 14)
-            cv.bind(d, dp(96))
-            item.addView(cv, lin(dp(84), dp(124)))
-            val nm = label(d.title, 10.5f, Color.WHITE, true)
-            nm.maxLines = 2
-            nm.ellipsize = TextUtils.TruncateAt.END
-            item.addView(nm, lin(dp(84), WRAP, t = 4))
-            item.setOnClickListener { open(d, list, "Supremacy") }
-            item.pressable(0.95f)
-            row.addView(item, lin(WRAP, WRAP, r = 10))
-        }
-        hs.addView(row)
-        wrap.addView(hs, lin(MATCH, WRAP, t = 10))
-        return wrap
     }
 
     /** Abre o dorama; [list] é a lista em que ele está (dá para deslizar entre eles). */
@@ -466,10 +432,6 @@ class MainActivity : AppCompatActivity() {
         paintHi(homeWatching.getOrNull(homePage)?.let { Genres.byKey(it.genre) })
 
         col.addView(hiWrap, lin(MATCH, WRAP))
-
-        // Salão Supremacy: os poucos doramas acima de todos os favoritos (só aparece se houver algum)
-        val sup = all.filter { it.supremacy }.sortedWith(compareByDescending<Drama> { it.score }.thenBy { it.title.lowercase() })
-        if (sup.isNotEmpty()) col.addView(supremacyHall(sup), lin(MATCH, WRAP, t = 10))
 
         // destaque: ocupa todo o espaço entre o cartão e a barra de baixo
         val feat = FrameLayout(this)
@@ -638,9 +600,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun filteredFor(key: String): List<Drama> {
         var l = Store.all()
-        if (statusFilter == "sup") {
-            l = l.filter { it.supremacy }
-        } else if (statusFilter == "fav") {
+        if (statusFilter == "fav") {
             l = l.filter { it.favorite }
         } else if (statusFilter != "all") {
             l = l.filter { it.status == statusFilter }
@@ -675,8 +635,7 @@ class MainActivity : AppCompatActivity() {
     /** Nome da lista aberta na Estante (ex.: "Assistindo · Romance"). */
     private fun shelfListName(key: String = genreFilter): String {
         val parts = ArrayList<String>()
-        if (statusFilter == "sup") parts.add("Supremacy")
-        else if (statusFilter == "fav") parts.add("Favoritos")
+        if (statusFilter == "fav") parts.add("Favoritos")
         else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
         if (key != "all") parts.add(Genres.byKey(key).label)
         if (query.isNotBlank()) parts.add("Busca")
@@ -1100,7 +1059,6 @@ class MainActivity : AppCompatActivity() {
         // status
         val statusOpts = ArrayList<Opt>()
         statusOpts.add(Opt("all", "Todos", Palette.pink, "heart"))
-        statusOpts.add(Opt("sup", "Supremacy", Color.parseColor("#E0A100"), "crown"))
         statusOpts.add(Opt("fav", "Favoritos", Palette.pink, "star"))
         for (s in Statuses.all) statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
         fp.addView(chipScroller(statusOpts, statusFilter) {
@@ -1393,9 +1351,15 @@ class MainActivity : AppCompatActivity() {
                 var si = 0
                 for (s in 10 downTo 1) {
                     val n = rated.count { it.score == s }
-                    dc.addView(barRow("Nota $s", n, n.toFloat() / maxS, Palette.pink, 300L + si * 50L), lin(MATCH, WRAP, t = 4))
+                    val row = barRow("Nota $s", n, n.toFloat() / maxS, Palette.pink, 300L + si * 50L)
+                    if (n > 0) {
+                        row.setOnClickListener { showScoreDialog(s) }
+                        row.pressable(0.97f)
+                    }
+                    dc.addView(row, lin(MATCH, WRAP, t = 4))
                     si++
                 }
+                dc.addView(label("Toque em uma nota para ver quais doramas têm ela", 11f, Palette.muted), lin(WRAP, WRAP, t = 10))
                 col.addView(dc, lin(MATCH, WRAP))
 
                 col.addView(section("Mais bem avaliados", "heart"))
@@ -1420,19 +1384,171 @@ class MainActivity : AppCompatActivity() {
                 col.addView(tc, lin(MATCH, WRAP))
             }
 
-            // top 10 de atores e de atrizes (quem mais aparece nos elencos): são as últimas partes da aba
-            addActorSections(col, { a -> openActor(a) }, {
-                showClassifyDialog {
-                    seenVersion = Store.version
-                    if (tab == 3) showTab(3, false)
-                }
-            }, {
-                seenVersion = Store.version
-                if (tab == 3) showTab(3, false)
-            })
         }
 
         return sv
+    }
+
+    // --------------------------------------------------------------- SUPREMACY
+
+    private fun buildSupremacy(): View {
+        val sup = Store.all().filter { it.supremacy }
+        return try {
+            buildSupremacyTab(sup) { d, l -> open(d, l, "Supremacy") }
+        } catch (e: Throwable) {
+            errorView("Erro ao montar a aba Supremacy", e)
+        }
+    }
+
+    // --------------------------------------------------------------- PÓDIOS
+
+    private var podiumStatus: TextView? = null
+    private var podiumBar: SoftBar? = null
+    private var autoSig = ""
+    private var autoSummary = ""
+
+    /** Começa o reconhecimento automático do elenco (id no Wikidata + ator/atriz), em segundo plano. */
+    private fun startAutoCast(force: Boolean) {
+        if (ActorAuto.running) return
+        autoSummary = ""
+        ActorAuto.start(this, force, { done, total, name ->
+            podiumStatus?.text = "Reconhecendo o elenco… $done de $total · $name"
+            podiumBar?.progress = done.toFloat() / maxOf(1, total)
+        }, { sum ->
+            autoSummary = when {
+                sum.searched == 0 -> ""
+                sum.offline -> "Sem resposta da internet. Tente de novo quando estiver conectada."
+                else -> {
+                    val bits = ArrayList<String>()
+                    bits.add(sum.found.toString() + (if (sum.found == 1) " pessoa reconhecida" else " pessoas reconhecidas"))
+                    if (sum.classified > 0) bits.add(sum.classified.toString() + " como ator ou atriz")
+                    if (sum.merged > 0) bits.add(sum.merged.toString() + (if (sum.merged == 1) " repetição juntada" else " repetições juntadas"))
+                    bits.joinToString(" · ")
+                }
+            }
+            seenVersion = Store.version
+            if (tab == 3) showTab(3, false)
+        })
+    }
+
+    /** Cartão no topo dos Pódios: mostra o reconhecimento automático e deixa rodar de novo. */
+    private fun autoCastCard(): View {
+        val acc = Actors.accent("")
+        val c = card(14, 22, Actors.soft(""))
+        val head = LinearLayout(this)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.addView(IconView(this, "sparkle", acc, 20))
+        head.addView(label("Elenco reconhecido sozinho", 14.5f, Actors.deep(""), true, true), lin(0, WRAP, 1f, l = 8))
+        c.addView(head, lin(MATCH, WRAP))
+        val st = label("", 12f, Palette.muted)
+        podiumStatus = st
+        c.addView(st, lin(MATCH, WRAP, t = 6))
+        val bar = SoftBar(this)
+        bar.barColor = acc
+        podiumBar = bar
+        c.addView(bar, lin(MATCH, dp(6), t = 8))
+        if (ActorAuto.running) {
+            st.text = "Conferindo o elenco de cada dorama…"
+        } else {
+            bar.visibility = View.GONE
+            val pending = ActorAuto.pendingCount()
+            val people = PeopleIdentity.groupCount()
+            val base = if (people == 0) "Quando você colocar o elenco nos doramas, o app reconhece cada pessoa sozinho."
+            else people.toString() + (if (people == 1) " pessoa" else " pessoas") + ", cada uma aparece uma única vez. O app confere o nome no elenco oficial de cada dorama."
+            st.text = if (autoSummary.isNotEmpty()) autoSummary + "\n" + base else base
+            if (people > 0) {
+                val b = pill(if (pending > 0) "Reconhecer agora ($pending)" else "Conferir de novo", acc, Color.WHITE, 12f, "sparkle")
+                b.setOnClickListener {
+                    startAutoCast(true)
+                    if (tab == 3) showTab(3, false)
+                }
+                c.addView(b, lin(WRAP, WRAP, t = 10))
+            }
+        }
+        return c
+    }
+
+    private fun buildPodiums(): View {
+        // junta os perfis das variações do mesmo nome antes de desenhar
+        PeopleIdentity.consolidate()
+        val sv = ScrollView(this)
+        sv.isVerticalScrollBarEnabled = false
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.setPadding(dp(16), dp(14), dp(16), dp(24))
+        sv.addView(col)
+        col.addView(label("Pódios", 24f, Palette.text, true, true))
+        col.addView(label("Quem mais aparece nos seus doramas", 12.5f, Palette.muted), lin(WRAP, WRAP, t = 1))
+        col.addView(autoCastCard(), lin(MATCH, WRAP, t = 12))
+        addActorSections(col, { a -> openActor(a) }, {
+            showClassifyDialog {
+                seenVersion = Store.version
+                if (tab == 3) showTab(3, false)
+            }
+        }, {
+            seenVersion = Store.version
+            if (tab == 3) showTab(3, false)
+        })
+        // roda sozinho quando há gente nova para reconhecer (uma vez para cada conjunto de nomes)
+        if (!ActorAuto.running) {
+            val sig = ActorAuto.jobs(false).joinToString("|") { it.key }
+            if (sig.isNotEmpty() && sig != autoSig) {
+                autoSig = sig
+                sv.post {
+                    startAutoCast(false)
+                    if (tab == 3 && ActorAuto.running) showTab(3, false)
+                }
+            }
+        }
+        return sv
+    }
+
+    // ------------------------------------------------------ NOTAS -> DORAMAS
+
+    /** Lista os doramas que têm exatamente esta nota; tocar em um abre o dorama. */
+    private fun showScoreDialog(score: Int) {
+        val list = Store.all().filter { it.score == score }.sortedBy { it.title.lowercase() }
+        if (list.isEmpty()) return
+        val sc = ScrollView(this)
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        col.setPadding(dp(14), dp(6), dp(14), dp(10))
+        sc.addView(col)
+        var dlg: AlertDialog? = null
+        for (d in list) {
+            val g = Genres.byKey(d.genre)
+            val r = LinearLayout(this)
+            r.orientation = LinearLayout.HORIZONTAL
+            r.gravity = Gravity.CENTER_VERTICAL
+            r.setPadding(dp(4), dp(6), dp(4), dp(6))
+            val cv = CoverView(this, 10)
+            cv.bind(d, dp(60))
+            r.addView(cv, lin(dp(42), dp(60), r = 12))
+            val tx = LinearLayout(this)
+            tx.orientation = LinearLayout.VERTICAL
+            val t = label(d.title, 14.5f, Palette.text, true)
+            t.maxLines = 2
+            t.ellipsize = TextUtils.TruncateAt.END
+            tx.addView(t)
+            val bits = ArrayList<String>()
+            bits.add(g.label)
+            if (d.year.isNotBlank()) bits.add(d.year)
+            bits.add(Statuses.byKey(d.status).label)
+            tx.addView(label(bits.joinToString(" · "), 11.5f, Palette.muted), lin(WRAP, WRAP, t = 2))
+            r.addView(tx, lin(0, WRAP, 1f))
+            r.setOnClickListener {
+                dlg?.dismiss()
+                open(d, list, "Nota $score")
+            }
+            r.pressable(0.97f)
+            col.addView(r, lin(MATCH, WRAP))
+        }
+        dlg = AlertDialog.Builder(this)
+            .setTitle("Nota $score · " + list.size + (if (list.size == 1) " dorama" else " doramas"))
+            .setView(sc)
+            .setPositiveButton("Fechar", null)
+            .show()
     }
 
     // --------------------------------------------------------------- CONFIG

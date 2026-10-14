@@ -175,9 +175,12 @@ class EditActivity : AppCompatActivity() {
             coverPath = ""
             refreshCover()
         }
+        val frameBtn = pill("Enquadrar", Palette.pinkSoft, Palette.pinkDark, 12f, "image")
+        frameBtn.setOnClickListener { reframe(101) }
         coverBtns.addView(pick, lin(WRAP, WRAP))
+        coverBtns.addView(frameBtn, lin(WRAP, WRAP, t = 8))
         coverBtns.addView(clear, lin(WRAP, WRAP, t = 8))
-        coverBtns.addView(label("Use uma imagem da sua galeria", 11f, Palette.muted), lin(WRAP, WRAP, t = 8))
+        coverBtns.addView(label("Escolha da galeria e ajuste o enquadramento", 11f, Palette.muted), lin(WRAP, WRAP, t = 8))
         coverRow.addView(coverBtns, lin(0, WRAP, 1f))
         c1.addView(coverRow, lin(MATCH, WRAP, t = 10))
         c1.addView(fieldLabel("Título *"))
@@ -759,7 +762,7 @@ class EditActivity : AppCompatActivity() {
             val av = avatarView(p.photo, 52, Palette.pink, Palette.pinkSoft, Palette.pink)
             av.setOnClickListener {
                 pendingCast = i
-                pickImage(104, "Escolher foto", p.name.trim())
+                pickImage(104, "Escolher foto", p.name.trim(), p.photo)
             }
             row.addView(av, lin(dp(52), dp(52), r = 10))
             val fields = LinearLayout(this)
@@ -788,18 +791,22 @@ class EditActivity : AppCompatActivity() {
         val av = avatarView(couplePhotoPath, 84, Palette.pink, Palette.pinkSoft, Palette.pink, "heart", true)
         av.setOnClickListener {
             val q = coupleIn.text.toString().trim()
-            pickImage(103, "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal")
+            pickImage(103, "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
         }
         coupleBox.addView(av, FrameLayout.LayoutParams(MATCH, MATCH))
     }
 
     /** Pergunta de onde vem a imagem: galeria do celular ou busca direto na internet (sem baixar antes). */
-    private fun pickImage(code: Int, title: String, query: String = "") {
-        val items = arrayOf("Escolher da galeria do celular", "Buscar na internet")
+    private fun pickImage(code: Int, title: String, query: String = "", current: String = "") {
+        val items = if (current.isNotEmpty() && File(current).exists())
+            arrayOf("Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual")
+        else arrayOf("Escolher da galeria do celular", "Buscar na internet")
         AlertDialog.Builder(this)
             .setTitle(title)
             .setItems(items) { _, which ->
-                if (which == 0) {
+                if (which == 2) {
+                    reframe(code)
+                } else if (which == 0) {
                     val i = Intent(Intent.ACTION_GET_CONTENT)
                     i.type = "image/*"
                     i.addCategory(Intent.CATEGORY_OPENABLE)
@@ -949,25 +956,32 @@ class EditActivity : AppCompatActivity() {
 
     /** 101 = capa, 102 = trilha sonora, 103 = foto do casal, 104 = foto de quem está no elenco. */
     private fun applyPicked(code: Int, uri: Uri) {
-        if (code == 102 || code == 103 || code == 104) {
-            val p = if (code == 102) Store.saveAudio(uri) else Store.saveCover(uri)
+        if (code == 102) {
+            val p = Store.saveAudio(uri)
             if (p == null) {
                 Toast.makeText(this, "Não consegui abrir esse arquivo.", Toast.LENGTH_SHORT).show()
             } else {
                 createdFiles.add(p)
-                when (code) {
-                    102 -> {
-                        soundtrackPath = p
-                        refreshSoundtrack()
-                    }
-                    103 -> {
-                        couplePhotoPath = p
-                        refreshCouplePhoto()
-                    }
-                    else -> {
-                        if (pendingCast in castList.indices) castList[pendingCast].photo = p
-                        rebuildCast()
-                    }
+                soundtrackPath = p
+                refreshSoundtrack()
+            }
+            return
+        }
+        if (code == 103 || code == 104) {
+            val p = Store.saveCover(uri)
+            if (p == null) {
+                Toast.makeText(this, "Não consegui abrir esse arquivo.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            // enquadramento: foto quadrada (a de elenco aparece em círculo)
+            frameNew(p, 1f, code == 104, if (code == 104) "Enquadrar foto" else "Enquadrar foto do casal") { fin ->
+                createdFiles.add(fin)
+                if (code == 103) {
+                    couplePhotoPath = fin
+                    refreshCouplePhoto()
+                } else {
+                    if (pendingCast in castList.indices) castList[pendingCast].photo = fin
+                    rebuildCast()
                 }
             }
             return
@@ -975,11 +989,69 @@ class EditActivity : AppCompatActivity() {
         if (code == 101) {
             val p = Store.saveCover(uri)
             if (p != null) {
-                if (coverPath.isNotEmpty() && coverPath != originalCover) File(coverPath).delete()
-                coverPath = p
-                refreshCover()
+                // enquadramento da capa (formato pôster 2:3)
+                frameNew(p, 2f / 3f, false, "Enquadrar capa") { fin ->
+                    if (coverPath.isNotEmpty() && coverPath != originalCover) File(coverPath).delete()
+                    coverPath = fin
+                    refreshCover()
+                }
             } else {
                 Toast.makeText(this, "Não consegui abrir essa imagem.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    /** Enquadra uma foto recém-escolhida; entrega o recorte, ou a foto inteira se você cancelar. */
+    private fun frameNew(path: String, aspect: Float, circle: Boolean, title: String, done: (String) -> Unit) {
+        showCropDialog(path, aspect, circle, title) { np ->
+            if (np != null && np != path) {
+                try {
+                    File(path).delete()
+                } catch (e: Exception) {
+                }
+                done(np)
+            } else {
+                done(path)
+            }
+        }
+    }
+
+    /** Enquadra de novo a imagem que já está no formulário: 101 = capa, 103 = casal, 104 = pessoa do elenco. */
+    private fun reframe(code: Int) {
+        val cur = when (code) {
+            101 -> coverPath
+            103 -> couplePhotoPath
+            else -> castList.getOrNull(pendingCast)?.photo ?: ""
+        }
+        if (cur.isEmpty() || !File(cur).exists()) {
+            Toast.makeText(this, "Escolha uma foto primeiro.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val aspect = if (code == 101) 2f / 3f else 1f
+        val title = when (code) {
+            101 -> "Enquadrar capa"
+            103 -> "Enquadrar foto do casal"
+            else -> "Enquadrar foto"
+        }
+        showCropDialog(cur, aspect, code == 104, title) { np ->
+            if (np == null) return@showCropDialog
+            when (code) {
+                101 -> {
+                    if (cur != originalCover) File(cur).delete()
+                    coverPath = np
+                    refreshCover()
+                    Covers.clear()
+                }
+                103 -> {
+                    createdFiles.add(np)
+                    couplePhotoPath = np
+                    refreshCouplePhoto()
+                }
+                else -> {
+                    createdFiles.add(np)
+                    if (pendingCast in castList.indices) castList[pendingCast].photo = np
+                    rebuildCast()
+                }
             }
         }
     }
