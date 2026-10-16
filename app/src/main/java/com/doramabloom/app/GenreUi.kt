@@ -46,7 +46,7 @@ val genreColorChoices: List<Int> = listOf(
     // roxos
     "#6C63FF", "#7B6CF0", "#9B7EDE", "#8E5BD9", "#9B5DE5", "#A068E0", "#C38BD8", "#E36BC4", "#D45FA0", "#B14AED",
     // neutros
-    "#C9BFC4", "#9AA0A8", "#6E6E78", "#4B4B55", "#2A2A31", "#111114"
+    "#C9BFC4", "#9AA0A8", "#6E6E78", "#4B4B55", "#2A2A31", "#000000"
 ).map { Color.parseColor(it) }
 
 /** Cor a partir de matiz (0 a 360) e tom (0 = bem escura, 50 = viva, 100 = bem clara). */

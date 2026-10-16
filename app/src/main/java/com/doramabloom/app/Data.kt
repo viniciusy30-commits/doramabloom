@@ -55,6 +55,10 @@ data class Genre(
         get() {
             if (!Palette.dark) return base
             val lum = (0.299f * Color.red(base) + 0.587f * Color.green(base) + 0.114f * Color.blue(base)) / 255f
+            // preto/cinza escuro de verdade: mantém a cor escolhida (não clareia para cinza)
+            val neutral = maxOf(Color.red(base), Color.green(base), Color.blue(base)) -
+                minOf(Color.red(base), Color.green(base), Color.blue(base)) < 24
+            if (neutral && lum < 0.30f) return base
             return if (lum < 0.30f) mixColor(base, Color.WHITE, 0.45f) else base
         }
 

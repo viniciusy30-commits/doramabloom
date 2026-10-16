@@ -864,7 +864,10 @@ class EditActivity : AppCompatActivity() {
                         if (ev.actionMasked == android.view.MotionEvent.ACTION_UP && target != i) {
                             castList.add(target, castList.removeAt(i))
                         }
-                        rebuildCast()
+                        // não reconstrói dentro do toque: remover a view que está tratando o evento
+                        // deixa a hierarquia inconsistente (NPE em resetSubtreeAccessibilityStateChanged)
+                        rows.forEach { it.animate().cancel() }
+                        v.post { if (!isFinishing && !isDestroyed) rebuildCast() }
                         true
                     }
                     else -> true
@@ -875,7 +878,7 @@ class EditActivity : AppCompatActivity() {
             rm.setPadding(dp(12), dp(8), dp(4), dp(8))
             rm.setOnClickListener {
                 castList.removeAt(i)
-                rebuildCast()
+                rm.post { if (!isFinishing && !isDestroyed) rebuildCast() }
             }
             row.addView(rm, lin(WRAP, WRAP))
             castBox.addView(row, lin(MATCH, WRAP, t = 8))
