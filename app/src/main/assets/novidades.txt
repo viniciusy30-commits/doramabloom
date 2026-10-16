@@ -1,3 +1,7 @@
+#id 2026-10-16-dr
+#titulo Elenco: arraste com o dedo para ordenar
+- Ao editar o elenco, as setas ▲ ▼ saíram. Agora cada pessoa tem uma alça (ícone à direita): segure e arraste para cima ou para baixo, e as outras abrem espaço enquanto você move. A tela rola sozinha quando você chega perto da borda.
+
 #id 2026-10-16-cv
 #titulo Capas bem mais nítidas
 - A capa dos doramas aparecia com qualidade baixa porque o app a reduzia demais antes de mostrar (e depois esticava). Agora ele carrega a capa no tamanho real que ela ocupa na tela do seu celular, na estante, nos carrosséis e nos cartões grandes.

@@ -786,8 +786,10 @@ class EditActivity : AppCompatActivity() {
 
     private fun rebuildCast() {
         castBox.removeAllViews()
+        val rows = ArrayList<View>()
         for ((i, p) in castList.withIndex()) {
             val row = LinearLayout(this)
+            rows.add(row)
             row.orientation = LinearLayout.HORIZONTAL
             row.gravity = Gravity.CENTER_VERTICAL
             val av = avatarView(p.photo, 52, Palette.pink, Palette.pinkSoft, Palette.pink)
@@ -810,29 +812,65 @@ class EditActivity : AppCompatActivity() {
             rl.doAfterTextChanged { p.role = it?.toString() ?: "" }
             fields.addView(rl, lin(MATCH, WRAP, t = 6))
             row.addView(fields, lin(0, WRAP, 1f))
-            // ▲ ▼ para mudar a posição na lista do elenco
-            val mv = LinearLayout(this)
-            mv.orientation = LinearLayout.VERTICAL
-            mv.gravity = Gravity.CENTER
-            val up = label("▲", 15f, if (i > 0) Palette.pinkDark else Palette.line, true)
-            up.setPadding(dp(10), dp(6), dp(6), dp(6))
-            up.setOnClickListener {
-                if (i > 0) {
-                    castList.add(i - 1, castList.removeAt(i))
-                    rebuildCast()
+            // alça para arrastar: segure o ícone e mova para cima ou para baixo
+            val handle = IconView(this, "sort", Palette.pinkDark, 24)
+            val hbox = FrameLayout(this)
+            hbox.setPadding(dp(8), dp(6), dp(6), dp(6))
+            hbox.addView(handle, FrameLayout.LayoutParams(dp(26), dp(26)))
+            var startY = 0f
+            var scrolled = 0f
+            var target = i
+            hbox.setOnTouchListener { v, ev ->
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        v.parent.requestDisallowInterceptTouchEvent(true)
+                        startY = ev.rawY
+                        scrolled = 0f
+                        target = i
+                        row.elevation = dp(10).toFloat()
+                        row.alpha = 0.92f
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        // rola a tela sozinha quando o dedo chega perto da borda
+                        var sc: android.view.ViewParent? = castBox.parent
+                        while (sc != null && sc !is ScrollView) sc = sc.parent
+                        if (sc is ScrollView) {
+                            val loc = IntArray(2)
+                            sc.getLocationOnScreen(loc)
+                            val step = dp(14)
+                            val before = sc.scrollY
+                            if (ev.rawY < loc[1] + dp(90)) sc.scrollBy(0, -step)
+                            else if (ev.rawY > loc[1] + sc.height - dp(90)) sc.scrollBy(0, step)
+                            scrolled += (sc.scrollY - before).toFloat()
+                        }
+                        val dy = ev.rawY - startY + scrolled
+                        row.translationY = dy
+                        val h = (row.height + dp(8)).toFloat()
+                        target = (i + Math.round(dy / h)).coerceIn(0, rows.size - 1)
+                        for (j in rows.indices) {
+                            if (j == i) continue
+                            val shift = when {
+                                i < target && j in (i + 1)..target -> -h
+                                i > target && j in target until i -> h
+                                else -> 0f
+                            }
+                            rows[j].animate().translationY(shift).setDuration(120).start()
+                        }
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                        v.parent.requestDisallowInterceptTouchEvent(false)
+                        if (ev.actionMasked == android.view.MotionEvent.ACTION_UP && target != i) {
+                            castList.add(target, castList.removeAt(i))
+                        }
+                        rebuildCast()
+                        true
+                    }
+                    else -> true
                 }
             }
-            val dn = label("▼", 15f, if (i < castList.size - 1) Palette.pinkDark else Palette.line, true)
-            dn.setPadding(dp(10), dp(6), dp(6), dp(6))
-            dn.setOnClickListener {
-                if (i < castList.size - 1) {
-                    castList.add(i + 1, castList.removeAt(i))
-                    rebuildCast()
-                }
-            }
-            mv.addView(up, lin(WRAP, WRAP))
-            mv.addView(dn, lin(WRAP, WRAP))
-            row.addView(mv, lin(WRAP, WRAP))
+            row.addView(hbox, lin(WRAP, WRAP))
             val rm = label("✕", 16f, Palette.pinkDark, true)
             rm.setPadding(dp(12), dp(8), dp(4), dp(8))
             rm.setOnClickListener {
