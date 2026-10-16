@@ -126,11 +126,19 @@ object Actors {
     private fun scoreText(v: Double): String = "%.1f".format(v)
 
     /** O valor do critério escolhido, em texto curto (o que está em destaque no cartão). */
-    fun primaryText(a: Actor, mode: String): String = when (mode) {
+    fun primaryText(a: Actor, mode: String, short: Boolean = false): String = when (mode) {
         "avg" -> if (a.avg > 0.0) "nota " + scoreText(a.avg) else "sem nota"
         "hours" -> if (a.hours >= 0.5) "%.0f h".format(a.hours) else "0 h"
-        "manual" -> if (a.manual > 0.0) "minha nota " + scoreText(a.manual) else "sem nota"
+        "manual" -> if (a.manual > 0.0) (if (short) "minha " else "minha nota ") + scoreText(a.manual) else "sem nota"
         else -> dramasWord(a.count)
+    }
+
+    fun modeLabel(mode: String): String = when (mode) {
+        "avg" -> "Nota média"
+        "hours" -> "Horas de tela"
+        "manual" -> "Minha nota"
+        "custom" -> "Ordem manual"
+        else -> "Mais doramas"
     }
 
     /** Os outros números da pessoa (sempre aparecem juntos, para a ordem nunca parecer sem sentido). */
@@ -331,11 +339,21 @@ fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClass
     col.addView(both, lin(MATCH, WRAP))
 }
 
-/** Escolha de como o Top 10 é ordenado. Trocar o critério reordena os dois pódios na hora. */
+/** Escolha de como o Top 10 é ordenado, escondida como os filtros da Estante: toque no cartão para abrir. */
 private fun Context.tieBreakCard(onChanged: () -> Unit): View {
     val mode = Store.podiumSort
     val c = card(14, 20)
-    c.addView(label("Classificar por", 14.5f, Palette.text, true, true))
+    val head = LinearLayout(this)
+    head.orientation = LinearLayout.HORIZONTAL
+    head.gravity = Gravity.CENTER_VERTICAL
+    head.addView(label("Classificar por", 14.5f, Palette.text, true, true), lin(0, WRAP, 1f))
+    val cur = pill(Actors.modeLabel(mode), Palette.card, Actors.accent("f"), 12f, "filter")
+    head.addView(cur, lin(WRAP, WRAP))
+    c.addView(head, lin(MATCH, WRAP))
+
+    val panel = LinearLayout(this)
+    panel.orientation = LinearLayout.VERTICAL
+    panel.visibility = View.GONE
     val hint = when (mode) {
         "avg" -> "Fica na frente quem tem a maior nota média nos doramas em que aparece. Empate: mais doramas, depois minha nota e horas de tela."
         "hours" -> "Fica na frente quem tem mais horas de tela somadas (episódios que você assistiu). Empate: mais doramas e maior nota média."
@@ -343,7 +361,7 @@ private fun Context.tieBreakCard(onChanged: () -> Unit): View {
         "custom" -> "Vale a ordem que você arrastou em Reordenar. Quem não está nela vem depois, por número de doramas."
         else -> "Fica na frente quem aparece em mais doramas. Empate: maior nota média, depois minha nota e horas de tela."
     }
-    c.addView(label(hint, 11.5f, Palette.muted), lin(MATCH, WRAP, t = 2, b = 8))
+    panel.addView(label(hint, 11.5f, Palette.muted), lin(MATCH, WRAP, t = 8, b = 8))
     val opts = listOf(
         Opt("count", "Mais doramas", Actors.accent("m"), "person"),
         Opt("avg", "Nota média", Actors.accent("f"), "heart"),
@@ -351,10 +369,58 @@ private fun Context.tieBreakCard(onChanged: () -> Unit): View {
         Opt("manual", "Minha nota", Actors.GOLD, "star"),
         Opt("custom", "Ordem manual", Actors.SILVER, "sort")
     )
-    c.addView(chipFlow(opts, mode) {
+    panel.addView(chipFlow(opts, mode) {
         Store.podiumSort = it
         onChanged()
     }, lin(MATCH, WRAP))
+    c.addView(panel, lin(MATCH, WRAP))
+
+    var open = false
+    val toggle = View.OnClickListener {
+        open = !open
+        val on = open
+        cur.background = roundRect(if (on) Actors.accent("f") else Palette.card, dp(20).toFloat())
+        cur.setTextColor(if (on) Color.WHITE else Actors.accent("f"))
+        cur.setCompoundDrawables(iconDrawable("filter", if (on) Color.WHITE else Actors.accent("f"), dp(16)), null, null, null)
+        panel.animate().cancel()
+        val from: Int
+        val to: Int
+        if (on) {
+            panel.visibility = View.VISIBLE
+            panel.measure(
+                View.MeasureSpec.makeMeasureSpec(maxOf(1, c.width - c.paddingLeft - c.paddingRight), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            from = 0
+            to = panel.measuredHeight
+            panel.alpha = 0f
+            panel.animate().alpha(1f).setDuration(260).start()
+        } else {
+            from = panel.height
+            to = 0
+            panel.animate().alpha(0f).setDuration(160).start()
+        }
+        val an = android.animation.ValueAnimator.ofInt(from, to)
+        an.duration = 260
+        an.interpolator = android.view.animation.DecelerateInterpolator()
+        an.addUpdateListener {
+            panel.layoutParams.height = it.animatedValue as Int
+            panel.requestLayout()
+        }
+        an.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                panel.layoutParams.height = WRAP
+                if (!open) {
+                    panel.visibility = View.GONE
+                    panel.alpha = 1f
+                }
+                panel.requestLayout()
+            }
+        })
+        an.start()
+    }
+    cur.setOnClickListener(toggle)
+    head.setOnClickListener(toggle)
     return c
 }
 
@@ -624,17 +690,14 @@ private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): 
     TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(nm, 8, 11, 1, TypedValue.COMPLEX_UNIT_SP)
     cell.addView(nm, lin(MATCH, WRAP, t = 6))
     val mode = Store.podiumSort
-    val sc = LinearLayout(this)
-    sc.orientation = LinearLayout.HORIZONTAL
-    sc.gravity = Gravity.CENTER
-    sc.addView(IconView(this, Actors.modeIcon(mode), acc, 9), lin(WRAP, WRAP, r = 2))
-    val pt = label(Actors.primaryText(a, mode), 10f, Actors.deep(a.gender), true)
+    val pt = label(Actors.primaryText(a, mode, true), 10f, Actors.deep(a.gender), true)
+    pt.gravity = Gravity.CENTER
     pt.maxLines = 1
-    sc.addView(pt, lin(WRAP, WRAP))
-    cell.addView(sc, lin(MATCH, WRAP, t = 2))
+    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(pt, 7, 10, 1, TypedValue.COMPLEX_UNIT_SP)
+    cell.addView(pt, lin(MATCH, WRAP, t = 2))
     val extra = Actors.detailText(a, mode)
     if (extra.isNotEmpty()) {
-        val dr = label(extra, 9f, Palette.muted)
+        val dr = label(extra, 8.5f, Palette.muted)
         dr.gravity = Gravity.CENTER
         dr.maxLines = 2
         cell.addView(dr, lin(MATCH, WRAP, t = 1))
@@ -696,14 +759,14 @@ private fun Context.actorRow(a: Actor, rank: Int, maxVal: Double, onOpen: (Actor
     val subL = label(Actors.primaryText(a, mode), 10.5f, Actors.deep(a.gender), true)
     subL.maxLines = 1
     subRow.addView(subL, lin(WRAP, WRAP))
+    mid.addView(subRow, lin(MATCH, WRAP, t = 1))
     val more = Actors.detailText(a, mode)
     if (more.isNotEmpty()) {
-        val md = label(more, 10.5f, Palette.muted)
+        val md = label(more, 10f, Palette.muted)
         md.maxLines = 1
         md.ellipsize = TextUtils.TruncateAt.END
-        subRow.addView(md, lin(0, WRAP, 1f, l = 6))
+        mid.addView(md, lin(MATCH, WRAP, t = 1))
     }
-    mid.addView(subRow, lin(MATCH, WRAP, t = 1))
     val bar = SoftBar(this)
     bar.barColor = ring
     bar.animateTo((Actors.metric(a, mode) / maxVal).toFloat().coerceIn(0f, 1f), 0f, 300L + rank * 50L, 700L)

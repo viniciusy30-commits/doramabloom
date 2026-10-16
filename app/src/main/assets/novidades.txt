@@ -1,6 +1,7 @@
 #id 2026-10-16-pd
 #titulo Pódios refeitos: ordem clara e nomes sem duplicata
 - Novo "Classificar por": Mais doramas, Nota média, Horas de tela, Minha nota ou Ordem manual. Trocar o critério reordena os pódios na hora (antes a ordem arrastada travava o pódio e o filtro parecia não funcionar).
+- "Classificar por" agora fica escondido, como os filtros da Estante: toque no cartão para abrir e escolher. Os textos do pódio foram reorganizados para não ficarem apertados.
 - Cada cartão mostra o critério em destaque e, embaixo, os outros números (doramas e nota média, com "2/3" quando só parte dos doramas tem nota). As notas são comparadas já arredondadas, como aparecem na tela.
 - Reordenar com o dedo agora liga o modo "Ordem manual"; o botão Automático volta para "Mais doramas".
 - Ator ou atriz: o app acha a pessoa no elenco oficial do dorama e confere o gênero no Wikidata, sem olhar foto. Quando confirma, grava sozinho e passa para a próxima, sem "parece ser" para você aprovar. Só quem ele não consegue confirmar fica para você escolher.
