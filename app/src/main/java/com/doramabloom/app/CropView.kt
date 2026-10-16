@@ -199,7 +199,7 @@ class CropView(ctx: Context, private val aspect: Float, private val circle: Bool
     }
 
     /** O pedaço da foto que está dentro da moldura (com no máximo [maxSide] px no lado maior). */
-    fun cropped(maxSide: Int = 1400): Bitmap? {
+    fun cropped(maxSide: Int = 2000): Bitmap? {
         val b = bmp ?: return null
         return try {
             val inv = Matrix()
@@ -216,7 +216,8 @@ class CropView(ctx: Context, private val aspect: Float, private val circle: Bool
                 val k = maxSide.toFloat() / big
                 out = Bitmap.createScaledBitmap(out, maxOf(1, (out.width * k).toInt()), maxOf(1, (out.height * k).toInt()), true)
             }
-            out
+            // recorte pequeno/borrado: amplia com suavização e realça os detalhes
+            ImageEnhance.autoIfSmall(out)
         } catch (e: Throwable) {
             null
         }

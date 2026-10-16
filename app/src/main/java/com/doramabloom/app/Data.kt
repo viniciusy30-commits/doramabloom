@@ -407,7 +407,11 @@ data class Drama(
     /** Até 3 gêneros extras escolhidos para aparecer no cartão da Estante (vazio = os 3 primeiros). */
     var shelfTags: List<String> = emptyList(),
     /** Supremacy: os pouquíssimos doramas acima de todos os favoritos. */
-    var supremacy: Boolean = false
+    var supremacy: Boolean = false,
+    /** Posição na ordem de favoritismo da aba Supremacy (0 = sem posição: fica depois dos outros, por nota). */
+    var supOrder: Long = 0L,
+    /** Data de lançamento (só para filmes; 0 = não informada). */
+    var releaseDate: Long = 0L
 )
 
 /**
@@ -493,6 +497,7 @@ fun counterText(d: Drama, s: Int): String {
 }
 
 fun progressText(d: Drama): String {
+    if (d.kind == "filme") return if (watchedEps(d) > 0) "Filme assistido" else "Filme"
     val t = totalEps(d)
     val w = watchedEps(d)
     if (seasonCount(d) <= 1) {
@@ -641,6 +646,8 @@ private fun Drama.toJson(): JSONObject {
     o.put("couplePhoto", couplePhoto)
     o.put("shelfTags", JSONArray().also { a -> for (t in shelfTags) a.put(t) })
     o.put("supremacy", supremacy)
+    o.put("supOrder", supOrder)
+    o.put("releaseDate", releaseDate)
     val cp = JSONArray()
     for (p in castPeople) {
         val po = JSONObject()
@@ -696,7 +703,9 @@ private fun dramaFromJson(o: JSONObject): Drama {
         castPeople = castFromJson(o.optJSONArray("castPeople"), o.optString("cast", "")),
         couplePhoto = o.optString("couplePhoto", ""),
         shelfTags = jsonStrings(o.optJSONArray("shelfTags")),
-        supremacy = o.optBoolean("supremacy", false)
+        supremacy = o.optBoolean("supremacy", false),
+        supOrder = o.optLong("supOrder", 0L),
+        releaseDate = o.optLong("releaseDate", 0L)
     )
     normalize(d)
     return d
@@ -1519,6 +1528,13 @@ object Store {
         persist()
     }
 
+    /** Guarda a ordem de favoritismo do Supremacy: [ids] na ordem escolhida (lista vazia = volta a ordenar por nota). */
+    fun setSupOrder(ids: List<Long>) {
+        for (d in list) if (d.supremacy) d.supOrder = 0L
+        for ((i, id) in ids.withIndex()) get(id)?.supOrder = (i + 1).toLong()
+        persist()
+    }
+
     fun setStatus(d: Drama, key: String) {
         applyStatus(d, key)
         persist()
@@ -2005,7 +2021,7 @@ object Store {
             bounds.inJustDecodeBounds = true
             cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
             var sample = 1
-            while (bounds.outWidth / sample > 1400 || bounds.outHeight / sample > 1400) sample *= 2
+            while (bounds.outWidth / sample > 2200 || bounds.outHeight / sample > 2200) sample *= 2
             val opts = BitmapFactory.Options()
             opts.inSampleSize = sample
             var bmp: Bitmap = cr.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) } ?: return null
@@ -2028,10 +2044,12 @@ object Store {
                 m.postRotate(rot.toFloat())
                 bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
             }
+            // foto pequena/borrada: amplia com suavização e realça os detalhes
+            bmp = ImageEnhance.autoIfSmall(bmp)
             val dir = File(appContext.filesDir, "covers")
             dir.mkdirs()
             val f = File(dir, "c" + System.currentTimeMillis() + ".jpg")
-            FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+            FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 95, it) }
             f.absolutePath
         } catch (e: Exception) {
             null
@@ -2044,7 +2062,7 @@ object Store {
             val dir = File(appContext.filesDir, "covers")
             dir.mkdirs()
             val f = File(dir, "c" + System.currentTimeMillis() + "f.jpg")
-            FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 95, it) }
             f.absolutePath
         } catch (e: Exception) {
             null

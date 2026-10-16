@@ -445,11 +445,12 @@ class ActorActivity : AppCompatActivity() {
                     i.addCategory(Intent.CATEGORY_OPENABLE)
                     startActivityForResult(Intent.createChooser(i, "Escolher foto"), 111)
                 } else {
+                    val dt = a.dramas.firstOrNull()?.title?.trim() ?: ""
                     val q = when (a.gender) {
                         "f" -> a.name + " actress"
                         "m" -> a.name + " actor"
                         else -> a.name
-                    }
+                    } + (if (dt.isNotEmpty()) " $dt" else "")
                     val i = Intent(this, WebPickActivity::class.java)
                     i.putExtra("query", q)
                     i.putExtra("title", "Foto de " + a.name)

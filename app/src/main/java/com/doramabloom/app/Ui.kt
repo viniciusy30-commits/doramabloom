@@ -559,7 +559,8 @@ object Covers {
             o.inJustDecodeBounds = true
             BitmapFactory.decodeFile(path, o)
             var s = 1
-            while (o.outWidth / (s * 2) >= reqW) s *= 2
+            val want = (reqW * 1.5f).toInt()
+            while (o.outWidth / (s * 2) >= want) s *= 2
             val o2 = BitmapFactory.Options()
             o2.inSampleSize = s
             val b = BitmapFactory.decodeFile(path, o2)

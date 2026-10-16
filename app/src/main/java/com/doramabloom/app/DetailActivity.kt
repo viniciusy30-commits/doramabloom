@@ -879,14 +879,25 @@ class DetailActivity : AppCompatActivity() {
         tiles.clipChildren = false
         tiles.clipToPadding = false
         val tw = totalEps(d)
+        val filmMode = d.kind == "filme"
         val tSeasons = tile("tv", seasonCount(d).toString(), "temporadas", g.primary)
         val tEps = tile("play", "", "episódios", g.primary)
         val tMin = tile("clock", if (d.epMinutes > 0) d.epMinutes.toString() + " min" else "-", "por EP", g.primary)
         val tRew = tile("replay", "", "reassistido", g.primary)
-        tiles.addView(tSeasons.first, lin(0, WRAP, 1f, r = 6))
-        tiles.addView(tEps.first, lin(0, WRAP, 1f, r = 6))
-        tiles.addView(tMin.first, lin(0, WRAP, 1f, r = 6))
-        tiles.addView(tRew.first, lin(0, WRAP, 1f))
+        if (filmMode) {
+            val dur = if (d.epMinutes >= 60) (d.epMinutes / 60).toString() + "h" + (if (d.epMinutes % 60 > 0) "%02d".format(d.epMinutes % 60) else "") else if (d.epMinutes > 0) d.epMinutes.toString() + " min" else "-"
+            val rel = if (d.releaseDate > 0L) java.text.SimpleDateFormat("dd/MM/yy", Locale("pt", "BR")).format(java.util.Date(d.releaseDate)) else "-"
+            val tDur = tile("clock", dur, "duração", g.primary)
+            val tRel = tile("calendar", rel, "lançamento", g.primary)
+            tiles.addView(tDur.first, lin(0, WRAP, 1f, r = 6))
+            tiles.addView(tRel.first, lin(0, WRAP, 1f, r = 6))
+            tiles.addView(tRew.first, lin(0, WRAP, 1f))
+        } else {
+            tiles.addView(tSeasons.first, lin(0, WRAP, 1f, r = 6))
+            tiles.addView(tEps.first, lin(0, WRAP, 1f, r = 6))
+            tiles.addView(tMin.first, lin(0, WRAP, 1f, r = 6))
+            tiles.addView(tRew.first, lin(0, WRAP, 1f))
+        }
         col.addView(tiles, lin(MATCH, WRAP, t = 14))
         updaters.add {
             val tw2 = totalEps(d)
@@ -930,7 +941,7 @@ class DetailActivity : AppCompatActivity() {
             val top = LinearLayout(this)
             top.orientation = LinearLayout.HORIZONTAL
             top.gravity = Gravity.CENTER_VERTICAL
-            top.addView(label("Temporada " + (i + 1), 13.5f, g.dark, true), lin(WRAP, WRAP))
+            top.addView(label(if (filmMode) "Filme" else "Temporada " + (i + 1), 13.5f, g.dark, true), lin(WRAP, WRAP))
             val now = label("atual", 10.5f, Color.WHITE, true)
             now.setPadding(dp(8), dp(2), dp(8), dp(2))
             now.background = roundRect(g.primary, dp(10).toFloat())
@@ -1004,7 +1015,8 @@ class DetailActivity : AppCompatActivity() {
         updaters.add {
             val total = totalEps(d)
             val w = watchedEps(d)
-            val txt = if (total > 0 && allTotalsKnown(d)) "$w de $total episódios" else "$w episódios assistidos"
+            val txt = if (filmMode) (if (w > 0) "Filme assistido" else "Ainda não assistido")
+            else if (total > 0 && allTotalsKnown(d)) "$w de $total episódios" else "$w episódios assistidos"
             if (overall.text.toString() != txt) {
                 overall.text = txt
                 if (!firstProgress) overall.pop(1.06f)
@@ -1024,7 +1036,7 @@ class DetailActivity : AppCompatActivity() {
                 val wi = d.watched[i]
                 val f = if (t > 0) wi.toFloat() / t.toFloat() else 0f
                 if (firstProgress) seasonBars[i].animateTo(f, 0f, 450L + i * 80L, 700L) else seasonBars[i].animateTo(f)
-                val ct = if (t > 0) "$wi/$t" else "$wi"
+                val ct = if (filmMode) (if (wi > 0) "assistido" else "não assistido") else if (t > 0) "$wi/$t" else "$wi"
                 if (seasonTxt[i].text.toString() != ct) {
                     seasonTxt[i].text = ct
                     if (!firstProgress) seasonTxt[i].pop(1.3f)

@@ -1,3 +1,17 @@
+#id 2026-10-16-fm
+#titulo Filmes com duração e data de lançamento
+- Tipo (Série ou Filme) agora fica logo no topo, em Classificação. Ao marcar Filme, o formulário esconde temporadas e episódios e pede a duração do filme (em minutos) e a data de lançamento. O ano é preenchido sozinho a partir da data.
+- Na página do filme, os cartões mostram duração (ex.: 2h05) e lançamento no lugar de temporadas e episódios, e o progresso vira "Filme assistido" ou "Ainda não assistido". Todo o resto (nota, elenco, favoritos, status, estatísticas) funciona igual ao das séries.
+- Se você voltar o tipo para Série, os episódios que você tinha preenchido continuam lá.
+
+#id 2026-10-16-up
+#titulo Supremacy por favoritismo, fotos melhores e elenco mais fácil de editar
+- Supremacy: botão "Ordenar por favoritismo" no topo da aba. Segure e arraste para pôr os doramas na ordem do seu coração (o primeiro é o favorito). "Por nota" volta à ordem automática. Um dorama novo no Supremacy entra no fim da sua ordem. A ordem entra no backup.
+- Buscar foto do elenco: a pesquisa na internet agora já leva o nome do ator junto com o nome do dorama (e o título da tela mostra os dois). No perfil do ator, a busca usa o dorama mais recente dele.
+- Editar elenco: setas ▲ ▼ ao lado de cada pessoa para mudar a posição na lista do elenco.
+- Qualidade das fotos: o app salva fotos em resolução maior e com menos compressão, mostra as imagens mais nítidas nas telas e, quando a foto é pequena, amplia com suavização e realça os detalhes sozinho. Também há a opção "Melhorar a qualidade da foto atual" ao tocar numa foto (capa, casal ou elenco). A prévia da busca mostra o tamanho da imagem e avisa se for pequena.
+- Ator e atriz sozinhos: o reconhecimento do elenco agora roda em segundo plano assim que você salva um dorama (não precisa abrir os Pódios). Quem o app não achar continua esperando você classificar em Pódios > Classificar.
+
 #id 2026-10-14-dt
 #titulo Desempate do Top 10 à sua escolha
 - Pódios: acima do Top 10 há um cartão "Desempate do Top 10". Quando duas pessoas têm o mesmo número de doramas, você escolhe quem passa na frente: pela nota dos doramas em que ela(e) aparece, pelas horas de tela somadas, ou pela nota que você mesmo deu à pessoa.

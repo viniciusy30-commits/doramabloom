@@ -300,13 +300,18 @@ class WebPickActivity : AppCompatActivity() {
     private fun confirmar(f: File, bmp: Bitmap) {
         val box = FrameLayout(this)
         box.setPadding(dp(18), dp(14), dp(18), dp(4))
+        val ob = BitmapFactory.Options()
+        ob.inJustDecodeBounds = true
+        BitmapFactory.decodeFile(f.absolutePath, ob)
+        val big = maxOf(ob.outWidth, ob.outHeight)
+        val resInfo = "${ob.outWidth}×${ob.outHeight}" + if (big in 1..799) " (pequena: o app melhora a nitidez ao salvar; para ficar ainda melhor, abra a foto grande)" else ""
         val iv = ImageView(this)
         iv.setImageBitmap(bmp)
         iv.scaleType = ImageView.ScaleType.FIT_CENTER
         iv.adjustViewBounds = true
         box.addView(iv, FrameLayout.LayoutParams(MATCH, dp(340)))
         AlertDialog.Builder(this)
-            .setTitle("Usar esta imagem?")
+            .setTitle("Usar esta imagem?  $resInfo")
             .setView(box)
             .setPositiveButton("Usar") { _, _ ->
                 val r = Intent()

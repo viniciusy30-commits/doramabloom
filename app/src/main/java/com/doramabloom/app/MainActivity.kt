@@ -144,6 +144,7 @@ class MainActivity : AppCompatActivity() {
         if (contentFrame.childCount == 0) {
             seenVersion = Store.version
             showTab(tab, true)
+            maybeAutoCast()
             return
         }
         if (seenVersion != Store.version) {
@@ -153,6 +154,24 @@ class MainActivity : AppCompatActivity() {
             } else {
                 showTab(tab, false)
             }
+        }
+        maybeAutoCast()
+    }
+
+    /**
+     * Reconhece sozinho (em segundo plano, em qualquer aba) quem entrou no elenco e já classifica como
+     * ator ou atriz. Quem o app não achar continua esperando você classificar à mão em Pódios > Classificar.
+     */
+    private fun maybeAutoCast() {
+        if (ActorAuto.running) return
+        val sig = try {
+            ActorAuto.jobs(false).joinToString("|") { it.key }
+        } catch (e: Throwable) {
+            ""
+        }
+        if (sig.isNotEmpty() && sig != autoSig) {
+            autoSig = sig
+            contentFrame.post { startAutoCast(false) }
         }
     }
 
@@ -1394,7 +1413,7 @@ class MainActivity : AppCompatActivity() {
     private fun buildSupremacy(): View {
         val sup = Store.all().filter { it.supremacy }
         return try {
-            buildSupremacyTab(sup) { d, l -> open(d, l, "Supremacy") }
+            buildSupremacyTab(sup, { d, l -> open(d, l, "Supremacy") }, { showTab(5, false) })
         } catch (e: Throwable) {
             errorView("Erro ao montar a aba Supremacy", e)
         }

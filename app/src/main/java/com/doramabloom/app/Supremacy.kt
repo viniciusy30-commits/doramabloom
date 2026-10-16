@@ -1,6 +1,7 @@
 package com.doramabloom.app
 
 import android.content.Context
+import android.app.Activity
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -180,11 +181,130 @@ private fun Context.posterCard(d: Drama, rank: Int, w: Int, h: Int): View {
     return frame
 }
 
+/** Ordem do salão: a sua ordem de favoritismo (quando existe); quem ainda não tem posição vem depois, por nota. */
+fun supremacySorted(list: List<Drama>): List<Drama> =
+    list.sortedWith(
+        compareBy<Drama> { if (it.supOrder > 0L) it.supOrder else Long.MAX_VALUE }
+            .thenByDescending { it.score }
+            .thenBy { it.title.lowercase() }
+    )
+
+/** Segure e arraste para escolher quais doramas do Supremacy você mais ama (o primeiro é o seu favorito). */
+fun Activity.showSupremacyReorder(current: List<Drama>, onDone: () -> Unit) {
+    val items = ArrayList(current)
+    if (items.size < 2) return
+    val box = LinearLayout(this)
+    box.orientation = LinearLayout.VERTICAL
+    box.setPadding(dp(12), dp(12), dp(12), dp(4))
+    box.addView(
+        label("Segure e arraste pelo ícone à direita: o primeiro é o seu dorama favorito.", 12.5f, Palette.muted),
+        lin(MATCH, WRAP, l = 6, r = 6, b = 8)
+    )
+    val rv = RecyclerView(this)
+    rv.layoutManager = LinearLayoutManager(this)
+    rv.overScrollMode = View.OVER_SCROLL_NEVER
+    val maxH = (resources.displayMetrics.heightPixels * 0.6f).toInt()
+    box.addView(rv, lin(MATCH, maxH))
+    lateinit var helper: androidx.recyclerview.widget.ItemTouchHelper
+    val act = this
+
+    class VH(val row: LinearLayout, val num: TextView, val thumb: FrameLayout, val name: TextView, val handle: View) :
+        RecyclerView.ViewHolder(row)
+
+    val adapter = object : RecyclerView.Adapter<VH>() {
+        override fun getItemCount(): Int = items.size
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val row = LinearLayout(act)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.setPadding(dp(8), dp(6), dp(10), dp(6))
+            row.layoutParams = ViewGroup.LayoutParams(MATCH, WRAP)
+            val num = label("1", 14f, SUP_DEEP, true, true)
+            num.gravity = Gravity.CENTER
+            row.addView(num, lin(dp(30), WRAP))
+            val tb = FrameLayout(act)
+            row.addView(tb, lin(dp(38), dp(54), l = 2, r = 10))
+            val nm = label("", 14f, Palette.text, true)
+            nm.maxLines = 2
+            nm.ellipsize = TextUtils.TruncateAt.END
+            row.addView(nm, lin(0, WRAP, 1f))
+            val h = IconView(act, "sort", SUP_DEEP, 22)
+            row.addView(h, lin(dp(34), dp(34), l = 6))
+            return VH(row, num, tb, nm, h)
+        }
+
+        override fun onBindViewHolder(h: VH, pos: Int) {
+            val d = items[pos]
+            h.num.text = roman(pos + 1)
+            h.thumb.removeAllViews()
+            val cv = CoverView(act, 8)
+            cv.bind(d, dp(54))
+            h.thumb.addView(cv, FrameLayout.LayoutParams(MATCH, MATCH))
+            h.name.text = d.title
+            h.row.background = roundRect(
+                if (pos == 0) mixColor(Palette.card, SUP_GOLD, if (Palette.dark) 0.22f else 0.18f) else Palette.card,
+                dp(16).toFloat(), if (pos == 0) SUP_GOLD else Palette.line, dp(1)
+            )
+            h.handle.setOnTouchListener { _, ev ->
+                if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) helper.startDrag(h)
+                false
+            }
+        }
+    }
+    helper = androidx.recyclerview.widget.ItemTouchHelper(object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+        androidx.recyclerview.widget.ItemTouchHelper.UP or androidx.recyclerview.widget.ItemTouchHelper.DOWN, 0
+    ) {
+        override fun onMove(r: RecyclerView, from: RecyclerView.ViewHolder, to: RecyclerView.ViewHolder): Boolean {
+            val a = from.bindingAdapterPosition
+            val b = to.bindingAdapterPosition
+            if (a < 0 || b < 0) return false
+            items.add(b, items.removeAt(a))
+            adapter.notifyItemMoved(a, b)
+            return true
+        }
+
+        override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {}
+
+        override fun clearView(r: RecyclerView, vh: RecyclerView.ViewHolder) {
+            super.clearView(r, vh)
+            vh.itemView.alpha = 1f
+            r.post { adapter.notifyDataSetChanged() }
+        }
+
+        override fun onSelectedChanged(vh: RecyclerView.ViewHolder?, state: Int) {
+            super.onSelectedChanged(vh, state)
+            if (state == androidx.recyclerview.widget.ItemTouchHelper.ACTION_STATE_DRAG) vh?.itemView?.alpha = 0.85f
+        }
+    })
+    rv.adapter = adapter
+    rv.addItemDecoration(object : RecyclerView.ItemDecoration() {
+        override fun getItemOffsets(out: android.graphics.Rect, v: View, p: RecyclerView, st: RecyclerView.State) {
+            out.set(0, 0, 0, dp(6))
+        }
+    })
+    helper.attachToRecyclerView(rv)
+
+    androidx.appcompat.app.AlertDialog.Builder(this)
+        .setTitle("Meus favoritos do Supremacy")
+        .setView(box)
+        .setPositiveButton("Salvar") { _, _ ->
+            Store.setSupOrder(items.map { it.id })
+            onDone()
+        }
+        .setNegativeButton("Cancelar", null)
+        .setNeutralButton("Por nota") { _, _ ->
+            Store.setSupOrder(emptyList())
+            onDone()
+        }
+        .show()
+}
+
 /**
  * A aba Supremacy: o salão dourado dos poucos doramas acima de todos os favoritos.
  * Carrossel de pôsteres com zoom no que está no centro, painel de detalhes e ranking.
  */
-fun Context.buildSupremacyTab(list: List<Drama>, onOpen: (Drama, List<Drama>) -> Unit): View {
+fun Context.buildSupremacyTab(list: List<Drama>, onOpen: (Drama, List<Drama>) -> Unit, onReordered: () -> Unit = {}): View {
     val root = FrameLayout(this)
     root.addView(GoldBackdrop(this), FrameLayout.LayoutParams(MATCH, MATCH))
 
@@ -225,7 +345,16 @@ fun Context.buildSupremacyTab(list: List<Drama>, onOpen: (Drama, List<Drama>) ->
         return root
     }
 
-    val sorted = list.sortedWith(compareByDescending<Drama> { it.score }.thenBy { it.title.lowercase() })
+    val sorted = supremacySorted(list)
+    val manual = sorted.any { it.supOrder > 0L }
+
+    // botão para ordenar por favoritismo
+    if (sorted.size > 1) {
+        val ord = pill(if (manual) "Minha ordem de favoritos" else "Ordenar por favoritismo", Color.argb(40, 255, 214, 120), SUP_HI, 12f, "sort")
+        ord.setOnClickListener { (this as? Activity)?.showSupremacyReorder(sorted, onReordered) }
+        col.addView(ord, lin(WRAP, WRAP, t = 12))
+        ord.riseIn(230L)
+    }
 
     // faixa de números do salão
     val rated = sorted.filter { it.score > 0 }

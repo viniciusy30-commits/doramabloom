@@ -64,6 +64,12 @@ class EditActivity : AppCompatActivity() {
     private lateinit var streamFlow: FlowLayout
     private lateinit var yearIn: EditText
     private var kind = "serie"
+    private var releaseDate = 0L
+    private lateinit var seriesCard: View
+    private lateinit var filmCard: View
+    private lateinit var filmMinutesIn: EditText
+    private lateinit var releaseIn: EditText
+    private lateinit var yearLabel: View
     private var soundtrackPath = ""
     private var snapQuery = ""
     private var snapSince = 0L
@@ -104,6 +110,7 @@ class EditActivity : AppCompatActivity() {
         if (ex != null) {
             coverPath = ex.cover
             kind = ex.kind
+            releaseDate = ex.releaseDate
             soundtrackPath = ex.soundtrack
             couplePhotoPath = ex.couplePhoto
             for (p in ex.castPeople) castList.add(CastPerson(p.name, p.photo, p.role))
@@ -194,6 +201,22 @@ class EditActivity : AppCompatActivity() {
         // ---------------- classificação
         val c2 = card(14, 24)
         c2.addView(sectionTitle("Classificação", "tag"))
+        c2.addView(fieldLabel("Tipo"))
+        val kindRow = LinearLayout(this)
+        kindRow.orientation = LinearLayout.HORIZONTAL
+        serieBtn = pill("Série", Palette.pinkSoft, Palette.pinkDark, 13f, "tv")
+        filmeBtn = pill("Filme", Palette.pinkSoft, Palette.pinkDark, 13f, "film")
+        serieBtn.setOnClickListener {
+            kind = "serie"
+            applyKindUi()
+        }
+        filmeBtn.setOnClickListener {
+            kind = "filme"
+            applyKindUi()
+        }
+        kindRow.addView(serieBtn, lin(WRAP, WRAP, r = 8))
+        kindRow.addView(filmeBtn, lin(WRAP, WRAP))
+        c2.addView(kindRow, lin(MATCH, WRAP))
         c2.addView(fieldLabel("País"))
         val cOpts = ArrayList<Opt>()
         for (c in countries) cOpts.add(Opt(c, c, Atmosphere.country(c).second, "flag"))
@@ -245,7 +268,20 @@ class EditActivity : AppCompatActivity() {
         c3.addView(fieldLabel("Duração de cada episódio (minutos)"))
         minutesIn = input("Ex.: 60", if (ex != null && ex.epMinutes > 0) ex.epMinutes.toString() else "", InputType.TYPE_CLASS_NUMBER)
         c3.addView(minutesIn, lin(MATCH, WRAP))
+        seriesCard = c3
         col.addView(c3, lin(MATCH, WRAP, t = 12))
+
+        // ---------------- filme: duração e lançamento (no lugar das temporadas e episódios)
+        val c3f = card(14, 24)
+        c3f.addView(sectionTitle("Filme", "film"))
+        c3f.addView(fieldLabel("Duração do filme (minutos)"))
+        filmMinutesIn = input("Ex.: 120", if (ex != null && ex.kind == "filme" && ex.epMinutes > 0) ex.epMinutes.toString() else "", InputType.TYPE_CLASS_NUMBER)
+        c3f.addView(filmMinutesIn, lin(MATCH, WRAP))
+        c3f.addView(fieldLabel("Data de lançamento (dia/mês/ano)"))
+        releaseIn = dateInput("Lançamento: dd/mm/aa", releaseDate) { releaseDate = it }
+        c3f.addView(releaseIn, lin(MATCH, WRAP))
+        filmCard = c3f
+        col.addView(c3f, lin(MATCH, WRAP, t = 12))
         rebuildSeasons()
 
         // ---------------- nota
@@ -317,7 +353,8 @@ class EditActivity : AppCompatActivity() {
         streamFlow.vGap = dp(8)
         c5.addView(streamFlow, lin(MATCH, WRAP))
         refreshStreams()
-        c5.addView(fieldLabel("Ano"))
+        yearLabel = fieldLabel("Ano")
+        c5.addView(yearLabel)
         yearIn = input("Ano (várias temporadas? ex.: 19-22)", ex?.year ?: "", InputType.TYPE_CLASS_TEXT)
         c5.addView(yearIn, lin(MATCH, WRAP))
         c5.addView(fieldLabel("Datas (só os números; o ano pode ter 2 dígitos: 22 vira 2022)"))
@@ -333,23 +370,7 @@ class EditActivity : AppCompatActivity() {
         // ---------------- tipo e trilha sonora
         val c8 = card(14, 24)
         c8.addView(sectionTitle("Tipo e trilha sonora", "music"))
-        c8.addView(fieldLabel("Tipo"))
-        val kindRow = LinearLayout(this)
-        kindRow.orientation = LinearLayout.HORIZONTAL
-        serieBtn = pill("Série", Palette.pinkSoft, Palette.pinkDark, 13f, "tv")
-        filmeBtn = pill("Filme", Palette.pinkSoft, Palette.pinkDark, 13f, "film")
-        serieBtn.setOnClickListener {
-            kind = "serie"
-            styleKind()
-        }
-        filmeBtn.setOnClickListener {
-            kind = "filme"
-            styleKind()
-        }
-        kindRow.addView(serieBtn, lin(WRAP, WRAP, r = 8))
-        kindRow.addView(filmeBtn, lin(WRAP, WRAP))
-        c8.addView(kindRow, lin(MATCH, WRAP))
-        styleKind()
+        applyKindUi()
         c8.addView(fieldLabel("Trilha sonora"))
         soundtrackTv = label("", 13f, Palette.muted)
         c8.addView(soundtrackTv, lin(MATCH, WRAP, b = 8))
@@ -740,6 +761,16 @@ class EditActivity : AppCompatActivity() {
         }
     }
 
+    /** Série mostra temporadas e episódios; filme mostra duração e data de lançamento. */
+    private fun applyKindUi() {
+        val film = kind == "filme"
+        seriesCard.visibility = if (film) View.GONE else View.VISIBLE
+        filmCard.visibility = if (film) View.VISIBLE else View.GONE
+        yearLabel.visibility = if (film) View.GONE else View.VISIBLE
+        yearIn.visibility = if (film) View.GONE else View.VISIBLE
+        styleKind()
+    }
+
     private fun styleKind() {
         for ((b, k) in listOf(Pair(serieBtn, "serie"), Pair(filmeBtn, "filme"))) {
             val sel = kind == k
@@ -762,7 +793,11 @@ class EditActivity : AppCompatActivity() {
             val av = avatarView(p.photo, 52, Palette.pink, Palette.pinkSoft, Palette.pink)
             av.setOnClickListener {
                 pendingCast = i
-                pickImage(104, "Escolher foto", p.name.trim(), p.photo)
+                val who = p.name.trim()
+                val dt = titleIn.text.toString().trim()
+                // a busca já leva o nome do dorama junto, para achar a foto certa
+                pickImage(104, if (who.isEmpty()) "Escolher foto" else "Foto de $who" + (if (dt.isNotEmpty()) " — $dt" else ""),
+                    (who + " " + dt).trim(), p.photo)
             }
             row.addView(av, lin(dp(52), dp(52), r = 10))
             val fields = LinearLayout(this)
@@ -775,6 +810,29 @@ class EditActivity : AppCompatActivity() {
             rl.doAfterTextChanged { p.role = it?.toString() ?: "" }
             fields.addView(rl, lin(MATCH, WRAP, t = 6))
             row.addView(fields, lin(0, WRAP, 1f))
+            // ▲ ▼ para mudar a posição na lista do elenco
+            val mv = LinearLayout(this)
+            mv.orientation = LinearLayout.VERTICAL
+            mv.gravity = Gravity.CENTER
+            val up = label("▲", 15f, if (i > 0) Palette.pinkDark else Palette.line, true)
+            up.setPadding(dp(10), dp(6), dp(6), dp(6))
+            up.setOnClickListener {
+                if (i > 0) {
+                    castList.add(i - 1, castList.removeAt(i))
+                    rebuildCast()
+                }
+            }
+            val dn = label("▼", 15f, if (i < castList.size - 1) Palette.pinkDark else Palette.line, true)
+            dn.setPadding(dp(10), dp(6), dp(6), dp(6))
+            dn.setOnClickListener {
+                if (i < castList.size - 1) {
+                    castList.add(i + 1, castList.removeAt(i))
+                    rebuildCast()
+                }
+            }
+            mv.addView(up, lin(WRAP, WRAP))
+            mv.addView(dn, lin(WRAP, WRAP))
+            row.addView(mv, lin(WRAP, WRAP))
             val rm = label("✕", 16f, Palette.pinkDark, true)
             rm.setPadding(dp(12), dp(8), dp(4), dp(8))
             rm.setOnClickListener {
@@ -799,12 +857,14 @@ class EditActivity : AppCompatActivity() {
     /** Pergunta de onde vem a imagem: galeria do celular ou busca direto na internet (sem baixar antes). */
     private fun pickImage(code: Int, title: String, query: String = "", current: String = "") {
         val items = if (current.isNotEmpty() && File(current).exists())
-            arrayOf("Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual")
+            arrayOf("Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")
         else arrayOf("Escolher da galeria do celular", "Buscar na internet")
         AlertDialog.Builder(this)
             .setTitle(title)
             .setItems(items) { _, which ->
-                if (which == 2) {
+                if (which == 3) {
+                    enhanceCurrent(code)
+                } else if (which == 2) {
                     reframe(code)
                 } else if (which == 0) {
                     val i = Intent(Intent.ACTION_GET_CONTENT)
@@ -1016,6 +1076,50 @@ class EditActivity : AppCompatActivity() {
         }
     }
 
+    /** Melhora a nitidez e o tamanho da foto que já está no formulário (101 = capa, 103 = casal, 104 = elenco). */
+    private fun enhanceCurrent(code: Int) {
+        val cur = when (code) {
+            101 -> coverPath
+            103 -> couplePhotoPath
+            else -> castList.getOrNull(pendingCast)?.photo ?: ""
+        }
+        if (cur.isEmpty() || !File(cur).exists()) {
+            Toast.makeText(this, "Escolha uma foto primeiro.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val idx = pendingCast
+        Toast.makeText(this, "Melhorando a foto…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val np = ImageEnhance.enhanceFile(cur)
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (np == null) {
+                    Toast.makeText(this, "Não consegui melhorar essa foto.", Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                createdFiles.add(np)
+                when (code) {
+                    101 -> {
+                        if (cur != originalCover) File(cur).delete()
+                        coverPath = np
+                        refreshCover()
+                        Covers.clear()
+                    }
+                    103 -> {
+                        couplePhotoPath = np
+                        refreshCouplePhoto()
+                    }
+                    else -> {
+                        if (idx in castList.indices) castList[idx].photo = np
+                        rebuildCast()
+                    }
+                }
+                Covers.clear()
+                Toast.makeText(this, "Foto melhorada ✓", Toast.LENGTH_SHORT).show()
+            }
+        }.start()
+    }
+
     /** Enquadra de novo a imagem que já está no formulário: 101 = capa, 103 = casal, 104 = pessoa do elenco. */
     private fun reframe(code: Int) {
         val cur = when (code) {
@@ -1070,10 +1174,14 @@ class EditActivity : AppCompatActivity() {
             tags = tags.filter { it != genreKey },
             status = statusKey,
             score = score,
-            seasonEps = ArrayList(seasonTotals),
-            watched = ArrayList(seasonWatched),
-            epMinutes = minutesIn.text.toString().toIntOrNull() ?: 0,
-                        year = normalizeYears(yearIn.text.toString()),
+            // filme = 1 "episódio" só (assim status, horas e estatísticas continuam funcionando)
+            seasonEps = if (kind == "filme") arrayListOf(1) else ArrayList(seasonTotals),
+            watched = if (kind == "filme") arrayListOf(minOf(1, seasonWatched.firstOrNull() ?: 0)) else ArrayList(seasonWatched),
+            epMinutes = (if (kind == "filme") filmMinutesIn.text.toString() else minutesIn.text.toString()).toIntOrNull() ?: 0,
+            releaseDate = if (kind == "filme") releaseDate else 0L,
+            year = if (kind == "filme" && releaseDate > 0L)
+                java.text.SimpleDateFormat("yyyy", java.util.Locale.US).format(java.util.Date(releaseDate))
+            else normalizeYears(yearIn.text.toString()),
             platform = Streamings.encode(streams),
             cast = castList.map { it.name.trim() }.filter { it.isNotEmpty() }.joinToString(", "),
             couple = coupleIn.text.toString().trim(),
@@ -1083,6 +1191,7 @@ class EditActivity : AppCompatActivity() {
             notes = notesIn.text.toString().trim(),
             favorite = favorite,
             supremacy = supremacy,
+            supOrder = if (supremacy) (old?.supOrder ?: 0L) else 0L,
             cover = coverPath,
             addedAt = if (old != null) old.addedAt else System.currentTimeMillis(),
             link = old?.link ?: "",
@@ -1120,6 +1229,11 @@ class EditActivity : AppCompatActivity() {
         if (title.isEmpty()) {
             Toast.makeText(this, "Dê um nome ao dorama.", Toast.LENGTH_SHORT).show()
             titleIn.requestFocus()
+            return
+        }
+        if (kind == "filme" && dateProblem(releaseIn)) {
+            Toast.makeText(this, "Confira a data de lançamento: use dia/mês/ano, como 07/10/26.", Toast.LENGTH_SHORT).show()
+            releaseIn.requestFocus()
             return
         }
         if (dateProblem(startIn) || dateProblem(endIn)) {
