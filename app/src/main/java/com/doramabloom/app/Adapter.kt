@@ -275,13 +275,16 @@ class DramaAdapter(
         val d = items[position]
         val g = Genres.byKey(d.genre)
         val st = Statuses.byKey(d.status)
+        // largura em PIXELS que a capa realmente ocupa na tela: números fixos baixos deixavam a capa
+        // borrada em celulares de tela grande (a imagem era reduzida demais e depois esticada)
+        val screenW = h.cover.resources.displayMetrics.widthPixels
         val reqW = when (mode) {
-            1 -> 500
-            0 -> 300
-            2 -> 320
-            3 -> 440
-            4 -> 800
-            else -> 360
+            1 -> maxOf(500, (screenW * 0.9f).toInt())
+            0 -> maxOf(300, (screenW * 0.55f).toInt())
+            2 -> maxOf(320, (screenW * 0.6f).toInt())
+            3 -> maxOf(440, screenW)
+            4 -> maxOf(800, screenW)
+            else -> maxOf(360, (screenW * 0.6f).toInt())
         }
         h.cover.bind(d, reqW)
         h.title.text = d.title

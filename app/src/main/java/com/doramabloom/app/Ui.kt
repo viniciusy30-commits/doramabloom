@@ -559,11 +559,12 @@ object Covers {
             o.inJustDecodeBounds = true
             BitmapFactory.decodeFile(path, o)
             var s = 1
-            val want = (reqW * 1.5f).toInt()
-            while (o.outWidth / (s * 2) >= want) s *= 2
+            while (o.outWidth / (s * 2) >= reqW) s *= 2
             val o2 = BitmapFactory.Options()
             o2.inSampleSize = s
             val b = BitmapFactory.decodeFile(path, o2)
+            // mipmap: ao reduzir a imagem na tela ela fica lisa e nítida, sem serrilhado
+            b?.setHasMipMap(true)
             if (b != null) cache.put(key, b)
             b
         } catch (e: Exception) {

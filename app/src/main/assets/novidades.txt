@@ -1,3 +1,9 @@
+#id 2026-10-16-cv
+#titulo Capas bem mais nítidas
+- A capa dos doramas aparecia com qualidade baixa porque o app a reduzia demais antes de mostrar (e depois esticava). Agora ele carrega a capa no tamanho real que ela ocupa na tela do seu celular, na estante, nos carrosséis e nos cartões grandes.
+- Quando a imagem é reduzida na tela, ela fica lisa e sem serrilhado.
+- Se uma capa antiga já foi salva em baixa resolução, escolha a foto de novo (ou use "Melhorar a qualidade da foto atual") para ela ficar no melhor tamanho.
+
 #id 2026-10-16-fm
 #titulo Filmes com duração e data de lançamento
 - Tipo (Série ou Filme) agora fica logo no topo, em Classificação. Ao marcar Filme, o formulário esconde temporadas e episódios e pede a duração do filme (em minutos) e a data de lançamento. O ano é preenchido sozinho a partir da data.
