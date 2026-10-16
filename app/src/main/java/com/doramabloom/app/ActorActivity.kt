@@ -564,7 +564,7 @@ class ActorActivity : AppCompatActivity() {
         val my = info?.rating ?: 0.0
         val ratingIn = input("Ex.: 8,5 (vazio = sem nota)", if (my > 0.0) "%.1f".format(my) else "", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL)
         c.addView(ratingIn, lin(MATCH, WRAP))
-        c.addView(label("Serve de desempate no Top 10 quando você escolhe \"Minha nota\" nos Pódios.", 11f, Palette.muted), lin(MATCH, WRAP, t = 4))
+        c.addView(label("Vale nos Pódios quando você escolhe \"Minha nota\" em Classificar por.", 11f, Palette.muted), lin(MATCH, WRAP, t = 4))
 
         val btns = LinearLayout(this)
         btns.orientation = LinearLayout.HORIZONTAL

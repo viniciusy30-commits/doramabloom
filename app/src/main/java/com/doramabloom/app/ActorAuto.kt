@@ -18,7 +18,7 @@ object ActorAuto {
     private var cancel = false
 
     /** Uma pessoa: chave oficial, grafias do nome e os doramas em que foi adicionada (os mais recentes primeiro). */
-    class Job(val key: String, val names: List<String>, val dramas: List<Drama>) {
+    class Job(val key: String, val names: List<String>, val dramas: List<Drama>, val qid: String = "") {
         val name: String get() = names.first()
     }
 
@@ -36,6 +36,8 @@ object ActorAuto {
 
     /** Uma entrada por pessoa ainda não reconhecida (ou, com [force], por todas) e que não falhou há pouco tempo. */
     fun jobs(force: Boolean): List<Job> {
+        // depois desta atualização, todo mundo é conferido de novo uma vez (inclusive quem antes "não foi achado")
+        if (Store.runOnce("autoRetry_podios_v2")) Store.clearAutoMiss()
         PeopleIdentity.consolidate()
         val spell = LinkedHashMap<String, HashMap<String, Int>>()
         val dramasOf = HashMap<String, ArrayList<Drama>>()
@@ -59,7 +61,9 @@ object ActorAuto {
             if (!seen.add(c)) continue
             val members = PeopleIdentity.membersOf(c)
             if (!force) {
-                if (members.any { Store.wdOf(it).isNotEmpty() }) continue
+                // já reconhecida E já com ator/atriz definido: nada a fazer
+                val hasGender = Store.personInfo(c)?.gender?.isNotEmpty() == true
+                if (hasGender && members.any { Store.wdOf(it).isNotEmpty() }) continue
                 val at = members.maxOf { Store.autoMissAt(it) }
                 if (at > 0L && now - at < RETRY_MS) continue
             }
@@ -67,7 +71,8 @@ object ActorAuto {
             for (m in members) spell[m]?.let { for ((n, v) in it) names[n] = (names[n] ?: 0) + v }
             val ordered = names.entries.sortedByDescending { it.value }.map { it.key }
             if (ordered.isEmpty()) continue
-            out.add(Job(c, ordered, dramasOf[c] ?: ArrayList()))
+            val known = members.map { Store.wdOf(it) }.firstOrNull { it.isNotEmpty() } ?: ""
+            out.add(Job(c, ordered, dramasOf[c] ?: ArrayList(), known))
         }
         return out
     }
@@ -129,12 +134,18 @@ object ActorAuto {
             val misses = ArrayList<String>()
             for ((i, j) in list.withIndex()) {
                 if (cancel || act.isFinishing) break
-                val r = GenderLookup.lookupInDramas(j.names, j.dramas) { }
+                // se a pessoa já foi reconhecida (id conhecido), só falta ler o gênero dela; senão procura no elenco dos doramas
+                val r = if (j.qid.isNotEmpty()) {
+                    val g = GenderLookup.genderOfQid(j.qid)
+                    GenderLookup.Result(g, if (g.isNotEmpty()) 2 else 0, j.name, "", j.qid, true)
+                } else {
+                    GenderLookup.lookupInDramas(j.names, j.dramas) { }
+                }
                 val ok = r.qid.isNotEmpty()
                 if (ok) answered++
                 act.runOnUiThread {
                     if (rememberGroup(j.key, r)) found++ else misses.add(j.key)
-                    if (classify(j.key, j.name, r)) classified++
+                    if (classify(j.key, j.name, r)) classified++ else if (r.gender.isEmpty()) misses.add(j.key)
                     onProgress(i + 1, list.size, j.name)
                 }
                 try {

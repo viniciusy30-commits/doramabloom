@@ -48,15 +48,31 @@ object GenderLookup {
         return res
     }
 
-    /** Ator ou atriz (P21) de uma pessoa do Wikidata; "" se não consta. */
+    /** Ator ou atriz de uma pessoa do Wikidata: pelo cadastro de gênero (P21) e, se faltar, pela descrição ("actress"/"actor"). */
     fun genderOfQid(qid: String): String {
-        val body = get("https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&property=P21&entity=$qid") ?: return ""
+        val body = get("https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&property=P21&entity=$qid")
+        var g = ""
+        if (body != null) {
+            g = try {
+                val id = JSONObject(body).optJSONObject("claims")?.optJSONArray("P21")?.optJSONObject(0)
+                    ?.optJSONObject("mainsnak")?.optJSONObject("datavalue")?.optJSONObject("value")?.optString("id", "") ?: ""
+                when (id) {
+                    "Q6581072", "Q1052281" -> "f"
+                    "Q6581097", "Q2449503" -> "m"
+                    else -> ""
+                }
+            } catch (e: Exception) {
+                ""
+            }
+        }
+        if (g.isNotEmpty()) return g
+        val ent = get("https://www.wikidata.org/w/api.php?action=wbgetentities&props=descriptions&languages=en&format=json&ids=$qid") ?: return ""
         return try {
-            val id = JSONObject(body).optJSONObject("claims")?.optJSONArray("P21")?.optJSONObject(0)
-                ?.optJSONObject("mainsnak")?.optJSONObject("datavalue")?.optJSONObject("value")?.optString("id", "") ?: ""
-            when (id) {
-                "Q6581072", "Q1052281" -> "f"
-                "Q6581097", "Q2449503" -> "m"
+            val d = JSONObject(ent).getJSONObject("entities").getJSONObject(qid).optJSONObject("descriptions")
+                ?.optJSONObject("en")?.optString("value", "")?.lowercase() ?: ""
+            when {
+                Regex("\\bactress\\b").containsMatchIn(d) -> "f"
+                Regex("\\bactor\\b").containsMatchIn(d) -> "m"
                 else -> ""
             }
         } catch (e: Exception) {
@@ -72,15 +88,12 @@ object GenderLookup {
     fun lookupInDramas(names: List<String>, dramas: List<Drama>, onStep: (String) -> Unit): Result {
         val ns = names.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         if (ns.isEmpty()) return Result("", 0, "", "")
-        for (d in dramas.take(4)) {
+        for (d in dramas.take(6)) {
             val cast = DramaCast.load(d, onStep) ?: continue
-            for (m in cast.members) {
-                val hit = ns.any { n -> m.names.any { PeopleIdentity.sameName(n, it) } }
-                if (!hit) continue
-                onStep("Achei no elenco de \"" + d.title + "\". Conferindo o gênero…")
-                val g = genderOfQid(m.qid)
-                return Result(g, if (g.isNotEmpty()) 2 else 0, m.names.firstOrNull() ?: "", "no elenco de " + d.title, m.qid, true)
-            }
+            val m = DramaCast.match(ns, cast) ?: continue
+            onStep("Achei no elenco de \"" + d.title + "\". Conferindo o gênero…")
+            val g = genderOfQid(m.qid)
+            return Result(g, if (g.isNotEmpty()) 2 else 0, m.names.firstOrNull() ?: "", "no elenco de " + d.title, m.qid, true)
         }
         return lookup(ns[0], onStep)
     }
@@ -102,6 +115,7 @@ object GenderLookup {
         var bestDesc = ""
         var bestScore = 0
         var bestExact = false
+        val sameActors = HashSet<String>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             val desc = o.optString("description", "").lowercase()
@@ -116,6 +130,7 @@ object GenderLookup {
             val same = (matchText.isNotEmpty() && PeopleIdentity.sameName(name, matchText)) ||
                 (label.isNotEmpty() && PeopleIdentity.sameName(name, label))
             if (same) sc += 2
+            if (same && ACTOR.containsMatchIn(desc)) sameActors.add(o.optString("id", ""))
             if (sc > bestScore) {
                 bestScore = sc
                 bestId = o.optString("id", "")
@@ -125,6 +140,8 @@ object GenderLookup {
             }
         }
         if (bestId.isEmpty()) return none
+        // dois ou mais atores com o mesmo nome no Wikidata: sem o elenco do dorama não dá para saber qual é; não chuta
+        if (sameActors.size > 1) return none
 
         onStep("Achei \"$bestLabel\" (${bestDesc.ifBlank { "pessoa" }}). Conferindo o gênero…")
         val d = bestDesc.lowercase()

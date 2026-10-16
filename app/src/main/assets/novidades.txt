@@ -1,3 +1,13 @@
+#id 2026-10-16-pd
+#titulo Pódios refeitos: ordem clara e nomes sem duplicata
+- Novo "Classificar por": Mais doramas, Nota média, Horas de tela, Minha nota ou Ordem manual. Trocar o critério reordena os pódios na hora (antes a ordem arrastada travava o pódio e o filtro parecia não funcionar).
+- Cada cartão mostra o critério em destaque e, embaixo, os outros números (doramas e nota média, com "2/3" quando só parte dos doramas tem nota). As notas são comparadas já arredondadas, como aparecem na tela.
+- Reordenar com o dedo agora liga o modo "Ordem manual"; o botão Automático volta para "Mais doramas".
+- Ator ou atriz: o app acha a pessoa no elenco oficial do dorama e confere o gênero no Wikidata, sem olhar foto. Quando confirma, grava sozinho e passa para a próxima, sem "parece ser" para você aprovar. Só quem ele não consegue confirmar fica para você escolher.
+- Tudo em segundo plano: o reconhecimento roda sozinho, sem tela de carregamento pessoa por pessoa. O aviso de "Classificar" só aparece para quem o app não conseguiu confirmar, e a janela mostra só essas pessoas, com os botões Atriz e Ator.
+- Ao abrir depois desta atualização, o app confere todo o elenco de novo, sozinho: reconhece cada pessoa, define ator ou atriz e junta os nomes repetidos.
+- Nomes parecidos: o app procura a pessoa no elenco oficial do dorama (Wikidata) e aceita pequenas diferenças de escrita (ex.: Joon/Jun, hífen, ordem do sobrenome). Só junta quando a pessoa é a única parecida naquele elenco. Dois nomes que aparecem juntos no elenco do mesmo dorama nunca são juntados.
+
 #id 2026-10-16-dr
 #titulo Elenco: arraste com o dedo para ordenar
 - Ao editar o elenco, as setas ▲ ▼ saíram. Agora cada pessoa tem uma alça (ícone à direita): segure e arraste para cima ou para baixo, e as outras abrem espaço enquanto você move. A tela rola sozinha quando você chega perto da borda.

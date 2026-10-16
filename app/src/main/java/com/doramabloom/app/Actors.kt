@@ -46,6 +46,9 @@ class Actor(
             return if (r.isEmpty()) 0.0 else r.map { it.score }.sum().toDouble() / r.size
         }
 
+    /** Em quantos dos doramas dele(a) você deu nota. */
+    val ratedCount: Int get() = dramas.count { it.score > 0 }
+
     /** Horas de tela somadas de todos os doramas dele(a) (episódios que você assistiu x duração). */
     val hours: Double
         get() {
@@ -64,6 +67,7 @@ object Actors {
     private val FEM = Color.parseColor("#FF6B9D")
     private val MASC = Color.parseColor("#5B9BFF")
     private val NEUTRAL = Color.parseColor("#A78BFA")
+    val NEUTRAL_COLOR: Int = NEUTRAL
     val GOLD: Int = Color.parseColor("#F5B83D")
     val SILVER: Int = Color.parseColor("#A9B4C4")
     val BRONZE: Int = Color.parseColor("#D48B5C")
@@ -100,42 +104,68 @@ object Actors {
         else -> NEUTRAL
     }
 
-    /** O número que decide o empate, conforme o critério escolhido. */
-    fun tieValue(a: Actor, mode: String): Double = when (mode) {
+    /**
+     * O número usado para ordenar no critério escolhido. As notas e horas são arredondadas como aparecem na tela
+     * (uma casa), então o que você vê é exatamente o que decide a posição.
+     */
+    fun metric(a: Actor, mode: String): Double = when (mode) {
+        "avg" -> Math.round(a.avg * 10.0) / 10.0
         "hours" -> Math.round(a.hours * 10.0) / 10.0
-        "manual" -> a.manual
-        else -> a.avg
+        "manual" -> Math.round(a.manual * 10.0) / 10.0
+        else -> a.count.toDouble()
     }
 
-    /** Ícone e texto curto do critério de desempate (null = a pessoa não tem esse valor). */
-    fun tieIcon(mode: String): String = when (mode) {
+    fun modeIcon(mode: String): String = when (mode) {
+        "avg" -> "heart"
         "hours" -> "clock"
         "manual" -> "star"
-        else -> "heart"
+        "custom" -> "sort"
+        else -> "person"
     }
 
-    fun tieText(a: Actor, mode: String): String? = when (mode) {
-        "hours" -> if (a.hours >= 0.5) "%.0f h".format(a.hours) else null
-        "manual" -> if (a.manual > 0.0) "%.1f".format(a.manual) else null
-        else -> if (a.avg > 0.0) "%.1f".format(a.avg) else null
+    private fun scoreText(v: Double): String = "%.1f".format(v)
+
+    /** O valor do critério escolhido, em texto curto (o que está em destaque no cartão). */
+    fun primaryText(a: Actor, mode: String): String = when (mode) {
+        "avg" -> if (a.avg > 0.0) "nota " + scoreText(a.avg) else "sem nota"
+        "hours" -> if (a.hours >= 0.5) "%.0f h".format(a.hours) else "0 h"
+        "manual" -> if (a.manual > 0.0) "minha nota " + scoreText(a.manual) else "sem nota"
+        else -> dramasWord(a.count)
     }
+
+    /** Os outros números da pessoa (sempre aparecem juntos, para a ordem nunca parecer sem sentido). */
+    fun detailText(a: Actor, mode: String): String {
+        val parts = ArrayList<String>()
+        if (mode == "avg" || mode == "hours" || mode == "manual") parts.add(dramasWord(a.count))
+        if (mode != "avg" && a.avg > 0.0) {
+            var t = "média " + scoreText(a.avg)
+            if (a.ratedCount < a.count) t += " (" + a.ratedCount + "/" + a.count + ")"
+            parts.add(t)
+        } else if (mode == "avg" && a.ratedCount < a.count) {
+            parts.add(a.ratedCount.toString() + " de " + a.count + " com nota")
+        }
+        if (mode == "manual" && a.avg > 0.0 && parts.none { it.startsWith("média") }) parts.add("média " + scoreText(a.avg))
+        return parts.joinToString(" · ")
+    }
+
+    fun dramasWord(n: Int): String = if (n == 1) "1 dorama" else "$n doramas"
 
     /**
-     * Mais doramas primeiro. Empate: vale o critério que você escolheu (nota dos doramas, horas de tela ou a nota
-     * que você deu à pessoa); se ainda empatar, nota média, horas de tela e por fim ordem alfabética.
+     * Ordem automática. O critério escolhido (Mais doramas, Nota média, Horas de tela ou Minha nota) vem primeiro;
+     * os outros entram em seguida só para desempatar, e por último a ordem alfabética.
      */
     val order: Comparator<Actor>
         get() {
-            val mode = Store.tiebreak
+            val mode = Store.podiumSort
+            val first = if (mode == "custom") "count" else mode
+            val chain = listOf(first, "count", "avg", "manual", "hours").distinct()
             return Comparator { a, b ->
-                if (a.count != b.count) {
-                    b.count - a.count
-                } else {
-                    var c = tieValue(b, mode).compareTo(tieValue(a, mode))
-                    if (c == 0) c = b.avg.compareTo(a.avg)
-                    if (c == 0) c = tieValue(b, "hours").compareTo(tieValue(a, "hours"))
-                    if (c != 0) c else a.name.compareTo(b.name, true)
+                var c = 0
+                for (m in chain) {
+                    c = metric(b, m).compareTo(metric(a, m))
+                    if (c != 0) break
                 }
+                if (c != 0) c else a.name.compareTo(b.name, true)
             }
         }
 
@@ -180,6 +210,8 @@ object Actors {
     /** Quem você arrastou para uma posição fica nela; o resto vem depois, na ordem automática. */
     fun ranked(list: List<Actor>, gender: String): List<Actor> {
         val auto = autoRanked(list, gender)
+        // a ordem arrastada só vale quando você escolhe "Ordem manual"; nos outros critérios o pódio segue o critério
+        if (Store.podiumSort != "custom") return auto
         val pinned = Store.actorOrder(gender).map { PeopleIdentity.canon(it) }.distinct()
         if (pinned.isEmpty()) return auto
         val byKey = auto.associateBy { it.key }
@@ -283,7 +315,10 @@ fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClass
         return
     }
     val unknown = everyone.filter { it.gender.isEmpty() }
-    if (unknown.isNotEmpty()) col.addView(classifyBanner(unknown.size, onClassify), lin(MATCH, WRAP, t = 14))
+    // o app classifica sozinho em segundo plano; o aviso só aparece para quem ele não conseguiu confirmar
+    if (unknown.isNotEmpty() && !ActorAuto.running && ActorAuto.pendingCount() == 0) {
+        col.addView(classifyBanner(unknown.size, onClassify), lin(MATCH, WRAP, t = 14))
+    }
     val st = sectionTitle("Top 10 do elenco", "crown", Actors.GOLD)
     st.setPadding(dp(4), dp(20), 0, dp(10))
     col.addView(st, lin(MATCH, WRAP))
@@ -296,24 +331,28 @@ fun Context.addActorSections(col: LinearLayout, onOpen: (Actor) -> Unit, onClass
     col.addView(both, lin(MATCH, WRAP))
 }
 
-/** Escolha do critério de desempate: nota dos doramas, horas de tela ou a nota que você deu à pessoa. */
+/** Escolha de como o Top 10 é ordenado. Trocar o critério reordena os dois pódios na hora. */
 private fun Context.tieBreakCard(onChanged: () -> Unit): View {
-    val mode = Store.tiebreak
+    val mode = Store.podiumSort
     val c = card(14, 20)
-    c.addView(label("Desempate do Top 10", 14.5f, Palette.text, true, true))
+    c.addView(label("Classificar por", 14.5f, Palette.text, true, true))
     val hint = when (mode) {
-        "hours" -> "Com o mesmo número de doramas, fica na frente quem tem mais horas de tela somadas (episódios que você assistiu)."
-        "manual" -> "Com o mesmo número de doramas, fica na frente quem tem a maior nota que você deu à pessoa. Dê a nota no perfil dela, em \"Editar informações\"."
-        else -> "Com o mesmo número de doramas, fica na frente quem tem a maior nota média nos doramas em que aparece."
+        "avg" -> "Fica na frente quem tem a maior nota média nos doramas em que aparece. Empate: mais doramas, depois minha nota e horas de tela."
+        "hours" -> "Fica na frente quem tem mais horas de tela somadas (episódios que você assistiu). Empate: mais doramas e maior nota média."
+        "manual" -> "Fica na frente quem tem a maior nota que você deu à pessoa (em \"Editar informações\" no perfil). Empate: mais doramas e maior nota média."
+        "custom" -> "Vale a ordem que você arrastou em Reordenar. Quem não está nela vem depois, por número de doramas."
+        else -> "Fica na frente quem aparece em mais doramas. Empate: maior nota média, depois minha nota e horas de tela."
     }
     c.addView(label(hint, 11.5f, Palette.muted), lin(MATCH, WRAP, t = 2, b = 8))
     val opts = listOf(
-        Opt("avg", "Nota dos doramas", Actors.accent("f"), "heart"),
-        Opt("hours", "Horas de tela", Actors.accent("m"), "clock"),
-        Opt("manual", "Minha nota", Actors.GOLD, "star")
+        Opt("count", "Mais doramas", Actors.accent("m"), "person"),
+        Opt("avg", "Nota média", Actors.accent("f"), "heart"),
+        Opt("hours", "Horas de tela", Actors.NEUTRAL_COLOR, "clock"),
+        Opt("manual", "Minha nota", Actors.GOLD, "star"),
+        Opt("custom", "Ordem manual", Actors.SILVER, "sort")
     )
     c.addView(chipFlow(opts, mode) {
-        Store.tiebreak = it
+        Store.podiumSort = it
         onChanged()
     }, lin(MATCH, WRAP))
     return c
@@ -335,8 +374,8 @@ private fun Context.classifyBanner(n: Int, onClick: () -> Unit): View {
     c.addView(dot, lin(dp(42), dp(42), r = 12))
     val t = LinearLayout(this)
     t.orientation = LinearLayout.VERTICAL
-    t.addView(label(if (n == 1) "1 pessoa sem classificar" else "$n pessoas sem classificar", 14.5f, Actors.deep(""), true, true))
-    t.addView(label("Diga quem é ator e quem é atriz para entrar nos rankings.", 11.5f, Palette.muted), lin(WRAP, WRAP, t = 2))
+    t.addView(label(if (n == 1) "1 pessoa que o app não conseguiu confirmar" else "$n pessoas que o app não conseguiu confirmar", 14.5f, Actors.deep(""), true, true))
+    t.addView(label("Só essas precisam de você: toque e escolha ator ou atriz.", 11.5f, Palette.muted), lin(WRAP, WRAP, t = 2))
     c.addView(t, lin(0, WRAP, 1f))
     c.addView(pill("Classificar", acc, Color.WHITE, 12.5f, "check"), lin(WRAP, WRAP, l = 8))
     c.setOnClickListener { onClick() }
@@ -467,7 +506,8 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
     }
 
     val top = list.take(10)
-    val maxCount = maxOf(1, list.maxOf { it.count })
+    val sortMode = Store.podiumSort
+    val maxVal = maxOf(0.0001, list.maxOf { Actors.metric(it, sortMode) })
 
     // botão para escolher a ordem arrastando
     val act = this as? Activity
@@ -487,7 +527,7 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
         val rows = LinearLayout(this)
         rows.orientation = LinearLayout.VERTICAL
         for (i in 3 until top.size) {
-            val r = actorRow(top[i], i + 1, maxCount, onOpen)
+            val r = actorRow(top[i], i + 1, maxVal, onOpen)
             rows.addView(r, lin(MATCH, WRAP, t = if (i == 3) 0 else 6))
             r.riseIn(320L + (i - 3) * 45L)
         }
@@ -500,7 +540,7 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
         c.addView(extra, lin(MATCH, WRAP, t = 6))
         val more = pill("Ver todos (" + list.size + ")", acc, Color.WHITE, 11.5f, "list")
         more.setOnClickListener {
-            for (i in 10 until minOf(list.size, 60)) extra.addView(actorRow(list[i], i + 1, maxCount, onOpen), lin(MATCH, WRAP, t = 6))
+            for (i in 10 until minOf(list.size, 60)) extra.addView(actorRow(list[i], i + 1, maxVal, onOpen), lin(MATCH, WRAP, t = 6))
             more.visibility = View.GONE
         }
         val mr = LinearLayout(this)
@@ -583,20 +623,22 @@ private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): 
     nm.ellipsize = TextUtils.TruncateAt.END
     TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(nm, 8, 11, 1, TypedValue.COMPLEX_UNIT_SP)
     cell.addView(nm, lin(MATCH, WRAP, t = 6))
-    val tieMode = Store.tiebreak
-    val tieTxt = Actors.tieText(a, tieMode)
-    if (tieTxt != null) {
-        val sc = LinearLayout(this)
-        sc.orientation = LinearLayout.HORIZONTAL
-        sc.gravity = Gravity.CENTER
-        sc.addView(IconView(this, Actors.tieIcon(tieMode), acc, 9), lin(WRAP, WRAP, r = 2))
-        sc.addView(label(tieTxt, 10f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
-        cell.addView(sc, lin(MATCH, WRAP, t = 2))
+    val mode = Store.podiumSort
+    val sc = LinearLayout(this)
+    sc.orientation = LinearLayout.HORIZONTAL
+    sc.gravity = Gravity.CENTER
+    sc.addView(IconView(this, Actors.modeIcon(mode), acc, 9), lin(WRAP, WRAP, r = 2))
+    val pt = label(Actors.primaryText(a, mode), 10f, Actors.deep(a.gender), true)
+    pt.maxLines = 1
+    sc.addView(pt, lin(WRAP, WRAP))
+    cell.addView(sc, lin(MATCH, WRAP, t = 2))
+    val extra = Actors.detailText(a, mode)
+    if (extra.isNotEmpty()) {
+        val dr = label(extra, 9f, Palette.muted)
+        dr.gravity = Gravity.CENTER
+        dr.maxLines = 2
+        cell.addView(dr, lin(MATCH, WRAP, t = 1))
     }
-    val dr = label(dramasText(a.count), 9f, Palette.muted)
-    dr.gravity = Gravity.CENTER
-    dr.maxLines = 1
-    cell.addView(dr, lin(MATCH, WRAP, t = 1))
 
     cell.setOnClickListener { onOpen(a) }
     cell.pressable(0.95f)
@@ -604,7 +646,7 @@ private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): 
 }
 
 /** Da 2ª posição em diante: linha compacta com foto, medalhinha, nome, doramas e barrinha. */
-private fun Context.actorRow(a: Actor, rank: Int, maxCount: Int, onOpen: (Actor) -> Unit): View {
+private fun Context.actorRow(a: Actor, rank: Int, maxVal: Double, onOpen: (Actor) -> Unit): View {
     val acc = Actors.accent(a.gender)
     val podium = rank <= 3
     val ring = if (podium) Actors.medal(rank) else acc
@@ -649,19 +691,22 @@ private fun Context.actorRow(a: Actor, rank: Int, maxCount: Int, onOpen: (Actor)
     val subRow = LinearLayout(this)
     subRow.orientation = LinearLayout.HORIZONTAL
     subRow.gravity = Gravity.CENTER_VERTICAL
-    val subL = label(dramasText(a.count), 10.5f, Palette.muted)
+    val mode = Store.podiumSort
+    subRow.addView(IconView(this, Actors.modeIcon(mode), acc, 9), lin(WRAP, WRAP, r = 3))
+    val subL = label(Actors.primaryText(a, mode), 10.5f, Actors.deep(a.gender), true)
     subL.maxLines = 1
     subRow.addView(subL, lin(WRAP, WRAP))
-    val tieMode = Store.tiebreak
-    val tieTxt = Actors.tieText(a, tieMode)
-    if (tieTxt != null) {
-        subRow.addView(IconView(this, Actors.tieIcon(tieMode), acc, 9), lin(WRAP, WRAP, l = 6, r = 2))
-        subRow.addView(label(tieTxt, 10.5f, Actors.deep(a.gender), true), lin(WRAP, WRAP))
+    val more = Actors.detailText(a, mode)
+    if (more.isNotEmpty()) {
+        val md = label(more, 10.5f, Palette.muted)
+        md.maxLines = 1
+        md.ellipsize = TextUtils.TruncateAt.END
+        subRow.addView(md, lin(0, WRAP, 1f, l = 6))
     }
     mid.addView(subRow, lin(MATCH, WRAP, t = 1))
     val bar = SoftBar(this)
     bar.barColor = ring
-    bar.animateTo(a.count.toFloat() / maxCount, 0f, 300L + rank * 50L, 700L)
+    bar.animateTo((Actors.metric(a, mode) / maxVal).toFloat().coerceIn(0f, 1f), 0f, 300L + rank * 50L, 700L)
     mid.addView(bar, lin(MATCH, dp(4), t = 5))
     row.addView(mid, lin(0, WRAP, 1f))
 
@@ -673,8 +718,8 @@ private fun Context.actorRow(a: Actor, rank: Int, maxCount: Int, onOpen: (Actor)
 // ===================================================================== CLASSIFICAR (ator ou atriz)
 
 /**
- * Passa pessoa por pessoa. Para cada uma o app pesquisa sozinho (Wikidata) se é ator ou atriz e mostra a
- * sugestão; você confirma tocando no botão. Também dá para classificar todo mundo automaticamente.
+ * Passa pessoa por pessoa. Para cada uma o app acha o nome no elenco oficial dos doramas (Wikidata), confere se é
+ * ator ou atriz e grava sozinho. Só quem ele não consegue confirmar fica para você escolher.
  */
 fun Activity.showClassifyDialog(onDone: () -> Unit) {
     var todo = Actors.all().filter { it.gender.isEmpty() }.sortedWith(Actors.order)
@@ -766,7 +811,7 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
                     val line = LinearLayout(this)
                     line.orientation = LinearLayout.HORIZONTAL
                     line.gravity = Gravity.CENTER_VERTICAL
-                    if (r.gender.isNotEmpty()) {
+                    if (r.gender.isNotEmpty() && r.exact) {
                         saveGender(a, r.gender)
                         okCount++
                         line.addView(IconView(this, if (r.gender == "f") "heart" else "star", Actors.accent(r.gender), 14))
@@ -833,20 +878,9 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
         sub.gravity = Gravity.CENTER
         box.addView(sub, lin(MATCH, WRAP, t = 4))
 
-        // área da pesquisa automática
-        val auto = LinearLayout(this)
-        auto.orientation = LinearLayout.VERTICAL
-        auto.gravity = Gravity.CENTER_HORIZONTAL
-        auto.setPadding(dp(12), dp(10), dp(12), dp(10))
-        auto.background = roundRect(mixColor(Palette.card, neutral, if (Palette.dark) 0.18f else 0.10f), dp(16).toFloat())
-        box.addView(auto, lin(MATCH, WRAP, t = 14))
-        val loadRow = LinearLayout(this)
-        loadRow.orientation = LinearLayout.HORIZONTAL
-        loadRow.gravity = Gravity.CENTER_VERTICAL
-        loadRow.addView(spinner(neutral, 20))
-        val stepTv = label("Pesquisando…", 12f, Palette.muted)
-        loadRow.addView(stepTv, lin(0, WRAP, 1f, l = 10))
-        auto.addView(loadRow, lin(MATCH, WRAP))
+        val note = label("O app já tentou descobrir pelo elenco dos doramas e não conseguiu confirmar.", 11.5f, Palette.muted)
+        note.gravity = Gravity.CENTER
+        box.addView(note, lin(MATCH, WRAP, t = 12))
 
         val btns = LinearLayout(this)
         btns.orientation = LinearLayout.HORIZONTAL
@@ -882,52 +916,8 @@ fun Activity.showClassifyDialog(onDone: () -> Unit) {
         foot.addView(skip, lin(WRAP, WRAP, r = 8))
         foot.addView(close, lin(WRAP, WRAP))
         box.addView(foot, lin(MATCH, WRAP, t = 12))
-        if (todo.size - idx > 1) {
-            val all = pill("Classificar todos sozinho", Actors.soft("f"), Actors.accent("f"), 12.5f, "star")
-            all.setOnClickListener { runAuto() }
-            box.addView(all, lin(WRAP, WRAP, t = 10))
-        }
         box.riseIn(0L, 10, 260L)
 
-        // pesquisa em segundo plano
-        val my = ++token
-        val nameList = listOf(a.name) + PeopleIdentity.membersOf(a.key)
-        Thread {
-            val r = GenderLookup.lookupInDramas(nameList, a.dramas) { st ->
-                runOnUiThread { if (my == token && !closed) stepTv.text = st }
-            }
-            runOnUiThread {
-                if (my != token || closed) return@runOnUiThread
-                ActorAuto.rememberGroup(a.key, r)
-                auto.removeAllViews()
-                if (r.gender.isEmpty()) {
-                    val t = label("Não consegui descobrir sozinho. Escolha você.", 12.5f, Palette.muted)
-                    t.gravity = Gravity.CENTER
-                    auto.addView(t, lin(MATCH, WRAP))
-                } else {
-                    val col = Actors.accent(r.gender)
-                    val head = LinearLayout(this)
-                    head.orientation = LinearLayout.HORIZONTAL
-                    head.gravity = Gravity.CENTER_VERTICAL
-                    head.addView(IconView(this, if (r.gender == "f") "heart" else "star", col, 18))
-                    head.addView(label("Parece ser " + genderWord(r.gender), 14.5f, col, true), lin(WRAP, WRAP, l = 8))
-                    auto.addView(head, lin(WRAP, WRAP))
-                    val who = r.foundName + (if (r.description.isNotBlank()) " · " + r.description else "")
-                    val d = label(who, 11.5f, Palette.muted)
-                    d.gravity = Gravity.CENTER
-                    d.maxLines = 2
-                    d.ellipsize = TextUtils.TruncateAt.END
-                    auto.addView(d, lin(MATCH, WRAP, t = 4))
-                    auto.addView(
-                        label(if (r.confidence >= 2) "Confiança alta · fonte: Wikidata" else "Confiança média · confira antes de tocar", 10.5f, Palette.muted, true),
-                        lin(WRAP, WRAP, t = 4)
-                    )
-                    // destaca o botão sugerido
-                    (if (r.gender == "f") bm else bf).alpha = 0.45f
-                }
-                auto.riseIn(0L, 6, 220L)
-            }
-        }.start()
     }
 
     dialog.setOnDismissListener {
@@ -1007,7 +997,7 @@ fun Activity.showReorderDialog(gender: String, onDone: () -> Unit) {
                 FrameLayout.LayoutParams(dp(40), dp(40))
             )
             h.name.text = a.name
-            h.sub.text = dramasText(a.count)
+            h.sub.text = Actors.dramasWord(a.count) + (if (a.avg > 0.0) " · média " + "%.1f".format(a.avg) else "")
             h.row.background = roundRect(
                 if (pos < 3) mixColor(Palette.card, medal, if (Palette.dark) 0.20f else 0.14f) else Palette.card,
                 dp(16).toFloat(), Palette.line, dp(1)
@@ -1063,11 +1053,13 @@ fun Activity.showReorderDialog(gender: String, onDone: () -> Unit) {
         .setView(box)
         .setPositiveButton("Salvar") { _, _ ->
             Store.setActorOrder(gender, items.map { it.key })
+            Store.podiumSort = "custom"
             onDone()
         }
         .setNegativeButton("Cancelar", null)
         .setNeutralButton("Automático") { _, _ ->
             Store.setActorOrder(gender, emptyList())
+            if (Store.podiumSort == "custom") Store.podiumSort = "count"
             onDone()
         }
         .create()

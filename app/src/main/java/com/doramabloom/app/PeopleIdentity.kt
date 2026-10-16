@@ -37,6 +37,57 @@ object PeopleIdentity {
         return ra.any { it in rb }
     }
 
+    /** Aproxima as romanizações mais comuns do coreano: "Joon" = "Jun", "Seo" = "So", "Yeon" = "Yon"... */
+    private fun loose(t: String): String =
+        t.replace("yeo", "yo").replace("eo", "o").replace("oo", "u").replace("ou", "u").replace("ee", "i").replace("ae", "e")
+
+    private fun editDistance(a: String, b: String): Int {
+        if (a == b) return 0
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        var prev = IntArray(b.length + 1) { it }
+        var cur = IntArray(b.length + 1)
+        for (i in 1..a.length) {
+            cur[0] = i
+            for (j in 1..b.length) {
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                cur[j] = minOf(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost)
+            }
+            val t = prev
+            prev = cur
+            cur = t
+        }
+        return prev[b.length]
+    }
+
+    /**
+     * Quão perto duas grafias estão (0 = iguais). Considera todas as ordens do sobrenome, espaço e hífen e as
+     * romanizações parecidas. Só compara se as duas dividem ao menos uma palavra inteira ("Park Seo Joon" x "Park Seo Jun");
+     * senão devolve 99. Serve APENAS para achar a pessoa dentro do elenco oficial de um dorama, nunca para juntar
+     * duas grafias sozinha.
+     */
+    fun closeness(a: String, b: String): Int {
+        val ta = Store.personKey(a).split(' ').filter { it.isNotEmpty() }.map { loose(it) }
+        val tb = Store.personKey(b).split(' ').filter { it.isNotEmpty() }.map { loose(it) }
+        if (ta.isEmpty() || tb.isEmpty()) return 99
+        if (ta.none { it.length >= 2 && it in tb }) return 99
+        val ra = rotations(ta.joinToString(" "))
+        val rb = rotations(tb.joinToString(" "))
+        var best = 99
+        for (x in ra) for (y in rb) {
+            if (Math.abs(x.length - y.length) > 2) continue
+            val d = editDistance(x, y)
+            if (d < best) best = d
+        }
+        return best
+    }
+
+    /** Tamanho (só letras) do menor nome da lista; define quantos erros de digitação são aceitos. */
+    fun allowedTypos(names: List<String>): Int {
+        val n = names.map { Store.personKey(it).replace(" ", "").length }.filter { it > 0 }.minOrNull() ?: 0
+        return if (n >= 12) 2 else 1
+    }
+
     private fun info(k: String): Int {
         val i = Store.rawPersonInfo(k) ?: return 0
         var s = 1
@@ -65,6 +116,13 @@ object PeopleIdentity {
         }
         val keys = count.keys.sorted()
         if (keys.isEmpty()) return
+
+        // duas grafias no MESMO elenco são pessoas diferentes (ninguém aparece duas vezes no mesmo dorama)
+        val together = HashMap<String, HashSet<String>>()
+        for (d in Store.all()) {
+            val ks = d.castPeople.map { Store.personKey(it.name) }.filter { it.isNotEmpty() }.distinct()
+            for (x in ks) for (y in ks) if (x != y) together.getOrPut(x) { HashSet() }.add(y)
+        }
 
         val parent = HashMap<String, String>()
         for (k in keys) parent[k] = k
@@ -101,6 +159,15 @@ object PeopleIdentity {
         }
 
         // 2) mesmas letras (espaço, hífen e ordem do sobrenome); nunca junta duas pessoas que o Wikidata separa
+        //    nem duas grafias que aparecem juntas no elenco de um mesmo dorama
+        fun clash(ra: String, rb: String): Boolean {
+            for (x in keys) {
+                if (find(x) != ra) continue
+                val tx = together[x] ?: continue
+                for (y in keys) if (find(y) == rb && y in tx) return true
+            }
+            return false
+        }
         val firstOfRot = HashMap<String, String>()
         for (k in keys) {
             for (r in rotations(k)) {
@@ -115,6 +182,7 @@ object PeopleIdentity {
                 val wa = rootWd[a]
                 val wb = rootWd[b]
                 if (wa != null && wb != null && wa != wb) continue
+                if (clash(a, b)) continue
                 parent[b] = a
                 if (wa == null && wb != null) rootWd[a] = wb
             }

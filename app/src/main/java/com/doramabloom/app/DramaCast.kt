@@ -14,6 +14,39 @@ object DramaCast {
 
     class Cast(val dramaQid: String, val label: String, val members: List<Member>)
 
+    /**
+     * Quem, no elenco oficial, é a pessoa com estas grafias. Primeiro procura o mesmo nome (espaço, hífen, ordem).
+     * Se não achar, aceita um nome MUITO parecido (erro de digitação ou outra romanização), mas só quando:
+     * divide uma palavra inteira com ele, a diferença é de poucas letras e é o único candidato parecido do elenco.
+     * Na dúvida, devolve null (melhor não juntar do que juntar pessoas diferentes).
+     */
+    fun match(names: List<String>, cast: Cast): Member? {
+        for (m in cast.members) {
+            if (names.any { n -> m.names.any { PeopleIdentity.sameName(n, it) } }) return m
+        }
+        var best: Member? = null
+        var bestD = 99
+        var tie = false
+        for (m in cast.members) {
+            var d = 99
+            for (n in names) for (x in m.names) {
+                val v = PeopleIdentity.closeness(n, x)
+                if (v < d) d = v
+            }
+            if (d > 2) continue
+            if (d < bestD) {
+                best = m
+                bestD = d
+                tie = false
+            } else if (d == bestD) {
+                tie = true
+            }
+        }
+        val b = best ?: return null
+        if (tie) return null
+        return if (bestD <= PeopleIdentity.allowedTypos(names)) b else null
+    }
+
     private val cache = HashMap<Long, Cast>()
     private val KIND = Regex("television series|tv series|drama|web series|miniseries|film|movie|series")
     private val SHOW = Regex("television|tv|drama|series")

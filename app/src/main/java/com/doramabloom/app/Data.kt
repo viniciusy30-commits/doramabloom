@@ -837,6 +837,28 @@ object Store {
             version++
         }
 
+    /**
+     * Como o Top 10 é ordenado: "count" = mais doramas (padrão), "avg" = maior nota média, "hours" = horas de tela,
+     * "manual" = a nota que você deu à pessoa, "custom" = a ordem que você arrastou em Reordenar.
+     * Fora de "custom", a ordem arrastada é ignorada, então trocar o critério sempre muda o pódio.
+     */
+    var podiumSort: String
+        get() {
+            val v = prefs.getString("podiumSort", "count") ?: "count"
+            return if (v == "avg" || v == "hours" || v == "manual" || v == "custom") v else "count"
+        }
+        set(v) {
+            prefs.edit().putString("podiumSort", v).apply()
+            version++
+        }
+
+    /** true só na primeira vez que é chamada com esta etiqueta (para ajustes que rodam uma vez depois de uma atualização). */
+    fun runOnce(tag: String): Boolean {
+        if (prefs.getBoolean("once_$tag", false)) return false
+        prefs.edit().putBoolean("once_$tag", true).apply()
+        return true
+    }
+
     private const val GKEY = "customGenres"
 
     private fun genreToJson(g: Genre): JSONObject {
@@ -1640,6 +1662,7 @@ object Store {
         s.put("actorOrderM", JSONArray(actorOrder("m")))
         s.put("actorOrderF", JSONArray(actorOrder("f")))
         s.put("tiebreak", tiebreak)
+        s.put("podiumSort", podiumSort)
         val wd = JSONObject()
         for ((k, v) in wdMap) wd.put(k, v)
         s.put("personWd", wd)
@@ -1835,6 +1858,7 @@ object Store {
                 setActorOrder(g, (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() })
             }
             if (s.has("tiebreak")) tiebreak = s.optString("tiebreak", "avg")
+            if (s.has("podiumSort")) podiumSort = s.optString("podiumSort", "count")
             if (s.has("themeMode")) themeMode = s.optInt("themeMode", 0)
             if (s.has("textZoom")) textZoom = s.optInt("textZoom", 100)
             if (s.has("homeUrl")) homeUrl = s.optString("homeUrl", DEFAULT_HOME)
