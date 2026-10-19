@@ -920,12 +920,12 @@ object Store {
         Genres.setCustom(r)
     }
 
-    private const val OKEY = "genreOrder"
+    private const val GORDKEY = "genreOrder"
 
     private fun loadGenreOrder() {
         val l = ArrayList<String>()
         try {
-            val arr = JSONArray(prefs.getString(OKEY, "[]") ?: "[]")
+            val arr = JSONArray(prefs.getString(GORDKEY, "[]") ?: "[]")
             for (i in 0 until arr.length()) {
                 val k = arr.optString(i, "")
                 if (k.isNotBlank()) l.add(k)
@@ -940,7 +940,7 @@ object Store {
     fun setGenreOrder(keys: List<String>) {
         Genres.setOrder(keys)
         version++
-        prefs.edit().putString(OKEY, JSONArray(Genres.order()).toString()).apply()
+        prefs.edit().putString(GORDKEY, JSONArray(Genres.order()).toString()).apply()
     }
 
     private fun genreOrderJson(): JSONArray = JSONArray(Genres.order())
