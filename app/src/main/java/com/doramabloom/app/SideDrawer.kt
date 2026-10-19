@@ -16,7 +16,7 @@ class SideDrawerLayout(ctx: Context) : FrameLayout(ctx) {
     private val scrim = View(ctx)
     private var panel: View? = null
     private val slop = ViewConfiguration.get(ctx).scaledTouchSlop
-    private val edge = ctx.dp(26)
+    private val edge = ctx.dp(52)
     private var panelW = ctx.dp(190)
     private var dragging = false
     private var downX = 0f
@@ -80,7 +80,7 @@ class SideDrawerLayout(ctx: Context) : FrameLayout(ctx) {
                 if (armed && !dragging) {
                     val dx = ev.x - downX
                     val dy = ev.y - downY
-                    if (Math.abs(dx) > slop && Math.abs(dx) > Math.abs(dy) * 1.4f) {
+                    if (Math.abs(dx) > slop && Math.abs(dx) > Math.abs(dy) * 1.0f) {
                         if ((!isOpen && dx > 0) || (isOpen && dx < 0)) {
                             dragging = true
                             parent?.requestDisallowInterceptTouchEvent(true)
