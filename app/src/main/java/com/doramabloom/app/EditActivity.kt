@@ -113,7 +113,7 @@ class EditActivity : AppCompatActivity() {
             releaseDate = ex.releaseDate
             soundtrackPath = ex.soundtrack
             couplePhotoPath = ex.couplePhoto
-            for (p in ex.castPeople) castList.add(CastPerson(p.name, p.photo, p.role))
+            for (p in ex.castPeople) castList.add(CastPerson(p.name, p.photo, p.role, Store.personInfo(Store.personKey(p.name))?.gender ?: ""))
             genreKey = ex.genre
             tags = HashSet(ex.tags)
             shelf = ArrayList(ex.shelfTags)
@@ -805,12 +805,48 @@ class EditActivity : AppCompatActivity() {
             val fields = LinearLayout(this)
             fields.orientation = LinearLayout.VERTICAL
             val nm = input("Nome do ator ou atriz", p.name, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
-            nm.doAfterTextChanged { p.name = it?.toString() ?: "" }
+            var refreshGender: () -> Unit = {}
+            nm.doAfterTextChanged {
+                p.name = it?.toString() ?: ""
+                val known = Store.personInfo(Store.personKey(p.name))?.gender ?: ""
+                if (known.isNotEmpty() && known != p.gender) {
+                    p.gender = known
+                    refreshGender()
+                }
+            }
             fields.addView(nm, lin(MATCH, WRAP))
             val rl = input("Personagem (ex.: Kim Sun-woo)", p.role, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
             rl.textSize = 13.5f
             rl.doAfterTextChanged { p.role = it?.toString() ?: "" }
             fields.addView(rl, lin(MATCH, WRAP, t = 6))
+            // ator ou atriz: toque de novo no marcado para desmarcar
+            val gRow = LinearLayout(this)
+            gRow.orientation = LinearLayout.HORIZONTAL
+            gRow.gravity = Gravity.CENTER_VERTICAL
+            val gAtor = label("Ator", 12.5f, Palette.pinkDark, true)
+            val gAtriz = label("Atriz", 12.5f, Palette.pinkDark, true)
+            for (t in listOf(gAtor, gAtriz)) {
+                t.gravity = Gravity.CENTER
+                t.setPadding(dp(16), dp(7), dp(16), dp(7))
+            }
+            refreshGender = {
+                gAtor.background = roundRect(if (p.gender == "m") Palette.pink else Palette.pinkSoft, dp(16).toFloat())
+                gAtor.setTextColor(if (p.gender == "m") Color.WHITE else Palette.pinkDark)
+                gAtriz.background = roundRect(if (p.gender == "f") Palette.pink else Palette.pinkSoft, dp(16).toFloat())
+                gAtriz.setTextColor(if (p.gender == "f") Color.WHITE else Palette.pinkDark)
+            }
+            refreshGender()
+            gAtor.setOnClickListener {
+                p.gender = if (p.gender == "m") "" else "m"
+                refreshGender()
+            }
+            gAtriz.setOnClickListener {
+                p.gender = if (p.gender == "f") "" else "f"
+                refreshGender()
+            }
+            gRow.addView(gAtor, lin(WRAP, WRAP))
+            gRow.addView(gAtriz, lin(WRAP, WRAP, l = 8))
+            fields.addView(gRow, lin(WRAP, WRAP, t = 8))
             row.addView(fields, lin(0, WRAP, 1f))
             // alça para arrastar: segure o ícone e mova para cima ou para baixo
             val handle = IconView(this, "sort", Palette.pinkDark, 24)
@@ -1310,6 +1346,17 @@ class EditActivity : AppCompatActivity() {
             }
         }
         Covers.clear()
+        // ator/atriz marcado aqui vale para a pessoa em todos os doramas
+        for (cp in castList) {
+            val nm = cp.name.trim()
+            if (nm.isEmpty()) continue
+            val key = Store.personKey(nm)
+            val info = Store.personInfo(key)
+            if (cp.gender == (info?.gender ?: "")) continue
+            val upd = info ?: PersonInfo(key, nm)
+            upd.gender = cp.gender
+            Store.savePersonInfo(upd)
+        }
         saved = true
         Store.clearDraft(id)
         Store.save(d)

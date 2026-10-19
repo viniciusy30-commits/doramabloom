@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var petals: PetalsView
     private var addCircle: FrameLayout? = null
     private lateinit var navBar: FrameLayout
+    private var drawer: SideDrawerLayout? = null
     private lateinit var navIndicator: View
     private lateinit var navRow: LinearLayout
     private val navItems = ArrayList<NavItem>()
@@ -106,7 +107,8 @@ class MainActivity : AppCompatActivity() {
         Store.init(this)
         ThemeMode.refresh(this)
 
-        val root = FrameLayout(this)
+        val root = SideDrawerLayout(this)
+        drawer = root
         root.background = gradient(Palette.bgTop, Palette.bgBottom)
 
         val col = LinearLayout(this)
@@ -115,10 +117,6 @@ class MainActivity : AppCompatActivity() {
 
         contentFrame = FrameLayout(this)
         col.addView(contentFrame, lin(MATCH, 0, 1f))
-        col.addView(
-            try { buildNav() } catch (e: Throwable) { errorView("Erro ao montar a barra de baixo", e) },
-            lin(MATCH, WRAP)
-        )
 
         // pétalas de fundo ficam ATRÁS de tudo; as explosões de festa ficam por cima
         petals = PetalsView(this, listOf("petal", "blossom", "sparkle"), Palette.pink, 16)
@@ -126,6 +124,12 @@ class MainActivity : AppCompatActivity() {
         val fxTop = PetalsView(this, listOf("petal"), Palette.pink, 0)
         petals.fx = fxTop
         root.addView(fxTop, FrameLayout.LayoutParams(MATCH, MATCH))
+
+        // menu lateral: fica por cima de tudo e abre arrastando da borda esquerda
+        root.attachPanel(
+            try { buildNav() } catch (e: Throwable) { errorView("Erro ao montar o menu", e) },
+            dp(190)
+        )
 
         setContentView(root)
         // depois de atualizar, mostra o resumo do que mudou; só então confere se há versão nova
@@ -194,58 +198,63 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildNav(): View {
         val bar = FrameLayout(this)
-        bar.setPadding(dp(4), dp(8), dp(4), dp(8))
-        bar.background = roundRect(Palette.card, dp(30).toFloat(), Palette.line, dp(1))
-        bar.elevation = 0f
+        bar.setPadding(dp(6), dp(10), dp(6), dp(10))
+        bar.background = roundRect(Palette.card, dp(26).toFloat(), Palette.line, dp(1))
+        bar.elevation = dp(6).toFloat()
         navBar = bar
 
         navIndicator = View(this)
-        navIndicator.background = roundRect(Palette.pink, dp(22).toFloat())
+        navIndicator.background = roundRect(Palette.pink, dp(18).toFloat())
         bar.addView(navIndicator, FrameLayout.LayoutParams(0, 0))
 
         navRow = LinearLayout(this)
-        navRow.orientation = LinearLayout.HORIZONTAL
+        navRow.orientation = LinearLayout.VERTICAL
         bar.addView(navRow, FrameLayout.LayoutParams(MATCH, WRAP))
 
         val holder = FrameLayout(this)
         holder.clipToPadding = false
         holder.clipChildren = false
-        holder.setPadding(dp(8), dp(4), dp(8), dp(12))
-        holder.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP))
+        holder.setPadding(dp(8), dp(24), dp(8), dp(24))
+        holder.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER_VERTICAL))
 
         navItems.clear()
         val icons = listOf("home", "grid", "crown", "add", "chart", "trophy", "tune")
-        val names = listOf("Início", "Estante", "Supremacy", "", "Números", "Pódios", "Config.")
+        val names = listOf("Início", "Estante", "Supremacy", "Novo dorama", "Números", "Pódios", "Config.")
         val tabs = listOf(0, 1, 5, -1, 2, 3, 4)
         for (i in icons.indices) {
             val box = LinearLayout(this)
-            box.orientation = LinearLayout.VERTICAL
-            box.gravity = Gravity.CENTER
+            box.orientation = LinearLayout.HORIZONTAL
+            box.gravity = Gravity.CENTER_VERTICAL
             if (tabs[i] == -1) {
-                box.setPadding(dp(2), dp(2), dp(2), dp(2))
+                box.setPadding(dp(8), dp(4), dp(8), dp(4))
                 val circle = FrameLayout(this)
                 circle.background = ovalGradient(lighten(Palette.pink, 0.22f), Palette.pink)
                 circle.elevation = 0f
-                circle.addView(IconView(this, "add", Color.WHITE, 26), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+                circle.addView(IconView(this, "add", Color.WHITE, 22), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
                 addCircle = circle
-                box.addView(circle, lin(dp(48), dp(48)))
-                box.setOnClickListener { openEdit(circle) }
-                box.pressable(0.9f)
-                navRow.addView(box, lin(0, WRAP, 1f, l = 1, r = 1))
+                box.addView(circle, lin(dp(40), dp(40)))
+                box.addView(label(names[i], 14f, Palette.pinkDark, true), lin(WRAP, WRAP, l = 12))
+                box.setOnClickListener {
+                    drawer?.close()
+                    openEdit(circle)
+                }
+                box.pressable(0.94f)
+                navRow.addView(box, lin(MATCH, WRAP, t = 2, b = 2))
                 navItems.add(NavItem(box, null, null, -1))
             } else {
-                box.setPadding(dp(1), dp(8), dp(1), dp(8))
-                val ic = IconView(this, icons[i], Palette.muted, 21)
-                val tx = label(names[i], 10f, Palette.muted, true)
+                box.setPadding(dp(12), dp(12), dp(12), dp(12))
+                val ic = IconView(this, icons[i], Palette.muted, 22)
+                val tx = label(names[i], 14f, Palette.muted, true)
                 tx.maxLines = 1
-                tx.gravity = Gravity.CENTER
-                androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(tx, 7, 10, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
                 box.addView(ic, lin(WRAP, WRAP))
-                box.addView(tx, lin(MATCH, WRAP, t = 2))
+                box.addView(tx, lin(WRAP, WRAP, l = 14))
                 val target = tabs[i]
-                box.setOnClickListener { if (tab != target) showTab(target, true) else box.pop() }
-                box.pressable(0.92f)
-                navRow.addView(box, lin(0, WRAP, 1f, l = 1, r = 1))
+                box.setOnClickListener {
+                    if (tab != target) showTab(target, true) else box.pop()
+                    box.postDelayed({ drawer?.close() }, 140)
+                }
+                box.pressable(0.96f)
+                navRow.addView(box, lin(MATCH, WRAP, t = 2, b = 2))
                 navItems.add(NavItem(box, ic, tx, target))
             }
         }
@@ -256,22 +265,22 @@ class MainActivity : AppCompatActivity() {
     private fun placeIndicator(animated: Boolean) {
         if (navItems.isEmpty()) return
         val box = navItems.firstOrNull { it.tab == tab }?.box ?: return
-        if (box.width <= 0) return
+        if (box.height <= 0) return
         val lp = navIndicator.layoutParams as FrameLayout.LayoutParams
-        val wide = box.width - dp(2)
-        val tall = navRow.height
+        val wide = navRow.width
+        val tall = box.height
         if (lp.width != wide || lp.height != tall) {
             lp.width = wide
             lp.height = tall
             navIndicator.layoutParams = lp
         }
-        val x = box.left.toFloat() + dp(1)
+        val y = box.top.toFloat()
         if (animated) {
-            navIndicator.animate().translationX(x).setDuration(380)
+            navIndicator.animate().translationY(y).setDuration(380)
                 .setInterpolator(OvershootInterpolator(1.1f)).start()
         } else {
             navIndicator.animate().cancel()
-            navIndicator.translationX = x
+            navIndicator.translationY = y
         }
     }
 
@@ -599,6 +608,10 @@ class MainActivity : AppCompatActivity() {
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
+        if (drawer?.isOpen == true) {
+            drawer?.close()
+            return
+        }
         if (tab != 0) {
             showTab(0, true)
             return
@@ -1720,10 +1733,13 @@ class MainActivity : AppCompatActivity() {
         // gêneros
         col.addView(section("Gêneros", "tag"))
         val gcard = card(14, 22)
-        gcard.addView(label("Cada gênero tem cor, ícone e selo próprios. Toque no lápis para editar qualquer um, ou crie os seus!", 12f, Palette.muted))
+        gcard.addView(label("Cada gênero tem cor, ícone e selo próprios. Toque no lápis para editar qualquer um, ou crie os seus! Segure o ícone de ordenar e arraste para escolher a ordem em que os gêneros aparecem na Estante.", 12f, Palette.muted))
         val mine = Store.all()
-        for (g in Genres.all) {
+        val genreRows = ArrayList<View>()
+        val genreList = Genres.all
+        for ((gi, g) in genreList.withIndex()) {
             val row = LinearLayout(this)
+            genreRows.add(row)
             row.orientation = LinearLayout.HORIZONTAL
             row.gravity = Gravity.CENTER_VERTICAL
             val gs = SealView(this)
@@ -1746,6 +1762,13 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             row.addView(roundBtn("edit", g.primary, false, 14) { openEditor() }, lin(dp(34), dp(34), l = 8))
+            row.addView(reorderHandle(row, genreRows, gi, g.dark) { from, to ->
+                val keys = ArrayList(genreList.map { it.key })
+                keys.add(to, keys.removeAt(from))
+                Store.setGenreOrder(keys)
+                seenVersion = Store.version
+                showTab(4, false)
+            }, lin(WRAP, WRAP, l = 2))
             if (g.custom) {
                 row.addView(roundBtn("delete", g.primary, false, 14) {
                     AlertDialog.Builder(this)

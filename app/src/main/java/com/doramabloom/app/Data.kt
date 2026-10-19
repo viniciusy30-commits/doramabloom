@@ -201,8 +201,25 @@ object Genres {
         }
     }
 
-    /** Os gêneros de fábrica (com suas edições) e depois os que você criou. */
-    val all: List<Genre> get() = builtin + extra
+    /** Ordem escolhida por você (lista de chaves). Gêneros fora da lista ficam no fim, na ordem de sempre. */
+    private var order: List<String> = emptyList()
+
+    fun order(): List<String> = order
+
+    fun setOrder(l: List<String>) {
+        order = l.distinct()
+    }
+
+    /** Os gêneros de fábrica (com suas edições) e os que você criou, na ordem que você escolheu. */
+    val all: List<Genre> get() {
+        val base = builtin + extra
+        if (order.isEmpty()) return base
+        val pos = HashMap<String, Int>()
+        for ((i, k) in order.withIndex()) pos[k] = i
+        return base.withIndex()
+            .sortedWith(compareBy({ pos[it.value.key] ?: Int.MAX_VALUE }, { it.index }))
+            .map { it.value }
+    }
 
     fun custom(): List<Genre> = extra
 
@@ -351,7 +368,7 @@ val countries: List<String> = listOf(
 )
 
 /** Ator ou atriz do elenco, com foto opcional (caminho do arquivo) e o nome do personagem que fez. */
-class CastPerson(var name: String, var photo: String = "", var role: String = "")
+class CastPerson(var name: String, var photo: String = "", var role: String = "", var gender: String = "")
 
 /**
  * Perfil de um ator ou atriz (vale para todos os doramas em que o nome aparece).
@@ -739,6 +756,7 @@ object Store {
         prefs = appContext.getSharedPreferences(PREF, Context.MODE_PRIVATE)
         loadGenres()
         loadGenreEdits()
+        loadGenreOrder()
         loadOtherGenres()
         load()
         loadPeople()
@@ -900,6 +918,41 @@ object Store {
             // dados corrompidos: sem gêneros próprios
         }
         Genres.setCustom(r)
+    }
+
+    private const val OKEY = "genreOrder"
+
+    private fun loadGenreOrder() {
+        val l = ArrayList<String>()
+        try {
+            val arr = JSONArray(prefs.getString(OKEY, "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val k = arr.optString(i, "")
+                if (k.isNotBlank()) l.add(k)
+            }
+        } catch (e: Exception) {
+            // dados corrompidos: ordem de fábrica
+        }
+        Genres.setOrder(l)
+    }
+
+    /** Salva a ordem dos gêneros (Estante, Configurações e escolha de gênero seguem essa ordem). */
+    fun setGenreOrder(keys: List<String>) {
+        Genres.setOrder(keys)
+        version++
+        prefs.edit().putString(OKEY, JSONArray(Genres.order()).toString()).apply()
+    }
+
+    private fun genreOrderJson(): JSONArray = JSONArray(Genres.order())
+
+    private fun applyGenreOrder(a: JSONArray?) {
+        if (a == null) return
+        val l = ArrayList<String>()
+        for (i in 0 until a.length()) {
+            val k = a.optString(i, "")
+            if (k.isNotBlank()) l.add(k)
+        }
+        setGenreOrder(l)
     }
 
     private const val EKEY = "genreEdits"
@@ -1584,6 +1637,7 @@ object Store {
         val ea = JSONArray()
         for (g in Genres.edited().values) ea.put(genreToJson(g))
         root.put("genreEdits", ea)
+        root.put("genreOrder", genreOrderJson())
         root.put("otherGenres", JSONArray().also { a -> for (g in OtherGenres.custom()) a.put(otherToJson(g)) })
         root.put("otherEdits", JSONArray().also { a -> for (g in OtherGenres.edited().values) a.put(otherToJson(g)) })
         root.put("otherHidden", JSONArray().also { a -> for (k in OtherGenres.hiddenKeys()) a.put(k) })
@@ -1738,6 +1792,7 @@ object Store {
             root.put("settings", settingsJson())
             root.put("genres", ga)
             root.put("genreEdits", ea)
+            root.put("genreOrder", genreOrderJson())
             root.put("otherGenres", JSONArray().also { a -> for (g in OtherGenres.custom()) a.put(otherToJson(g)) })
             root.put("otherEdits", JSONArray().also { a -> for (g in OtherGenres.edited().values) a.put(otherToJson(g)) })
             root.put("otherHidden", JSONArray().also { a -> for (k in OtherGenres.hiddenKeys()) a.put(k) })
@@ -1972,6 +2027,7 @@ object Store {
                         Genres.setEdits(m)
                     }
                     persistGenres()
+                    if (root.has("genreOrder")) applyGenreOrder(root.optJSONArray("genreOrder"))
                     importOthers(root, true)
                     applySettings(root.optJSONObject("settings"), true)
                 }

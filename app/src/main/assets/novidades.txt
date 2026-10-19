@@ -1,3 +1,13 @@
+#id 2026-10-19-mn
+#titulo Menu lateral (teste)
+- A barra de baixo saiu. Agora o menu é vertical e aparece ao arrastar a partir da borda esquerda da tela, em qualquer aba. Toque fora, arraste de volta ou use o botão voltar para fechar.
+- Na Estante, arrastar no meio da tela continua trocando de gênero.
+
+#id 2026-10-19-og
+#titulo Ordem dos gêneros e ator/atriz na edição
+- Configurações > Gêneros: cada gênero tem agora um ícone de ordenar. Segure e arraste para escolher a ordem. A Estante (páginas e filtros) segue essa ordem, e ela entra no backup.
+- Editar dorama > Elenco: cada pessoa tem os botões Ator e Atriz. Toque para marcar (toque de novo para desmarcar). Vale para a pessoa em todos os doramas e o reconhecimento automático não sobrescreve o que você marcou.
+
 #id 2026-10-16-pd
 #titulo Pódios refeitos: ordem clara e nomes sem duplicata
 - Novo "Classificar por": Mais doramas, Nota média, Horas de tela, Minha nota ou Ordem manual. Trocar o critério reordena os pódios na hora (antes a ordem arrastada travava o pódio e o filtro parecia não funcionar).
