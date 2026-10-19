@@ -1,10 +1,10 @@
 #id 2026-10-19-sp
-#titulo Supremacy turbinado
-- Fundo vivo: o halo e os raios mudam de cor com o gênero do dorama que está no centro, com brasas douradas subindo.
-- Carrossel em 3D: os pôsteres das laterais giram para dentro, como um palco. Botão Sortear gira o carrossel e para num dorama aleatório.
-- Painel completo do dorama central: título (com nome original), selo do posto (Soberano, Herdeiro, Nobreza, Corte Real), nota, gênero, status, progresso de episódios, sinopse, casal, elenco com fotos, sua resenha e botão Abrir.
-- Números do salão em dobro: gênero reinante, concluídos e maior nota, além da barra "O reino por gênero".
-- Salão da fama: pódio com medalhas de ouro, prata e bronze para os 3 primeiros, com nota em corações e barra de progresso; os demais em fila.
+#titulo Supremacy refeito: uma tela só, pôster em destaque
+- Tudo cabe numa tela: coroa e título enxutos em cima, o pôster grande no centro (em 3D, com os vizinhos inclinados) e o essencial logo embaixo: posto (Soberano, Herdeiro, Nobreza, Corte Real), nome, gênero, nota em corações e, se estiver assistindo, o progresso.
+- Fim da repetição: saiu a lista do "Salão da fama" que mostrava os mesmos doramas de novo. Agora são pontinhos de posição que você toca para pular.
+- Botões redondos: ordenar por favoritismo e sortear; no meio, Abrir dorama.
+- O fundo muda de cor com o gênero do dorama central e tem brasas douradas subindo.
+- Elenco aparece como fotinhos sobrepostas, sem poluir.
 
 #id 2026-10-19-mn
 #titulo Menu lateral (teste)
