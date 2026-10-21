@@ -43,6 +43,8 @@ class EditActivity : AppCompatActivity() {
     private var endDate = 0L
     private var seasonTotals = ArrayList<Int>()
     private var seasonWatched = ArrayList<Int>()
+    private val seasonWIns = ArrayList<EditText>()
+    private val seasonTIns = ArrayList<EditText>()
     private var saved = false
 
     private lateinit var coverView: CoverView
@@ -735,9 +737,27 @@ class EditActivity : AppCompatActivity() {
         return t.isNotEmpty() && parseDate(t) == null
     }
 
+    /** Lê o que está escrito nos campos (vistos e total de cada temporada) para as listas, sem depender só dos ouvintes. */
+    private fun syncSeasons() {
+        for (i in seasonTotals.indices) {
+            if (i < seasonWIns.size) seasonWatched[i] = seasonWIns[i].text.toString().trim().toIntOrNull() ?: 0
+            if (i < seasonTIns.size) seasonTotals[i] = seasonTIns[i].text.toString().trim().toIntOrNull() ?: 0
+        }
+    }
+
     private fun rebuildSeasons() {
+        syncSeasons()
         seasonBox.removeAllViews()
+        seasonWIns.clear()
+        seasonTIns.clear()
         seasonCountTv.text = seasonTotals.size.toString()
+        // títulos fixos das colunas (a dica dentro do campo some quando você digita)
+        val head = LinearLayout(this)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.addView(View(this), lin(dp(62), WRAP))
+        head.addView(label("Episódio em que estou", 11.5f, Palette.muted, true), lin(0, WRAP, 1f, r = 6))
+        head.addView(label("Total de episódios", 11.5f, Palette.muted, true), lin(0, WRAP, 1f))
+        seasonBox.addView(head, lin(MATCH, WRAP, t = 6))
         for (i in seasonTotals.indices) {
             val row = LinearLayout(this)
             row.orientation = LinearLayout.HORIZONTAL
@@ -753,8 +773,10 @@ class EditActivity : AppCompatActivity() {
                 if (seasonTotals[i] > 0) seasonTotals[i].toString() else "",
                 InputType.TYPE_CLASS_NUMBER
             )
-            w.doAfterTextChanged { seasonWatched[i] = it?.toString()?.toIntOrNull() ?: 0 }
-            t.doAfterTextChanged { seasonTotals[i] = it?.toString()?.toIntOrNull() ?: 0 }
+            w.doAfterTextChanged { if (i < seasonWatched.size) seasonWatched[i] = it?.toString()?.trim()?.toIntOrNull() ?: 0 }
+            t.doAfterTextChanged { if (i < seasonTotals.size) seasonTotals[i] = it?.toString()?.trim()?.toIntOrNull() ?: 0 }
+            seasonWIns.add(w)
+            seasonTIns.add(t)
             row.addView(w, lin(0, WRAP, 1f, r = 6))
             row.addView(t, lin(0, WRAP, 1f))
             seasonBox.addView(row, lin(MATCH, WRAP, t = 8))
@@ -1239,6 +1261,7 @@ class EditActivity : AppCompatActivity() {
 
     /** Junta tudo o que está no formulário num Dorama (sem validar nem salvar). */
     private fun collect(): Drama {
+        syncSeasons()
         val old = existing
         val title = titleIn.text.toString().trim()
         val d = Drama(
@@ -1317,6 +1340,20 @@ class EditActivity : AppCompatActivity() {
             Toast.makeText(this, "Confira a data: use dia/mês/ano, como 07/10/26 ou 07/10/2026.", Toast.LENGTH_SHORT).show()
             (if (dateProblem(startIn)) startIn else endIn).requestFocus()
             return
+        }
+        if (kind != "filme") {
+            syncSeasons()
+            for (i in seasonTotals.indices) {
+                if (seasonTotals[i] > 0 && seasonWatched[i] > seasonTotals[i]) {
+                    Toast.makeText(
+                        this,
+                        "Temporada " + (i + 1) + ": você marcou episódio " + seasonWatched[i] + ", mas o total é " + seasonTotals[i] + ". Confira os dois números.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    (seasonWIns.getOrNull(i) ?: return).requestFocus()
+                    return
+                }
+            }
         }
         val d = collect()
         normalize(d)

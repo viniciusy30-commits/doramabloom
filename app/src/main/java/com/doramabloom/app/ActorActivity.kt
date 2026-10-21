@@ -173,7 +173,7 @@ class ActorActivity : AppCompatActivity() {
         ph.clipToPadding = false
         val avTop = if (rank == 1) 36 else 0
         ph.addView(
-            avatarView(a.photo, big, ring, Actors.soft(g), acc),
+            avatarView(a.photo, big, ring, Actors.soft(g), acc, zoomable = true, caption = a.name),
             FrameLayout.LayoutParams(dp(big), dp(big), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(avTop) }
         )
         if (rank == 1) {

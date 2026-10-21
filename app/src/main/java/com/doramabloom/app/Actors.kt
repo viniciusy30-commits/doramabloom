@@ -670,7 +670,7 @@ private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): 
     photo.clipChildren = false
     photo.elevation = dp(3).toFloat()
     photo.addView(
-        avatarView(a.photo, avSize, tone.mid, Actors.soft(a.gender), acc),
+        avatarView(a.photo, avSize, tone.mid, Actors.soft(a.gender), acc, zoomable = true, caption = a.name),
         FrameLayout.LayoutParams(dp(avSize), dp(avSize), Gravity.TOP or Gravity.CENTER_HORIZONTAL).also { it.topMargin = dp(crownRoom) }
     )
     if (first) {
@@ -724,7 +724,7 @@ private fun Context.actorRow(a: Actor, rank: Int, maxVal: Double, onOpen: (Actor
     val wrap = FrameLayout(this)
     wrap.clipChildren = false
     wrap.addView(
-        avatarView(a.photo, 40, ring, Actors.soft(a.gender), acc),
+        avatarView(a.photo, 40, ring, Actors.soft(a.gender), acc, zoomable = true, caption = a.name),
         FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP or Gravity.START)
     )
     val badge = FrameLayout(this)

@@ -1235,7 +1235,7 @@ class DetailActivity : AppCompatActivity() {
             item.setPadding(dp(4), dp(14), dp(4), dp(12))
             val ph = FrameLayout(this)
             ph.clipChildren = false
-            ph.addView(avatarView(Store.castPhoto(p), 84, g.primary, g.soft, g.primary), FrameLayout.LayoutParams(dp(84), dp(84)))
+            ph.addView(avatarView(Store.castPhoto(p), 84, g.primary, g.soft, g.primary, zoomable = true, caption = p.name), FrameLayout.LayoutParams(dp(84), dp(84)))
             item.addView(ph, lin(dp(84), dp(84)))
 
             val nm = label(p.name, 13f, Palette.text, true)

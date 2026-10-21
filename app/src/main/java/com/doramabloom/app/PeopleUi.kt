@@ -22,7 +22,9 @@ fun Context.avatarView(
     soft: Int,
     glyph: Int,
     icon: String = "person",
-    square: Boolean = false
+    square: Boolean = false,
+    zoomable: Boolean = false,
+    caption: String = ""
 ): FrameLayout {
     val f = FrameLayout(this)
     val bg = GradientDrawable()
@@ -56,5 +58,50 @@ fun Context.avatarView(
     lp.setMargins(dp(3), dp(3), dp(3), dp(3))
     f.addView(inner, lp)
     f.elevation = dp(2).toFloat()
+    // tocar na foto abre ela em tela cheia (só quando há foto de verdade)
+    if (zoomable && bmp != null) {
+        f.setOnClickListener { showPhotoViewer(path, caption) }
+    }
     return f
+}
+
+/** Foto em tela cheia: toque em qualquer lugar para fechar. */
+fun Context.showPhotoViewer(path: String, caption: String = "") {
+    if (path.isEmpty() || !File(path).exists()) return
+    val dm = resources.displayMetrics
+    val target = maxOf(dm.widthPixels, dm.heightPixels)
+    val bmp = try {
+        val o = android.graphics.BitmapFactory.Options()
+        o.inJustDecodeBounds = true
+        android.graphics.BitmapFactory.decodeFile(path, o)
+        var sample = 1
+        while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= target) sample *= 2
+        val o2 = android.graphics.BitmapFactory.Options()
+        o2.inSampleSize = sample
+        android.graphics.BitmapFactory.decodeFile(path, o2)
+    } catch (e: Throwable) {
+        null
+    } ?: return
+    val dlg = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+    val root = FrameLayout(this)
+    root.setBackgroundColor(Color.argb(235, 0, 0, 0))
+    val iv = ImageView(this)
+    iv.scaleType = ImageView.ScaleType.FIT_CENTER
+    iv.setImageBitmap(bmp)
+    iv.setPadding(dp(12), dp(40), dp(12), dp(40))
+    root.addView(iv, FrameLayout.LayoutParams(MATCH, MATCH))
+    if (caption.isNotBlank()) {
+        val tv = android.widget.TextView(this)
+        tv.text = caption
+        tv.setTextColor(Color.WHITE)
+        tv.textSize = 16f
+        tv.setTypeface(tv.typeface, android.graphics.Typeface.BOLD)
+        tv.gravity = Gravity.CENTER
+        tv.setPadding(dp(16), dp(10), dp(16), dp(28))
+        root.addView(tv, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
+    }
+    root.setOnClickListener { dlg.dismiss() }
+    iv.setOnClickListener { dlg.dismiss() }
+    dlg.setContentView(root)
+    dlg.show()
 }
