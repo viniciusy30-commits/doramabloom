@@ -6,6 +6,13 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Movie
+import android.os.SystemClock
+import android.view.View
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
@@ -33,7 +40,37 @@ data class Streaming(
 )
 
 object Streamings {
+    private const val PREFS = "doramabloom_custom_streamings"
+    private const val PREF_KEY = "items"
+
     private fun c(s: String): Int = Color.parseColor(s)
+
+    /** Streamings personalizados ficam guardados no aparelho e reaparecem em qualquer dorama. */
+    fun savedCustom(context: Context): List<Streaming> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(PREF_KEY, "[]") ?: "[]"
+        return try {
+            val arr = JSONArray(raw)
+            val result = ArrayList<Streaming>()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val name = o.optString("name").trim()
+                if (name.isEmpty()) continue
+                val color = try { Color.parseColor(o.optString("color", "#F28DB2")) } catch (_: Exception) { Palette.pink }
+                val item = makeCustom(name, color)
+                if (result.none { it.key == item.key }) result.add(item)
+            }
+            result
+        } catch (_: Exception) { emptyList() }
+    }
+
+    fun saveCustom(context: Context, streaming: Streaming) {
+        val items = (savedCustom(context).filterNot { it.key == streaming.key } + streaming)
+        val arr = JSONArray()
+        items.forEach {
+            arr.put(JSONObject().put("name", it.label).put("color", String.format("#%06X", it.bg and 0xFFFFFF)))
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_KEY, arr.toString()).apply()
+    }
 
     val all: List<Streaming> = listOf(
         Streaming("netflix", "Netflix", c("#E50914"), Color.WHITE, "N"),
@@ -236,5 +273,38 @@ fun Activity.showStreamingCreator(onDone: (Streaming) -> Unit) {
         }
         dlg.dismiss()
         onDone(Streamings.makeCustom(nm, color))
+    }
+}
+
+
+/** Exibe um GIF animado sem convertê-lo para JPEG, mantendo a animação original. */
+class AnimatedGifView(context: Context, private val file: File) : View(context) {
+    private val movie: Movie? = Movie.decodeFile(file.absolutePath)
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val startedAt = SystemClock.uptimeMillis()
+
+    init {
+        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+        contentDescription = "GIF animado do casal"
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val m = movie ?: return
+        val duration = m.duration().takeIf { it > 0 } ?: 1000
+        val time = ((SystemClock.uptimeMillis() - startedAt) % duration).toInt()
+        val scale = minOf(width.toFloat() / m.width().coerceAtLeast(1), height.toFloat() / m.height().coerceAtLeast(1))
+        val w = m.width() * scale
+        val h = m.height() * scale
+        val save = canvas.save()
+        canvas.clipPath(Path().apply {
+            addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), context.dp(14).toFloat(), context.dp(14).toFloat(), Path.Direction.CW)
+        })
+        canvas.translate((width - w) / 2f, (height - h) / 2f)
+        canvas.scale(scale, scale)
+        m.setTime(time)
+        m.draw(canvas, 0f, 0f, paint)
+        canvas.restoreToCount(save)
+        postInvalidateOnAnimation()
     }
 }
