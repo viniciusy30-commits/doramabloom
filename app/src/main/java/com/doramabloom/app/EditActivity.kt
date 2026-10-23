@@ -1034,8 +1034,21 @@ class EditActivity : AppCompatActivity() {
                 } else if (hasCurrent && action == 2) {
                     reframe(code)
                 } else if (action == 0) {
-                    val i = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-                    startActivityForResult(Intent.createChooser(i, "Escolher imagem"), code)
+                    // OPEN_DOCUMENT mantém o acesso ao URI escolhido de forma mais confiável
+                    // em diferentes galerias/gerenciadores de arquivos Android.
+                    val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        type = "image/*"
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                    }
+                    try {
+                        startActivityForResult(Intent.createChooser(i, "Escolher imagem"), code)
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        val fallback = Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "image/*"
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                        }
+                        startActivityForResult(Intent.createChooser(fallback, "Escolher imagem"), code)
+                    }
                 } else {
                     startActivity(Intent(this, WebPickActivity::class.java).apply {
                         putExtra("query", query)
@@ -1158,6 +1171,9 @@ class EditActivity : AppCompatActivity() {
         if (resultCode != android.app.Activity.RESULT_OK) return
         var code = requestCode
         var uri: Uri? = data?.data
+        if (uri == null && data?.clipData != null && data.clipData!!.itemCount > 0) {
+            uri = data.clipData!!.getItemAt(0).uri
+        }
         var temp: File? = null
         if (requestCode >= 200) {
             // veio do navegador de imagens: o arquivo temporário é tratado igual a uma imagem da galeria
