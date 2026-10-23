@@ -151,6 +151,17 @@ class MainActivity : AppCompatActivity() {
             maybeAutoCast()
             return
         }
+
+        // Ao voltar de detalhes/edição, reconstrói o Início usando o status atual
+        // de cada dorama. Isso evita manter no carrossel itens que foram dropados
+        // enquanto a tela estava aberta, mesmo se a versão do Store não mudou.
+        if (tab == 0) {
+            seenVersion = Store.version
+            showTab(0, false)
+            maybeAutoCast()
+            return
+        }
+
         if (seenVersion != Store.version) {
             seenVersion = Store.version
             if (tab == 1 && listRv != null) {
