@@ -645,7 +645,8 @@ class EditActivity : AppCompatActivity() {
     /** Desenha todos os streamings: os marcados com a cor cheia, os outros apagadinhos. */
     private fun refreshStreams() {
         streamFlow.removeAllViews()
-        val shown = Streamings.all + streams.filter { s -> Streamings.all.none { it.key == s.key } }
+        val available = Streamings.all + Streamings.savedCustom(this)
+        val shown = available.distinctBy { it.key } + streams.filter { s -> available.none { it.key == s.key } }
         for (s in shown) {
             val on = streams.any { it.key == s.key }
             val chip = streamChip(s, 12f)
@@ -659,6 +660,7 @@ class EditActivity : AppCompatActivity() {
         val plus = pill("Outro", Palette.pinkSoft, Palette.pink, 12f, "add")
         plus.setOnClickListener {
             showStreamingCreator { s ->
+                Streamings.saveCustom(this, s)
                 streams.removeAll { it.key == s.key }
                 streams.add(s)
                 refreshStreams()
@@ -945,10 +947,20 @@ class EditActivity : AppCompatActivity() {
 
     private fun refreshCouplePhoto() {
         coupleBox.removeAllViews()
-        val av = avatarView(couplePhotoPath, 84, Palette.pink, Palette.pinkSoft, Palette.pink, "heart", true)
-        av.setOnClickListener {
-            val q = coupleIn.text.toString().trim()
-            pickImage(103, "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
+        val isGif = couplePhotoPath.endsWith(".gif", true) && File(couplePhotoPath).exists()
+        val av: View = if (isGif) {
+            AnimatedGifView(this, File(couplePhotoPath)).apply {
+                background = roundRect(Palette.pinkSoft, dp(14).toFloat())
+                setOnClickListener {
+                    val q = coupleIn.text.toString().trim()
+                    pickImage(103, "Escolher GIF do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
+                }
+            }
+        } else avatarView(couplePhotoPath, 84, Palette.pink, Palette.pinkSoft, Palette.pink, "heart", true).apply {
+            setOnClickListener {
+                val q = coupleIn.text.toString().trim()
+                pickImage(103, "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
+            }
         }
         coupleBox.addView(av, FrameLayout.LayoutParams(MATCH, MATCH))
     }
@@ -1123,6 +1135,20 @@ class EditActivity : AppCompatActivity() {
                 createdFiles.add(p)
                 soundtrackPath = p
                 refreshSoundtrack()
+            }
+            return
+        }
+        if (code == 103 && contentResolver.getType(uri)?.equals("image/gif", true) == true) {
+            try {
+                val dir = File(filesDir, "covers").apply { mkdirs() }
+                val gif = File(dir, "couple_" + System.currentTimeMillis() + ".gif")
+                contentResolver.openInputStream(uri)?.use { input -> gif.outputStream().use { output -> input.copyTo(output) } }
+                if (gif.length() <= 0L) throw IllegalStateException("GIF vazio")
+                createdFiles.add(gif.absolutePath)
+                couplePhotoPath = gif.absolutePath
+                refreshCouplePhoto()
+            } catch (_: Exception) {
+                Toast.makeText(this, "Não consegui abrir esse GIF.", Toast.LENGTH_SHORT).show()
             }
             return
         }
