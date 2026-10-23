@@ -1,6 +1,8 @@
 package com.doramabloom.app
 
 import android.content.Intent
+import android.app.Dialog
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.graphics.Color
 import android.os.Bundle
@@ -9,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -965,29 +968,79 @@ class EditActivity : AppCompatActivity() {
         coupleBox.addView(av, FrameLayout.LayoutParams(MATCH, MATCH))
     }
 
+    /** Abre a foto atual do ator/atriz em uma visualização de tela cheia. */
+    private fun showActorPhotoFullscreen(path: String, actorName: String) {
+        val file = File(path)
+        if (!file.exists()) {
+            Toast.makeText(this, "A foto não está mais disponível neste aparelho.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val photo: View = if (file.extension.equals("gif", true)) {
+            AnimatedGifView(this, file)
+        } else {
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+            if (bitmap == null) {
+                Toast.makeText(this, "Não foi possível abrir esta foto.", Toast.LENGTH_SHORT).show()
+                return
+            }
+            ImageView(this).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                contentDescription = if (actorName.isBlank()) "Foto do elenco" else "Foto de $actorName"
+                setImageBitmap(bitmap)
+            }
+        }
+        frame.addView(photo, FrameLayout.LayoutParams(MATCH, MATCH))
+        val dialog = Dialog(this)
+        val close = TextView(this).apply {
+            text = "✕"
+            textSize = 24f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = roundRect(Color.parseColor("#99000000"), dp(24).toFloat())
+            contentDescription = "Fechar foto em tela cheia"
+            setOnClickListener { dialog.dismiss() }
+        }
+        val closeLp = FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.END)
+        closeLp.setMargins(0, dp(18), dp(18), 0)
+        frame.addView(close, closeLp)
+        dialog.setContentView(frame)
+        dialog.show()
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.black)
+            setLayout(MATCH, MATCH)
+            addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        }
+    }
+
     /** Pergunta de onde vem a imagem: galeria do celular ou busca direto na internet (sem baixar antes). */
     private fun pickImage(code: Int, title: String, query: String = "", current: String = "") {
-        val items = if (current.isNotEmpty() && File(current).exists())
-            arrayOf("Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")
-        else arrayOf("Escolher da galeria do celular", "Buscar na internet")
+        val hasCurrent = current.isNotEmpty() && File(current).exists()
+        val showFullscreen = code == 104 && hasCurrent
+        val items = when {
+            showFullscreen -> arrayOf("Ver foto em tela cheia", "Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")
+            hasCurrent -> arrayOf("Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")
+            else -> arrayOf("Escolher da galeria do celular", "Buscar na internet")
+        }
         AlertDialog.Builder(this)
             .setTitle(title)
             .setItems(items) { _, which ->
-                if (which == 3) {
+                val action = if (showFullscreen) which - 1 else which
+                if (showFullscreen && which == 0) {
+                    showActorPhotoFullscreen(current, title.removePrefix("Foto de ").substringBefore(" —"))
+                } else if (hasCurrent && action == 3) {
                     enhanceCurrent(code)
-                } else if (which == 2) {
+                } else if (hasCurrent && action == 2) {
                     reframe(code)
-                } else if (which == 0) {
-                    val i = Intent(Intent.ACTION_GET_CONTENT)
-                    i.type = "image/*"
-                    i.addCategory(Intent.CATEGORY_OPENABLE)
-                    startActivityForResult(Intent.createChooser(i, title), code)
+                } else if (action == 0) {
+                    val i = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
+                    startActivityForResult(Intent.createChooser(i, "Escolher imagem"), code)
                 } else {
-                    val i = Intent(this, WebPickActivity::class.java)
-                    i.putExtra("query", query)
-                    i.putExtra("title", title)
-                    // resultado da internet volta com o código + 100
-                    startActivityForResult(i, code + 100)
+                    startActivity(Intent(this, WebPickActivity::class.java).apply {
+                        putExtra("query", query)
+                        putExtra("requestCode", code)
+                    })
                 }
             }
             .show()
