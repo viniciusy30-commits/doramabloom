@@ -2,6 +2,7 @@ package com.doramabloom.app
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -609,6 +610,8 @@ class DetailActivity : AppCompatActivity() {
         val cover = CoverView(this, 26)
         cover.bind(d, 900)
         ring.addView(cover, FrameLayout.LayoutParams(cw, ch))
+        ring.setOnClickListener { showPhotoFullscreen(d.cover, d.title) }
+        ring.contentDescription = "Tocar para ampliar a capa"
         stage.addView(ring, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         heroCol.addView(stage, lin(MATCH, WRAP, t = 0, b = 2))
 
@@ -1302,6 +1305,50 @@ class DetailActivity : AppCompatActivity() {
         }
         c.addView(hs, lin(MATCH, WRAP))
         return root
+    }
+
+    /** Abre a capa original em tela cheia, sem carregar a imagem inteira na memória. */
+    private fun showPhotoFullscreen(path: String, title: String) {
+        if (path.isBlank() || !File(path).isFile) {
+            softToast("Esta foto não está disponível.", Palette.pink, "image")
+            return
+        }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= 1400 || bounds.outHeight / (sample * 2) >= 1800) sample *= 2
+        val bitmap = BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+        if (bitmap == null) {
+            softToast("Não foi possível abrir esta foto.", Palette.pink, "image")
+            return
+        }
+        val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val image = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageBitmap(bitmap)
+            contentDescription = title
+        }
+        frame.addView(image, FrameLayout.LayoutParams(MATCH, MATCH))
+        val dialog = android.app.Dialog(this)
+        val close = TextView(this).apply {
+            text = "✕"
+            textSize = 25f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = roundRect(Color.parseColor("#66000000"), dp(28).toFloat())
+            setOnClickListener { dialog.dismiss() }
+        }
+        frame.addView(close, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.END).apply {
+            setMargins(0, dp(16), dp(12), 0)
+        })
+        dialog.setContentView(frame)
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.black)
+        dialog.window?.setLayout(MATCH, MATCH)
+        dialog.window?.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
     }
 
     private fun openActor(name: String) {

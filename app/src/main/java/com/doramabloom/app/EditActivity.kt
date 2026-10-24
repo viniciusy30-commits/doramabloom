@@ -175,6 +175,14 @@ class EditActivity : AppCompatActivity() {
         val csl = FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.START)
         csl.setMargins(dp(5), dp(5), 0, 0)
         coverFrame.addView(coverSeal, csl)
+        coverFrame.setOnClickListener {
+            if (coverPath.isNotBlank() && File(coverPath).isFile) {
+                showActorPhotoFullscreen(coverPath, titleIn.text.toString().trim().ifBlank { "Capa do dorama" })
+            } else {
+                pickCover()
+            }
+        }
+        coverFrame.contentDescription = "Tocar para ampliar a capa"
         coverRow.addView(coverFrame, lin(dp(104), dp(150), r = 16))
         val coverBtns = LinearLayout(this)
         coverBtns.orientation = LinearLayout.VERTICAL
@@ -980,7 +988,11 @@ class EditActivity : AppCompatActivity() {
         val photo: View = if (file.extension.equals("gif", true)) {
             AnimatedGifView(this, file)
         } else {
-            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            var sample = 1
+            while (bounds.outWidth / (sample * 2) >= 1400 || bounds.outHeight / (sample * 2) >= 1800) sample *= 2
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
             if (bitmap == null) {
                 Toast.makeText(this, "Não foi possível abrir esta foto.", Toast.LENGTH_SHORT).show()
                 return
