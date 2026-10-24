@@ -838,8 +838,8 @@ class EditActivity : AppCompatActivity() {
                     pickImage(104, if (who.isEmpty()) "Escolher foto" else "Foto de $who" + (if (dt.isNotEmpty()) " — $dt" else ""),
                         (who + " " + dt).trim(), p.photo)
                 }
-                // com foto: toque abre ela grande (com botão para trocar); sem foto: já abre as opções
-                if (p.photo.isNotEmpty() && File(p.photo).isFile) showActorPhotoFullscreen(p.photo, who, "Trocar foto", change) else change()
+                // sempre abre o menu completo (tela cheia, galeria, internet, enquadrar, melhorar)
+                change()
             }
             row.addView(av, lin(dp(52), dp(52), r = 10))
             val fields = LinearLayout(this)
@@ -982,11 +982,7 @@ class EditActivity : AppCompatActivity() {
         val change = {
             pickImage(103, if (gif) "Escolher GIF do casal" else "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
         }
-        if (couplePhotoPath.isNotEmpty() && File(couplePhotoPath).isFile) {
-            showActorPhotoFullscreen(couplePhotoPath, q.ifBlank { "Casal" }, "Trocar foto", change)
-        } else {
-            change()
-        }
+        change()
     }
 
     /** Abre a foto atual (capa, ator/atriz ou casal) em tela cheia; com [changeLabel] mostra um botão para trocar. */
@@ -1053,10 +1049,11 @@ class EditActivity : AppCompatActivity() {
     /** Pergunta de onde vem a imagem: galeria do celular ou busca direto na internet (sem baixar antes). */
     private fun pickImage(code: Int, title: String, query: String = "", current: String = "") {
         val hasCurrent = current.isNotEmpty() && File(current).exists()
-        val showFullscreen = code == 104 && hasCurrent && !isGifFile(current)
+        val showFullscreen = (code == 104 || code == 103) && hasCurrent
         // GIF animado não pode ser enquadrado nem "melhorado" (viraria foto parada)
         val gifCurrent = hasCurrent && isGifFile(current)
         val items = when {
+            gifCurrent && showFullscreen -> arrayOf("Ver foto em tela cheia", "Escolher da galeria do celular", "Buscar na internet")
             gifCurrent -> arrayOf("Escolher da galeria do celular", "Buscar na internet")
             showFullscreen -> arrayOf("Ver foto em tela cheia", "Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")
             hasCurrent -> arrayOf("Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")

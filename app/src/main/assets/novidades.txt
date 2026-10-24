@@ -4,6 +4,7 @@
 - Tocar na capa, na foto de quem está no elenco e na foto do casal abre em tela cheia, inclusive na hora de editar. De dentro da tela cheia há o botão para trocar a foto.
 - GIF no casal: vale tanto da galeria quanto da internet (o app reconhece pelo conteúdo). O GIF fica animado no cartão do casal e na tela cheia. Também fica animado depois de restaurar um backup.
 - Streaming que você adiciona em "Outro" fica salvo na hora e volta na lista de qualquer dorama, mesmo se você fechar o app logo depois ou restaurar um backup.
+- A bolinha flutuante do menu agora muda de cor junto com o tema: o fundo em volta do ícone segue o gênero, a aba e os filtros da tela.
 
 #id 2026-10-19-sp
 #titulo Supremacy refeito: uma tela só, pôster em destaque

@@ -37,6 +37,8 @@ class SideDrawerLayout(ctx: Context) : FrameLayout(ctx) {
 
     // ---- bolinha flutuante
     private val bubble = ImageView(ctx)
+    private var bubbleBg: GradientDrawable? = null
+    private var bubbleColor = Color.WHITE
     private val bPrefs = ctx.getSharedPreferences("bubble", Context.MODE_PRIVATE)
     private val bSizes = intArrayOf(26, 34, 42, 52, 64, 78, 94, 112)
     private var bIdx = bPrefs.getInt("size", 3).coerceIn(0, bSizes.size - 1)
@@ -118,6 +120,7 @@ class SideDrawerLayout(ctx: Context) : FrameLayout(ctx) {
         lp.width = sz
         lp.height = sz
         bubble.layoutParams = lp
+        bubblePad()
         placeBubble(cx - sz / 2f, cy - sz / 2f)
         saveBubble()
     }
@@ -140,14 +143,29 @@ class SideDrawerLayout(ctx: Context) : FrameLayout(ctx) {
         pm.show()
     }
 
+    /** Cor do fundo da bolinha: acompanha o tema (gênero, aba) da tela atual. */
+    fun setAccent(c: Int) {
+        bubbleColor = c
+        bubbleBg?.setColor(c)
+        bubble.invalidate()
+    }
+
+    /** Margem interna: deixa a cor do tema aparecer como um anel em volta do ícone. */
+    private fun bubblePad() {
+        val p = (bubblePx() * 0.13f).toInt()
+        bubble.setPadding(p, p, p, p)
+    }
+
     private fun setupBubble() {
         val id = context.resources.getIdentifier("ic_launcher_round", "mipmap", context.packageName)
         bubble.setImageResource(id)
         bubble.scaleType = ImageView.ScaleType.CENTER_CROP
         val bg = GradientDrawable()
         bg.shape = GradientDrawable.OVAL
-        bg.setColor(Color.WHITE)
+        bg.setColor(bubbleColor)
+        bubbleBg = bg
         bubble.background = bg
+        bubblePad()
         bubble.outlineProvider = ViewOutlineProvider.BACKGROUND
         bubble.clipToOutline = true
         bubble.elevation = context.dp(8).toFloat()

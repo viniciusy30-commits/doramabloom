@@ -131,6 +131,7 @@ class MainActivity : AppCompatActivity() {
             dp(190)
         )
 
+        root.setAccent(Palette.pink)
         setContentView(root)
         // depois de atualizar, mostra o resumo do que mudou; só então confere se há versão nova
         root.post {
@@ -350,6 +351,7 @@ class MainActivity : AppCompatActivity() {
         accent = to
         animateColor(from, to, 380L) { c ->
             addCircle?.background = ovalGradient(lighten(c, 0.22f), c)
+            drawer?.setAccent(c)
             navIndicator.background = roundRect(c, dp(22).toFloat())
             searchBox?.background = roundRect(Palette.card, dp(24).toFloat(), if (tab == 1) c else Palette.line, dp(if (c == Palette.pink) 1 else 2))
             listInfo?.setTextColor(c)
