@@ -1121,12 +1121,20 @@ fun Context.coupleCard(d: Drama, g: Genre): View? {
         }
     }
     photo.clipToOutline = true
-    val bmp = if (hasPhoto) Covers.load(d.couplePhoto, dp(pw)) else null
-    if (bmp != null) {
-        val iv = ImageView(this)
-        iv.scaleType = ImageView.ScaleType.CENTER_CROP
-        iv.setImageBitmap(bmp)
-        photo.addView(iv, FrameLayout.LayoutParams(MATCH, MATCH))
+    // GIF do casal: continua animado (não vira foto parada)
+    val isGif = hasPhoto && isGifFile(d.couplePhoto)
+    val bmp = if (hasPhoto && !isGif) Covers.load(d.couplePhoto, dp(pw)) else null
+    if (bmp != null || isGif) {
+        if (isGif) {
+            photo.addView(AnimatedGifView(this, File(d.couplePhoto), true, 0), FrameLayout.LayoutParams(MATCH, MATCH))
+        } else {
+            val iv = ImageView(this)
+            iv.scaleType = ImageView.ScaleType.CENTER_CROP
+            iv.setImageBitmap(bmp)
+            photo.addView(iv, FrameLayout.LayoutParams(MATCH, MATCH))
+        }
+        // tocar na foto do casal abre ela grande (o GIF segue animado)
+        photo.setOnClickListener { showPhotoViewer(d.couplePhoto, d.couple) }
         // brilho suave por cima, como foto revelada
         val shine = View(this)
         shine.background = GradientDrawable(

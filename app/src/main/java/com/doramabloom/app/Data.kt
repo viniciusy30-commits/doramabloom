@@ -1998,7 +1998,8 @@ object Store {
                 used.add(d.id)
                 d.cover = place(o.optString("cover", ""), covDir, "c", "jpg")
                 d.soundtrack = place(o.optString("soundtrack", ""), musDir, "t", "audio")
-                d.couplePhoto = place(o.optString("couplePhoto", ""), covDir, "c", "jpg")
+                val cpName = o.optString("couplePhoto", "")
+                d.couplePhoto = place(cpName, covDir, "c", if (cpName.endsWith(".gif", true)) "gif" else "jpg")
                 val src = o.optJSONArray("castPeople")
                 for ((k, p) in d.castPeople.withIndex()) {
                     val name = src?.optJSONObject(k)?.optString("photo", "") ?: ""

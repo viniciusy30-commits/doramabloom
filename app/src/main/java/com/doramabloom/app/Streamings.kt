@@ -59,8 +59,24 @@ object Streamings {
                 val item = makeCustom(name, color)
                 if (result.none { it.key == item.key }) result.add(item)
             }
+            mergeFromDoramas(result)
             result
         } catch (_: Exception) { emptyList() }
+    }
+
+    /**
+     * Rede de segurança: todo streaming seu que já está em algum dorama (ou veio de um backup)
+     * volta para a lista, mesmo se a lista guardada no aparelho tiver sido perdida.
+     */
+    private fun mergeFromDoramas(result: ArrayList<Streaming>) {
+        try {
+            for (d in Store.all()) {
+                for (s in parse(d.platform)) {
+                    if (s.custom && result.none { it.key == s.key }) result.add(s)
+                }
+            }
+        } catch (_: Throwable) {
+        }
     }
 
     fun saveCustom(context: Context, streaming: Streaming) {
@@ -69,7 +85,8 @@ object Streamings {
         items.forEach {
             arr.put(JSONObject().put("name", it.label).put("color", String.format("#%06X", it.bg and 0xFFFFFF)))
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_KEY, arr.toString()).apply()
+        // commit() grava na hora (apply() pode se perder se o app fechar logo em seguida)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(PREF_KEY, arr.toString()).commit()
     }
 
     val all: List<Streaming> = listOf(
@@ -277,8 +294,29 @@ fun Activity.showStreamingCreator(onDone: (Streaming) -> Unit) {
 }
 
 
-/** Exibe um GIF animado sem convertê-lo para JPEG, mantendo a animação original. */
-class AnimatedGifView(context: Context, private val file: File) : View(context) {
+/** true se o arquivo é um GIF de verdade (confere o começo do arquivo, não só o nome). */
+fun isGifFile(path: String): Boolean {
+    return try {
+        val f = File(path)
+        if (!f.isFile) return false
+        val h = ByteArray(4)
+        val n = f.inputStream().use { it.read(h) }
+        n == 4 && h[0] == 'G'.code.toByte() && h[1] == 'I'.code.toByte() && h[2] == 'F'.code.toByte() && h[3] == '8'.code.toByte()
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/**
+ * Exibe um GIF animado sem convertê-lo para JPEG, mantendo a animação original.
+ * crop = true preenche a área toda (corta as sobras), como a foto do casal; false mostra inteiro.
+ */
+class AnimatedGifView(
+    context: Context,
+    private val file: File,
+    private val crop: Boolean = false,
+    private val radiusDp: Int = 14
+) : View(context) {
     private val movie: Movie? = Movie.decodeFile(file.absolutePath)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val startedAt = SystemClock.uptimeMillis()
@@ -293,12 +331,14 @@ class AnimatedGifView(context: Context, private val file: File) : View(context) 
         val m = movie ?: return
         val duration = m.duration().takeIf { it > 0 } ?: 1000
         val time = ((SystemClock.uptimeMillis() - startedAt) % duration).toInt()
-        val scale = minOf(width.toFloat() / m.width().coerceAtLeast(1), height.toFloat() / m.height().coerceAtLeast(1))
+        val sx = width.toFloat() / m.width().coerceAtLeast(1)
+        val sy = height.toFloat() / m.height().coerceAtLeast(1)
+        val scale = if (crop) maxOf(sx, sy) else minOf(sx, sy)
         val w = m.width() * scale
         val h = m.height() * scale
         val save = canvas.save()
         canvas.clipPath(Path().apply {
-            addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), context.dp(14).toFloat(), context.dp(14).toFloat(), Path.Direction.CW)
+            addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), context.dp(radiusDp).toFloat(), context.dp(radiusDp).toFloat(), Path.Direction.CW)
         })
         canvas.translate((width - w) / 2f, (height - h) / 2f)
         canvas.scale(scale, scale)

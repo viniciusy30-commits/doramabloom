@@ -304,7 +304,8 @@ class WebPickActivity : AppCompatActivity() {
         ob.inJustDecodeBounds = true
         BitmapFactory.decodeFile(f.absolutePath, ob)
         val big = maxOf(ob.outWidth, ob.outHeight)
-        val resInfo = "${ob.outWidth}×${ob.outHeight}" + if (big in 1..799) " (pequena: o app melhora a nitidez ao salvar; para ficar ainda melhor, abra a foto grande)" else ""
+        val gifTag = if (isGifFile(f.absolutePath)) " GIF animado" else ""
+        val resInfo = "${ob.outWidth}×${ob.outHeight}$gifTag" + if (big in 1..799 && gifTag.isEmpty()) " (pequena: o app melhora a nitidez ao salvar; para ficar ainda melhor, abra a foto grande)" else ""
         val iv = ImageView(this)
         iv.setImageBitmap(bmp)
         iv.scaleType = ImageView.ScaleType.FIT_CENTER

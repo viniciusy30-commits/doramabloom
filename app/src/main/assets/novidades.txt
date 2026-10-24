@@ -1,3 +1,10 @@
+#id 2026-10-24-fg
+#titulo Fotos da internet, ver grande, GIF do casal e streaming salvo
+- Buscar na internet (capa, ator/atriz e casal): a imagem escolhida agora volta para a tela de edição. Antes a busca abria mas a foto nunca chegava.
+- Tocar na capa, na foto de quem está no elenco e na foto do casal abre em tela cheia, inclusive na hora de editar. De dentro da tela cheia há o botão para trocar a foto.
+- GIF no casal: vale tanto da galeria quanto da internet (o app reconhece pelo conteúdo). O GIF fica animado no cartão do casal e na tela cheia. Também fica animado depois de restaurar um backup.
+- Streaming que você adiciona em "Outro" fica salvo na hora e volta na lista de qualquer dorama, mesmo se você fechar o app logo depois ou restaurar um backup.
+
 #id 2026-10-19-sp
 #titulo Supremacy refeito: uma tela só, pôster em destaque
 - Tudo cabe numa tela: coroa e título enxutos em cima, o pôster grande no centro (em 3D, com os vizinhos inclinados) e o essencial logo embaixo: posto (Soberano, Herdeiro, Nobreza, Corte Real), nome, gênero, nota em corações e, se estiver assistindo, o progresso.

@@ -177,7 +177,7 @@ class EditActivity : AppCompatActivity() {
         coverFrame.addView(coverSeal, csl)
         coverFrame.setOnClickListener {
             if (coverPath.isNotBlank() && File(coverPath).isFile) {
-                showActorPhotoFullscreen(coverPath, titleIn.text.toString().trim().ifBlank { "Capa do dorama" })
+                showActorPhotoFullscreen(coverPath, titleIn.text.toString().trim().ifBlank { "Capa do dorama" }, "Trocar capa") { pickCover() }
             } else {
                 pickCover()
             }
@@ -833,8 +833,13 @@ class EditActivity : AppCompatActivity() {
                 val who = p.name.trim()
                 val dt = titleIn.text.toString().trim()
                 // a busca já leva o nome do dorama junto, para achar a foto certa
-                pickImage(104, if (who.isEmpty()) "Escolher foto" else "Foto de $who" + (if (dt.isNotEmpty()) " — $dt" else ""),
-                    (who + " " + dt).trim(), p.photo)
+                val change = {
+                    pendingCast = i
+                    pickImage(104, if (who.isEmpty()) "Escolher foto" else "Foto de $who" + (if (dt.isNotEmpty()) " — $dt" else ""),
+                        (who + " " + dt).trim(), p.photo)
+                }
+                // com foto: toque abre ela grande (com botão para trocar); sem foto: já abre as opções
+                if (p.photo.isNotEmpty() && File(p.photo).isFile) showActorPhotoFullscreen(p.photo, who, "Trocar foto", change) else change()
             }
             row.addView(av, lin(dp(52), dp(52), r = 10))
             val fields = LinearLayout(this)
@@ -958,26 +963,34 @@ class EditActivity : AppCompatActivity() {
 
     private fun refreshCouplePhoto() {
         coupleBox.removeAllViews()
-        val isGif = couplePhotoPath.endsWith(".gif", true) && File(couplePhotoPath).exists()
+        val isGif = isGifFile(couplePhotoPath)
         val av: View = if (isGif) {
-            AnimatedGifView(this, File(couplePhotoPath)).apply {
+            AnimatedGifView(this, File(couplePhotoPath), true).apply {
                 background = roundRect(Palette.pinkSoft, dp(14).toFloat())
-                setOnClickListener {
-                    val q = coupleIn.text.toString().trim()
-                    pickImage(103, "Escolher GIF do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
-                }
+                setOnClickListener { openCouplePhoto() }
             }
         } else avatarView(couplePhotoPath, 84, Palette.pink, Palette.pinkSoft, Palette.pink, "heart", true).apply {
-            setOnClickListener {
-                val q = coupleIn.text.toString().trim()
-                pickImage(103, "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
-            }
+            setOnClickListener { openCouplePhoto() }
         }
         coupleBox.addView(av, FrameLayout.LayoutParams(MATCH, MATCH))
     }
 
-    /** Abre a foto atual do ator/atriz em uma visualização de tela cheia. */
-    private fun showActorPhotoFullscreen(path: String, actorName: String) {
+    /** Foto do casal: com foto (ou GIF) abre grande, com botão para trocar; sem foto, abre as opções. */
+    private fun openCouplePhoto() {
+        val q = coupleIn.text.toString().trim()
+        val gif = isGifFile(couplePhotoPath)
+        val change = {
+            pickImage(103, if (gif) "Escolher GIF do casal" else "Escolher foto do casal", if (q.isEmpty()) "" else "$q casal", couplePhotoPath)
+        }
+        if (couplePhotoPath.isNotEmpty() && File(couplePhotoPath).isFile) {
+            showActorPhotoFullscreen(couplePhotoPath, q.ifBlank { "Casal" }, "Trocar foto", change)
+        } else {
+            change()
+        }
+    }
+
+    /** Abre a foto atual (capa, ator/atriz ou casal) em tela cheia; com [changeLabel] mostra um botão para trocar. */
+    private fun showActorPhotoFullscreen(path: String, actorName: String, changeLabel: String = "", onChange: (() -> Unit)? = null) {
         val file = File(path)
         if (!file.exists()) {
             Toast.makeText(this, "A foto não está mais disponível neste aparelho.", Toast.LENGTH_SHORT).show()
@@ -985,8 +998,8 @@ class EditActivity : AppCompatActivity() {
         }
 
         val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        val photo: View = if (file.extension.equals("gif", true)) {
-            AnimatedGifView(this, file)
+        val photo: View = if (isGifFile(file.absolutePath)) {
+            AnimatedGifView(this, file, false, 0)
         } else {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.absolutePath, bounds)
@@ -1017,6 +1030,17 @@ class EditActivity : AppCompatActivity() {
         val closeLp = FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.END)
         closeLp.setMargins(0, dp(18), dp(18), 0)
         frame.addView(close, closeLp)
+        if (onChange != null && changeLabel.isNotEmpty()) {
+            val change = pill(changeLabel, Palette.pink, Color.WHITE, 14f, "image")
+            change.setPadding(dp(20), dp(12), dp(20), dp(12))
+            change.setOnClickListener {
+                dialog.dismiss()
+                onChange()
+            }
+            frame.addView(change, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                setMargins(0, 0, 0, dp(36))
+            })
+        }
         dialog.setContentView(frame)
         dialog.show()
         dialog.window?.apply {
@@ -1029,8 +1053,11 @@ class EditActivity : AppCompatActivity() {
     /** Pergunta de onde vem a imagem: galeria do celular ou busca direto na internet (sem baixar antes). */
     private fun pickImage(code: Int, title: String, query: String = "", current: String = "") {
         val hasCurrent = current.isNotEmpty() && File(current).exists()
-        val showFullscreen = code == 104 && hasCurrent
+        val showFullscreen = code == 104 && hasCurrent && !isGifFile(current)
+        // GIF animado não pode ser enquadrado nem "melhorado" (viraria foto parada)
+        val gifCurrent = hasCurrent && isGifFile(current)
         val items = when {
+            gifCurrent -> arrayOf("Escolher da galeria do celular", "Buscar na internet")
             showFullscreen -> arrayOf("Ver foto em tela cheia", "Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")
             hasCurrent -> arrayOf("Escolher da galeria do celular", "Buscar na internet", "Enquadrar a foto atual", "Melhorar a qualidade da foto atual")
             else -> arrayOf("Escolher da galeria do celular", "Buscar na internet")
@@ -1062,10 +1089,12 @@ class EditActivity : AppCompatActivity() {
                         startActivityForResult(Intent.createChooser(fallback, "Escolher imagem"), code)
                     }
                 } else {
-                    startActivity(Intent(this, WebPickActivity::class.java).apply {
+                    // startActivityForResult: é isso que faz a foto escolhida voltar para cá
+                    // (o resultado chega em onActivityResult com o código + 100)
+                    startActivityForResult(Intent(this, WebPickActivity::class.java).apply {
                         putExtra("query", query)
-                        putExtra("requestCode", code)
-                    })
+                        putExtra("title", title)
+                    }, code + 100)
                 }
             }
             .show()
@@ -1206,6 +1235,18 @@ class EditActivity : AppCompatActivity() {
         }
     }
 
+    /** GIF de verdade? Confere o começo do arquivo (a internet entrega sem tipo, a galeria às vezes também). */
+    private fun isGifUri(uri: Uri): Boolean {
+        if (contentResolver.getType(uri)?.equals("image/gif", true) == true) return true
+        return try {
+            val h = ByteArray(4)
+            val n = contentResolver.openInputStream(uri)?.use { it.read(h) } ?: 0
+            n == 4 && h[0] == 'G'.code.toByte() && h[1] == 'I'.code.toByte() && h[2] == 'F'.code.toByte() && h[3] == '8'.code.toByte()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /** 101 = capa, 102 = trilha sonora, 103 = foto do casal, 104 = foto de quem está no elenco. */
     private fun applyPicked(code: Int, uri: Uri) {
         if (code == 102) {
@@ -1219,7 +1260,7 @@ class EditActivity : AppCompatActivity() {
             }
             return
         }
-        if (code == 103 && contentResolver.getType(uri)?.equals("image/gif", true) == true) {
+        if (code == 103 && isGifUri(uri)) {
             try {
                 val dir = File(filesDir, "covers").apply { mkdirs() }
                 val gif = File(dir, "couple_" + System.currentTimeMillis() + ".gif")

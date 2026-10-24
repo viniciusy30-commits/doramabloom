@@ -70,7 +70,8 @@ fun Context.showPhotoViewer(path: String, caption: String = "") {
     if (path.isEmpty() || !File(path).exists()) return
     val dm = resources.displayMetrics
     val target = maxOf(dm.widthPixels, dm.heightPixels)
-    val bmp = try {
+    val gif = isGifFile(path)
+    val bmp = if (gif) null else try {
         val o = android.graphics.BitmapFactory.Options()
         o.inJustDecodeBounds = true
         android.graphics.BitmapFactory.decodeFile(path, o)
@@ -81,14 +82,20 @@ fun Context.showPhotoViewer(path: String, caption: String = "") {
         android.graphics.BitmapFactory.decodeFile(path, o2)
     } catch (e: Throwable) {
         null
-    } ?: return
+    }
+    if (!gif && bmp == null) return
     val dlg = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
     val root = FrameLayout(this)
     root.setBackgroundColor(Color.argb(235, 0, 0, 0))
-    val iv = ImageView(this)
-    iv.scaleType = ImageView.ScaleType.FIT_CENTER
-    iv.setImageBitmap(bmp)
-    iv.setPadding(dp(12), dp(40), dp(12), dp(40))
+    val iv: View = if (gif) {
+        AnimatedGifView(this, File(path), false, 0).also { it.setPadding(dp(12), dp(40), dp(12), dp(40)) }
+    } else {
+        ImageView(this).also {
+            it.scaleType = ImageView.ScaleType.FIT_CENTER
+            it.setImageBitmap(bmp)
+            it.setPadding(dp(12), dp(40), dp(12), dp(40))
+        }
+    }
     root.addView(iv, FrameLayout.LayoutParams(MATCH, MATCH))
     if (caption.isNotBlank()) {
         val tv = android.widget.TextView(this)
