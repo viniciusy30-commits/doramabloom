@@ -2128,12 +2128,13 @@ object Store {
                 m.postRotate(rot.toFloat())
                 bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
             }
-            // foto pequena/borrada: amplia com suavização e realça os detalhes
-            bmp = ImageEnhance.autoIfSmall(bmp)
+            // Não ampliar/realçar automaticamente durante a seleção: em aparelhos com pouca
+            // memória isso pode travar ou encerrar o app antes de salvar a foto.
             val dir = File(appContext.filesDir, "covers")
             dir.mkdirs()
             val f = File(dir, "c" + System.currentTimeMillis() + ".jpg")
             FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+            Covers.clear()
             f.absolutePath
         } catch (e: Exception) {
             null
