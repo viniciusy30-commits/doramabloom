@@ -1,3 +1,8 @@
+#id 2026-11-01-rs
+#titulo Rascunho seguro e bolinha redonda
+- Sair da tela de editar sem querer (botão voltar, gesto ou seta do topo) não perde mais nada: se você mexeu e não salvou, o app pergunta se quer Salvar, Descartar ou Continuar editando. E se o sistema fechar o app enquanto está minimizado, o que você preencheu é gravado na hora e o formulário reabre sozinho quando você voltar.
+- A bolinha flutuante do menu agora é redonda de verdade: o ícone não aparece mais quadrado nem corta o contorno colorido em volta.
+
 #id 2026-10-24-fg
 #titulo Fotos da internet, ver grande, GIF do casal e streaming salvo
 - Buscar na internet (capa, ator/atriz e casal): a imagem escolhida agora volta para a tela de edição. Antes a busca abria mas a foto nunca chegava.

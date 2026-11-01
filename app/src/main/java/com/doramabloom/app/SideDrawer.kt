@@ -157,9 +157,9 @@ class SideDrawerLayout(ctx: Context) : FrameLayout(ctx) {
     }
 
     private fun setupBubble() {
-        val id = context.resources.getIdentifier("ic_launcher_round", "mipmap", context.packageName)
-        bubble.setImageResource(id)
-        bubble.scaleType = ImageView.ScaleType.CENTER_CROP
+        // ic_launcher_round vira ícone adaptativo (quadrado, sem máscara) no Android 8+; por isso a bolinha usa o PNG redondo direto
+        bubble.setImageResource(R.drawable.ic_bubble)
+        bubble.scaleType = ImageView.ScaleType.FIT_CENTER
         val bg = GradientDrawable()
         bg.shape = GradientDrawable.OVAL
         bg.setColor(bubbleColor)

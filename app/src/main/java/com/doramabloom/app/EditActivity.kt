@@ -49,6 +49,10 @@ class EditActivity : AppCompatActivity() {
     private val seasonWIns = ArrayList<EditText>()
     private val seasonTIns = ArrayList<EditText>()
     private var saved = false
+    /** true só quando você escolhe sair sem guardar (ou exclui): aí o rascunho e os arquivos novos são apagados. */
+    private var discarded = false
+    private var restoredDraft = false
+    private var initialSnap = ""
 
     private lateinit var coverView: CoverView
     private lateinit var coverSeal: SealView
@@ -105,6 +109,7 @@ class EditActivity : AppCompatActivity() {
         val draft = if (prefill.isEmpty()) Store.loadDraft(id) else null
         if (draft == null && prefill.isNotEmpty()) Store.clearDraft(id)
         if (draft != null) createdFiles.addAll(draft.second)
+        restoredDraft = draft != null
         val ex: Drama? = draft?.first ?: real
         if (real != null) {
             if (real.soundtrack.isNotEmpty()) originalFiles.add(real.soundtrack)
@@ -149,7 +154,7 @@ class EditActivity : AppCompatActivity() {
         head.orientation = LinearLayout.HORIZONTAL
         head.gravity = Gravity.CENTER_VERTICAL
         head.setPadding(dp(16), dp(10), dp(16), dp(6))
-        head.addView(roundBtn("back", Palette.pinkDark, false, 18) { finish() }, lin(dp(40), dp(40), r = 12))
+        head.addView(roundBtn("back", Palette.pinkDark, false, 18) { tryLeave() }, lin(dp(40), dp(40), r = 12))
         head.addView(label(if (real == null) "Novo dorama" else "Editar dorama", 22f, Palette.pinkDark, true, true))
         page.addView(head, lin(MATCH, WRAP))
 
@@ -465,6 +470,7 @@ class EditActivity : AppCompatActivity() {
                     .setMessage("\"" + real.title + "\" será removido da sua estante.")
                     .setPositiveButton("Excluir") { _, _ ->
                         sv.animate().alpha(0f).translationY(dp(30).toFloat()).setDuration(260).withEndAction {
+                            discarded = true
                             Store.delete(real.id)
                             Toast.makeText(this, "Dorama excluído", Toast.LENGTH_SHORT).show()
                             finish()
@@ -500,6 +506,57 @@ class EditActivity : AppCompatActivity() {
         head.riseIn(0L, 12, 320L)
         for (i in 0 until col.childCount) col.getChildAt(i).riseIn(90L + minOf(i, 7) * 60L, 22, 420L)
         saveBtn.riseIn(400L, 30, 420L)
+
+        // "voltar" (botão, gesto ou seta do topo) nunca perde o que você digitou
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                tryLeave()
+            }
+        })
+        root.post { initialSnap = snap() }
+        if (restoredDraft && savedInstanceState == null) {
+            Toast.makeText(this, "Recuperei o que você tinha preenchido.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Resumo do formulário para saber se algo mudou (ignora id e data de criação, que mudam sozinhos). */
+    private fun snap(): String {
+        return try {
+            val d = collect()
+            d.copy(id = 0L, addedAt = 0L, castPeople = emptyList()).toString() +
+                d.castPeople.joinToString("|") { it.name + "/" + it.photo + "/" + it.role } +
+                castList.joinToString("|") { it.gender }
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun isDirty(): Boolean {
+        if (restoredDraft) return true
+        return initialSnap.isNotEmpty() && snap() != initialSnap
+    }
+
+    /** Sair da tela: se há algo não salvo, pergunta antes de largar. */
+    private fun tryLeave() {
+        if (saved) {
+            finish()
+            return
+        }
+        if (!isDirty()) {
+            discarded = true
+            finish()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Sair sem salvar?")
+            .setMessage("Você mexeu neste formulário e ainda não salvou.")
+            .setPositiveButton("Salvar") { _, _ -> save() }
+            .setNegativeButton("Descartar") { _, _ ->
+                discarded = true
+                finish()
+            }
+            .setNeutralButton("Continuar editando", null)
+            .show()
     }
 
     /** Gênero principal (em destaque, porque define o tema) e "outros gêneros"; refeito quando você cria um gênero novo. */
@@ -1456,6 +1513,10 @@ class EditActivity : AppCompatActivity() {
     private fun writeDraft() {
         try {
             val d = collect()
+            if (!isDirty()) {
+                Store.clearDraft(id)
+                return
+            }
             val has = d.title.isNotBlank() || d.original.isNotBlank() || d.synopsis.isNotBlank() || d.notes.isNotBlank() ||
                 d.couple.isNotBlank() || d.cover.isNotEmpty() || d.castPeople.isNotEmpty() || d.soundtrack.isNotEmpty() ||
                 d.year.isNotBlank() || d.platform.isNotBlank() || d.startDate > 0L || d.endDate > 0L || d.epMinutes > 0
@@ -1466,7 +1527,13 @@ class EditActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        if (!saved && !isFinishing) writeDraft()
+        // guarda o rascunho sempre que sai sem salvar (inclusive ao voltar sem querer); só some se você descartar
+        if (!saved && !discarded) writeDraft()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!saved && !discarded) writeDraft()
     }
 
     private fun save() {
@@ -1548,8 +1615,8 @@ class EditActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // só apaga os arquivos novos se você realmente saiu da tela; se o sistema só recriou, o rascunho continua valendo
-        if (!saved && !isFinishing) return
+        // só apaga os arquivos novos se você descartou de propósito; em qualquer outra saída o rascunho continua valendo
+        if (!saved && !discarded) return
         if (!saved) Store.clearDraft(id)
         if (!saved) {
             for (f in createdFiles) {

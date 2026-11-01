@@ -142,6 +142,23 @@ class MainActivity : AppCompatActivity() {
         if (!Store.askedName) {
             root.post { askName() }
         }
+
+        // se o app foi encerrado com um formulário pela metade, abre ele de volta (o rascunho preenche tudo)
+        if (savedInstanceState == null) {
+            val pending = Store.pendingDraftId()
+            // trava anti-loop: se reabriu há menos de 20s e travou, não insiste
+            val gp = getSharedPreferences("doramabloom_crash", MODE_PRIVATE)
+            val recent = System.currentTimeMillis() - gp.getLong("reopenAt", 0L) < 20000L
+            if (pending != null && !recent) {
+                gp.edit().putLong("reopenAt", System.currentTimeMillis()).commit()
+                root.post {
+                    val i = Intent(this, EditActivity::class.java)
+                    if (pending != -1L) i.putExtra("id", pending)
+                    startActivity(i)
+                    overridePendingTransition(R.anim.screen_in, R.anim.screen_out_back)
+                }
+            }
+        }
     }
 
     override fun onResume() {

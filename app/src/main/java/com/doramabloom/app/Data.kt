@@ -807,8 +807,18 @@ object Store {
             val ca = JSONArray()
             for (c in created) ca.put(c)
             o.put("_created", ca)
-            prefs.edit().putString("draft_$id", o.toString()).apply()
+            // commit (e não apply): grava na hora, antes de o sistema poder encerrar o app em segundo plano
+            prefs.edit().putString("draft_$id", o.toString()).commit()
         } catch (e: Exception) {
+        }
+    }
+
+    /** Id de um formulário que ficou pela metade (-1 = dorama novo), ou null se não há nenhum. */
+    fun pendingDraftId(): Long? {
+        return try {
+            prefs.all.keys.firstOrNull { it.startsWith("draft_") }?.removePrefix("draft_")?.toLongOrNull()
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -825,7 +835,7 @@ object Store {
     }
 
     fun clearDraft(id: Long) {
-        if (prefs.contains("draft_$id")) prefs.edit().remove("draft_$id").apply()
+        if (prefs.contains("draft_$id")) prefs.edit().remove("draft_$id").commit()
     }
 
     /** Ordem escolhida à mão no Top 10 ("m" = atores, "f" = atrizes): lista de chaves de pessoas. */
