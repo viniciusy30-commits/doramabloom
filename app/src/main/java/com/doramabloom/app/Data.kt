@@ -363,6 +363,20 @@ object Statuses {
     fun byKey(k: String): Status = all.firstOrNull { it.key == k } ?: all[1]
 }
 
+/** Os três tipos de "Dropado": tudo continua dentro do mesmo status, só muda a classificação. */
+object DropKinds {
+    val all: List<Status> = listOf(
+        Status("retomar", "Pretendo terminar", "play", Color.parseColor("#6FA8FF")),
+        Status("talvez", "Talvez volte", "pause", Color.parseColor("#FFB84D")),
+        Status("nunca", "Definitivamente", "close", Color.parseColor("#B7A3AE"))
+    )
+
+    /** Dropados antigos, que ainda não foram classificados. */
+    const val NONE = "none"
+
+    fun label(k: String): String = all.firstOrNull { it.key == k }?.label ?: "Sem classificação"
+}
+
 val countries: List<String> = listOf(
     "Coreia do Sul", "Japão", "China", "Tailândia", "Taiwan", "Outro"
 )
@@ -432,7 +446,13 @@ data class Drama(
     /** Posição na ordem de favoritismo da aba Supremacy (0 = sem posição: fica depois dos outros, por nota). */
     var supOrder: Long = 0L,
     /** Data de lançamento (só para filmes; 0 = não informada). */
-    var releaseDate: Long = 0L
+    var releaseDate: Long = 0L,
+    /** Só vale quando o status é "dropado": "retomar", "talvez", "nunca" ou vazio (ainda sem classificar). */
+    var dropKind: String = "",
+    /** Em que ponto parou (texto livre, por exemplo "T1 E5"). Só para dropados. */
+    var dropEp: String = "",
+    /** Por que abandonou. Só para dropados. */
+    var dropReason: String = ""
 )
 
 /**
@@ -669,6 +689,9 @@ private fun Drama.toJson(): JSONObject {
     o.put("supremacy", supremacy)
     o.put("supOrder", supOrder)
     o.put("releaseDate", releaseDate)
+    o.put("dropKind", dropKind)
+    o.put("dropEp", dropEp)
+    o.put("dropReason", dropReason)
     val cp = JSONArray()
     for (p in castPeople) {
         val po = JSONObject()
@@ -726,7 +749,10 @@ private fun dramaFromJson(o: JSONObject): Drama {
         shelfTags = jsonStrings(o.optJSONArray("shelfTags")),
         supremacy = o.optBoolean("supremacy", false),
         supOrder = o.optLong("supOrder", 0L),
-        releaseDate = o.optLong("releaseDate", 0L)
+        releaseDate = o.optLong("releaseDate", 0L),
+        dropKind = o.optString("dropKind", ""),
+        dropEp = o.optString("dropEp", ""),
+        dropReason = o.optString("dropReason", "")
     )
     normalize(d)
     return d
@@ -1422,7 +1448,7 @@ object Store {
     }
 
     fun deletePersonFile(path: String) {
-        if (path.isEmpty()) return
+        if (path.isEmpty() || isFileInUse(path)) return
         try {
             File(path).delete()
         } catch (e: Exception) {
@@ -1528,25 +1554,38 @@ object Store {
         persist()
     }
 
+    /**
+     * Diz se algum OUTRO dorama ainda usa este arquivo (capa, trilha, foto do casal ou do elenco).
+     * Duplicados costumam apontar para os mesmos arquivos; apagar um não pode levar as fotos do outro.
+     */
+    fun isFileInUse(path: String, exceptId: Long = Long.MIN_VALUE): Boolean {
+        if (path.isEmpty()) return false
+        for (o in list) {
+            if (o.id == exceptId) continue
+            if (o.cover == path || o.soundtrack == path || o.couplePhoto == path) return true
+            if (o.castPeople.any { it.photo == path }) return true
+        }
+        return false
+    }
+
+    /** Apaga o arquivo só se nenhum outro dorama o usa. */
+    fun deleteFileIfFree(path: String, exceptId: Long = Long.MIN_VALUE) {
+        if (path.isEmpty() || isFileInUse(path, exceptId)) return
+        try {
+            File(path).delete()
+        } catch (e: Exception) {
+        }
+    }
+
     fun delete(id: Long) {
         val d = get(id) ?: return
         val extras = ArrayList<String>()
         if (d.soundtrack.isNotEmpty()) extras.add(d.soundtrack)
         if (d.couplePhoto.isNotEmpty()) extras.add(d.couplePhoto)
         for (p in d.castPeople) if (p.photo.isNotEmpty()) extras.add(p.photo)
-        for (f in extras) {
-            try {
-                File(f).delete()
-            } catch (e: Exception) {
-            }
-        }
-        if (d.cover.isNotEmpty()) {
-            try {
-                File(d.cover).delete()
-            } catch (e: Exception) {
-            }
-            Covers.clear()
-        }
+        if (d.cover.isNotEmpty()) extras.add(d.cover)
+        for (f in extras) deleteFileIfFree(f, id)
+        Covers.clear()
         list.removeAll { it.id == id }
         persist()
     }

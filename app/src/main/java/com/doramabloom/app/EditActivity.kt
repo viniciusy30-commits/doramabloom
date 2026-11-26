@@ -49,6 +49,14 @@ class EditActivity : AppCompatActivity() {
     private val seasonWIns = ArrayList<EditText>()
     private val seasonTIns = ArrayList<EditText>()
     private var saved = false
+    /** Trava o duplo toque em "Salvar": um segundo toque criava um registro repetido. */
+    private var saving = false
+    /** Id do dorama novo, fixo enquanto o formulário existe: salvar duas vezes grava sobre o mesmo, nunca duplica. */
+    private var newDramaId = System.currentTimeMillis()
+    private var dropKind = ""
+    private lateinit var dropBox: LinearLayout
+    private lateinit var dropEpIn: EditText
+    private lateinit var dropReasonIn: EditText
     /** true só quando você escolhe sair sem guardar (ou exclui): aí o rascunho e os arquivos novos são apagados. */
     private var discarded = false
     private var restoredDraft = false
@@ -110,6 +118,7 @@ class EditActivity : AppCompatActivity() {
         if (draft == null && prefill.isNotEmpty()) Store.clearDraft(id)
         if (draft != null) createdFiles.addAll(draft.second)
         restoredDraft = draft != null
+        if (real == null && draft != null) newDramaId = draft.first.id
         val ex: Drama? = draft?.first ?: real
         if (real != null) {
             if (real.soundtrack.isNotEmpty()) originalFiles.add(real.soundtrack)
@@ -128,6 +137,7 @@ class EditActivity : AppCompatActivity() {
             tags = HashSet(ex.tags)
             shelf = ArrayList(ex.shelfTags)
             statusKey = ex.status
+            dropKind = ex.dropKind
             country = ex.country
             score = ex.score
             favorite = ex.favorite
@@ -251,8 +261,25 @@ class EditActivity : AppCompatActivity() {
         for (s in Statuses.all) sOpts.add(Opt(s.key, s.label, s.color, s.icon))
         c2.addView(chipFlow(sOpts, statusKey) {
             statusKey = it
+            dropBox.visibility = if (it == "dropado") View.VISIBLE else View.GONE
             updateEffects()
         }, lin(MATCH, WRAP))
+
+        // dropado: continua uma aba só, mas dá para dizer que tipo de dropado é, onde parou e por quê
+        dropBox = LinearLayout(this)
+        dropBox.orientation = LinearLayout.VERTICAL
+        dropBox.addView(fieldLabel("Que tipo de dropado?"))
+        val dOpts = ArrayList<Opt>()
+        for (k in DropKinds.all) dOpts.add(Opt(k.key, k.label, k.color, k.icon))
+        dropBox.addView(chipFlow(dOpts, dropKind) { dropKind = it }, lin(MATCH, WRAP))
+        dropBox.addView(fieldLabel("Parei no episódio"))
+        dropEpIn = input("Ex.: T1 E5", ex?.dropEp ?: "", InputType.TYPE_CLASS_TEXT)
+        dropBox.addView(dropEpIn, lin(MATCH, WRAP))
+        dropBox.addView(fieldLabel("Motivo do abandono"))
+        dropReasonIn = input("Falta de tempo, não gostei da história...", ex?.dropReason ?: "", InputType.TYPE_CLASS_TEXT, true)
+        dropBox.addView(dropReasonIn, lin(MATCH, WRAP))
+        dropBox.visibility = if (statusKey == "dropado") View.VISIBLE else View.GONE
+        c2.addView(dropBox, lin(MATCH, WRAP))
         col.addView(c2, lin(MATCH, WRAP, t = 12))
 
         // ---------------- temporadas
@@ -1467,7 +1494,7 @@ class EditActivity : AppCompatActivity() {
         val old = existing
         val title = titleIn.text.toString().trim()
         val d = Drama(
-            id = if (old != null) old.id else System.currentTimeMillis(),
+            id = if (old != null) old.id else newDramaId,
             title = title,
             original = originalIn.text.toString().trim(),
             synopsis = synopsisIn.text.toString().trim(),
@@ -1505,7 +1532,10 @@ class EditActivity : AppCompatActivity() {
             soundtrackName = if (soundtrackPath.isEmpty()) "" else soundtrackNameIn.text.toString().trim(),
             castPeople = castList.filter { it.name.isNotBlank() }.map { CastPerson(it.name.trim(), it.photo, it.role.trim()) },
             couplePhoto = couplePhotoPath,
-            shelfTags = shelf.filter { tags.contains(it) && it != genreKey }
+            shelfTags = shelf.filter { tags.contains(it) && it != genreKey },
+            dropKind = if (statusKey == "dropado") dropKind else "",
+            dropEp = if (statusKey == "dropado") dropEpIn.text.toString().trim() else "",
+            dropReason = if (statusKey == "dropado") dropReasonIn.text.toString().trim() else ""
         )
         return d
     }
@@ -1537,6 +1567,7 @@ class EditActivity : AppCompatActivity() {
     }
 
     private fun save() {
+        if (saving || saved) return
         val title = titleIn.text.toString().trim()
         if (title.isEmpty()) {
             Toast.makeText(this, "Dê um nome ao dorama.", Toast.LENGTH_SHORT).show()
@@ -1567,6 +1598,7 @@ class EditActivity : AppCompatActivity() {
                 }
             }
         }
+        saving = true
         val d = collect()
         normalize(d)
         val tot = totalEps(d)
@@ -1576,10 +1608,7 @@ class EditActivity : AppCompatActivity() {
         applyStatus(d, st)
 
         if (originalCover.isNotEmpty() && originalCover != coverPath) {
-            try {
-                File(originalCover).delete()
-            } catch (e: Exception) {
-            }
+            Store.deleteFileIfFree(originalCover, d.id)
             Covers.clear()
         }
         val used = HashSet<String>()
@@ -1587,12 +1616,7 @@ class EditActivity : AppCompatActivity() {
         if (d.couplePhoto.isNotEmpty()) used.add(d.couplePhoto)
         for (p in d.castPeople) if (p.photo.isNotEmpty()) used.add(p.photo)
         for (f in originalFiles + createdFiles) {
-            if (!used.contains(f)) {
-                try {
-                    File(f).delete()
-                } catch (e: Exception) {
-                }
-            }
+            if (!used.contains(f)) Store.deleteFileIfFree(f, d.id)
         }
         Covers.clear()
         // ator/atriz marcado aqui vale para a pessoa em todos os doramas

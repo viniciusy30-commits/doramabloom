@@ -1,3 +1,15 @@
+#id 2026-11-26-pf
+#titulo Filmes no filtro e pódio em tela cheia
+- Estante > Filtros: nova linha para escolher Séries e filmes, Séries ou Filmes. Combina com o status e o gênero, e o botão Limpar também desliga esse filtro.
+- Pódio de atores e atrizes: botão "Tela cheia" ao lado de Reordenar. Abre o Top 10 grande, com o pódio ampliado e a lista embaixo; tocar em uma pessoa abre o perfil dela.
+
+#id 2026-11-26-dp
+#titulo Dropados organizados e fotos protegidas
+- Dropado continua sendo uma aba só, mas agora você escolhe o tipo: "Pretendo terminar", "Talvez volte" ou "Definitivamente". Na Estante, ao filtrar por Dropado aparecem chips para separar cada tipo (os antigos ficam em "Sem classificação" até você classificar).
+- Ao marcar um dorama como Dropado, dá para anotar em que episódio parou e o motivo do abandono. Tudo aparece na página do dorama e entra no backup.
+- Corrigido: salvar duas vezes seguidas (toque duplo em Salvar) criava um dorama repetido.
+- Corrigido: apagar um dorama repetido não leva mais as fotos (capa, elenco e casal) do outro, porque o app agora só apaga uma imagem se nenhum outro dorama a usa.
+
 #id 2026-11-01-rs
 #titulo Rascunho seguro e bolinha redonda
 - Sair da tela de editar sem querer (botão voltar, gesto ou seta do topo) não perde mais nada: se você mexeu e não salvou, o app pergunta se quer Salvar, Descartar ou Continuar editando. E se o sistema fechar o app enquanto está minimizado, o que você preencheu é gravado na hora e o formulário reabre sozinho quando você voltar.

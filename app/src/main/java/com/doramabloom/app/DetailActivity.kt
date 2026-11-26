@@ -819,7 +819,7 @@ class DetailActivity : AppCompatActivity() {
 
         updaters.add {
             val st = Statuses.byKey(d.status)
-            statusText.text = st.label
+            statusText.text = if (d.status == "dropado" && d.dropKind.isNotEmpty()) st.label + " · " + DropKinds.label(d.dropKind) else st.label
             val sbg = GradientDrawable()
             sbg.shape = GradientDrawable.OVAL
             sbg.setColor(st.color)
@@ -1093,6 +1093,11 @@ class DetailActivity : AppCompatActivity() {
             if (d.year.isNotBlank()) ic.addView(infoRow("calendar", if (d.year.contains("–")) "Anos de lançamento" else "Ano de lançamento", d.year, g.primary))
             if (d.startDate > 0L) ic.addView(infoRow("play", "Comecei em", fmt(d.startDate), g.primary))
             if (d.endDate > 0L) ic.addView(infoRow("check", "Terminei em", fmt(d.endDate), g.primary))
+            if (d.status == "dropado") {
+                ic.addView(infoRow("close", "Tipo de dropado", DropKinds.label(d.dropKind), g.primary))
+                if (d.dropEp.isNotBlank()) ic.addView(infoRow("play", "Parei em", d.dropEp, g.primary))
+                if (d.dropReason.isNotBlank()) ic.addView(infoRow("edit", "Motivo", d.dropReason, g.primary))
+            }
             ic.addView(infoRow("calendar", "Adicionado em", fmt(d.addedAt), g.primary))
             if (!firstInfo) {
                 val last = ic.getChildAt(ic.childCount - 1)

@@ -44,6 +44,12 @@ class MainActivity : AppCompatActivity() {
     private var accent = Palette.pink
 
     private var statusFilter = "all"
+    /** Dentro de "Dropado": "all", "retomar", "talvez", "nunca" ou DropKinds.NONE (sem classificação). */
+    private var dropFilter = "all"
+    private var dropChips: View? = null
+    /** "all", "serie" ou "filme". */
+    private var kindFilter = "all"
+    private fun anyFilter() = statusFilter != "all" || kindFilter != "all"
     private var genreFilter = "all" // página aberta na Estante: "all" ou o gênero principal
     private var query = ""
     private var sortMode = 0
@@ -666,7 +672,11 @@ class MainActivity : AppCompatActivity() {
             l = l.filter { it.favorite }
         } else if (statusFilter != "all") {
             l = l.filter { it.status == statusFilter }
+            if (statusFilter == "dropado" && dropFilter != "all") {
+                l = l.filter { (if (it.dropKind.isEmpty()) DropKinds.NONE else it.dropKind) == dropFilter }
+            }
         }
+        if (kindFilter != "all") l = l.filter { it.kind == kindFilter }
         if (key != "all") l = l.filter { it.genre == key }
         if (query.isNotBlank()) {
             l = l.filter {
@@ -699,6 +709,8 @@ class MainActivity : AppCompatActivity() {
         val parts = ArrayList<String>()
         if (statusFilter == "fav") parts.add("Favoritos")
         else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
+        if (statusFilter == "dropado" && dropFilter != "all") parts.add(DropKinds.label(if (dropFilter == DropKinds.NONE) "" else dropFilter))
+        if (kindFilter != "all") parts.add(if (kindFilter == "filme") "Filmes" else "Séries")
         if (key != "all") parts.add(Genres.byKey(key).label)
         if (query.isNotBlank()) parts.add("Busca")
         return if (parts.isEmpty()) "Todos" else parts.joinToString(" · ")
@@ -707,7 +719,7 @@ class MainActivity : AppCompatActivity() {
     /** Botão "Filtros": cheio de cor quando o painel está aberto ou tem filtro ligado. */
     private fun styleFilterPill(c: Int = accent) {
         val f = filterPill ?: return
-        val on = filtersOpen || statusFilter != "all"
+        val on = filtersOpen || anyFilter()
         val fg = if (on) Color.WHITE else c
         f.background = roundRect(if (on) c else Palette.card, dp(20).toFloat())
         f.setTextColor(fg)
@@ -777,13 +789,17 @@ class MainActivity : AppCompatActivity() {
         a.start()
     }
 
+    private fun refreshDropChips() {
+        dropChips?.visibility = if (statusFilter == "dropado") View.VISIBLE else View.GONE
+    }
+
     private fun updateClear() {
         styleFilterPill()
         val cp = clearPill ?: return
-        if (statusFilter != "all" && cp.visibility != View.VISIBLE) {
+        if (anyFilter() && cp.visibility != View.VISIBLE) {
             cp.visibility = View.VISIBLE
             cp.fadeScaleIn()
-        } else if (statusFilter == "all" && cp.visibility == View.VISIBLE) {
+        } else if (!anyFilter() && cp.visibility == View.VISIBLE) {
             cp.visibility = View.GONE
         }
     }
@@ -1125,9 +1141,36 @@ class MainActivity : AppCompatActivity() {
         for (s in Statuses.all) statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
         fp.addView(chipScroller(statusOpts, statusFilter) {
             statusFilter = it
+            dropFilter = "all"
+            refreshDropChips()
             refreshList()
             applyAtmos()
         }, lin(MATCH, WRAP))
+
+        // tipo: séries ou filmes
+        val kindOpts = listOf(
+            Opt("all", "Séries e filmes", Palette.pink, "tv"),
+            Opt("serie", "Séries", Color.parseColor("#6FA8FF"), "tv"),
+            Opt("filme", "Filmes", Color.parseColor("#C38BD8"), "play")
+        )
+        fp.addView(chipScroller(kindOpts, kindFilter) {
+            kindFilter = it
+            refreshList()
+            updateClear()
+        }, lin(MATCH, WRAP, t = 6))
+
+        // só aparece em "Dropado": separa os três tipos sem criar outra aba
+        val dropOpts = ArrayList<Opt>()
+        dropOpts.add(Opt("all", "Todos os dropados", Palette.pink, "close"))
+        for (k in DropKinds.all) dropOpts.add(Opt(k.key, k.label, k.color, k.icon))
+        dropOpts.add(Opt(DropKinds.NONE, "Sem classificação", Color.parseColor("#B7A3AE"), "tag"))
+        val dc = chipScroller(dropOpts, dropFilter) {
+            dropFilter = it
+            refreshList()
+        }
+        dc.visibility = if (statusFilter == "dropado") View.VISIBLE else View.GONE
+        dropChips = dc
+        fp.addView(dc, lin(MATCH, WRAP, t = 6))
 
         // gênero principal: os chips e o deslize para o lado andam juntos
         val genreOpts = ArrayList<Opt>()
@@ -1235,9 +1278,11 @@ class MainActivity : AppCompatActivity() {
         }
         info.addView(fpill, lin(WRAP, WRAP, r = 6))
         val clr = pill("Limpar", Palette.pinkSoft, Palette.pinkDark, 12f, "close")
-        clr.visibility = if (statusFilter != "all") View.VISIBLE else View.GONE
+        clr.visibility = if (anyFilter()) View.VISIBLE else View.GONE
         clr.setOnClickListener {
             statusFilter = "all"
+            kindFilter = "all"
+            dropFilter = "all"
             showTab(1, false)
         }
         clearPill = clr

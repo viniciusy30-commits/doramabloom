@@ -511,6 +511,46 @@ private class SparkleBackdrop(ctx: Context, private val tint: Int, seed: Int) : 
     }
 }
 
+/** Pódio do Top 10 em tela cheia: o pódio grande e, embaixo, o resto da lista. Tocar numa pessoa abre o perfil. */
+fun Activity.showPodiumFull(gender: String, top: List<Actor>, maxVal: Double, onOpen: (Actor) -> Unit) {
+    val acc = Actors.accent(gender)
+    val dlg = android.app.Dialog(this, android.R.style.Theme_DeviceDefault_NoActionBar)
+    val root = FrameLayout(this)
+    root.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Palette.bgTop, Palette.bgBottom))
+    root.addView(SparkleBackdrop(this, acc, if (gender == "f") 7 else 3), FrameLayout.LayoutParams(MATCH, MATCH))
+    val sv = android.widget.ScrollView(this)
+    sv.isVerticalScrollBarEnabled = false
+    val col = LinearLayout(this)
+    col.orientation = LinearLayout.VERTICAL
+    col.setPadding(dp(14), dp(40), dp(14), dp(28))
+    sv.addView(col, FrameLayout.LayoutParams(MATCH, WRAP))
+    root.addView(sv, FrameLayout.LayoutParams(MATCH, MATCH))
+
+    val head = LinearLayout(this)
+    head.orientation = LinearLayout.HORIZONTAL
+    head.gravity = Gravity.CENTER_VERTICAL
+    head.addView(IconView(this, "crown", acc, 22), lin(WRAP, WRAP, r = 8))
+    head.addView(label(if (gender == "f") "Top 10 atrizes" else "Top 10 atores", 20f, Actors.deep(gender), true, true), lin(0, WRAP, 1f))
+    val close = pill("Fechar", acc, Color.WHITE, 12.5f, "close")
+    close.setOnClickListener { dlg.dismiss() }
+    head.addView(close, lin(WRAP, WRAP))
+    col.addView(head, lin(MATCH, WRAP))
+
+    val open: (Actor) -> Unit = { a ->
+        dlg.dismiss()
+        onOpen(a)
+    }
+    col.addView(podiumView(top, open, 1.7f), lin(MATCH, WRAP, t = 18))
+    if (top.size > 3) {
+        val rows = LinearLayout(this)
+        rows.orientation = LinearLayout.VERTICAL
+        for (i in 3 until top.size) rows.addView(actorRow(top[i], i + 1, maxVal, open), lin(MATCH, WRAP, t = if (i == 3) 0 else 6))
+        col.addView(rows, lin(MATCH, WRAP, t = 18))
+    }
+    dlg.setContentView(root)
+    dlg.show()
+}
+
 /** Uma coluna do Top 10 (atores OU atrizes): título em faixa, destaque do 1º lugar e as linhas dos outros. */
 private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Actor) -> Unit, onReordered: () -> Unit): View {
     val acc = Actors.accent(gender)
@@ -583,6 +623,9 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
         val rr = LinearLayout(this)
         rr.gravity = Gravity.CENTER_HORIZONTAL
         rr.addView(reorder, lin(WRAP, WRAP))
+        val full = pill("Tela cheia", Color.WHITE, acc, 11.5f, "star")
+        full.setOnClickListener { act.showPodiumFull(gender, top, maxVal, onOpen) }
+        rr.addView(full, lin(WRAP, WRAP, l = 6))
         c.addView(rr, lin(MATCH, WRAP, t = 8))
     }
 
@@ -621,7 +664,7 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
  * Pódio do Top 10: três plataformas coladas, na ordem 2º, 1º, 3º. Cada foto tem o anel da cor da
  * sua plataforma (prata, ouro, bronze) e só o 1º lugar usa coroa. O nome fica embaixo, alinhado.
  */
-private fun Context.podiumView(top: List<Actor>, onOpen: (Actor) -> Unit): View {
+private fun Context.podiumView(top: List<Actor>, onOpen: (Actor) -> Unit, sc: Float = 1f): View {
     val row = LinearLayout(this)
     row.orientation = LinearLayout.HORIZONTAL
     row.isBaselineAligned = false
@@ -634,7 +677,7 @@ private fun Context.podiumView(top: List<Actor>, onOpen: (Actor) -> Unit): View 
         if (a == null) {
             row.addView(View(this), lin(0, 1, w))
         } else {
-            val col = podiumColumn(a, rank, onOpen)
+            val col = podiumColumn(a, rank, onOpen, sc)
             row.addView(col, lin(0, WRAP, w))
             col.riseIn(if (rank == 1) 80L else if (rank == 2) 180L else 260L)
         }
@@ -642,18 +685,18 @@ private fun Context.podiumView(top: List<Actor>, onOpen: (Actor) -> Unit): View 
     return row
 }
 
-private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): View {
+private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit, sc: Float = 1f): View {
     val acc = Actors.accent(a.gender)
     val tone = Metal.tone(rank)
     val first = rank == 1
-    val avSize = if (first) 50 else 40
-    val crownRoom = if (first) 18 else 0
-    val platH = when (rank) {
+    val avSize = ((if (first) 50 else 40) * sc).toInt()
+    val crownRoom = ((if (first) 18 else 0) * sc).toInt()
+    val platH = (when (rank) {
         1 -> 56
         2 -> 42
         else -> 30
-    }
-    val overlap = 7
+    } * sc).toInt()
+    val overlap = (7 * sc).toInt()
 
     val cell = LinearLayout(this)
     cell.orientation = LinearLayout.VERTICAL
@@ -677,27 +720,27 @@ private fun Context.podiumColumn(a: Actor, rank: Int, onOpen: (Actor) -> Unit): 
         // a base da coroa entra uns dp na foto: ela fica "usada", não solta no ar
         val crown = CrownView(this, 1, acc)
         crown.elevation = dp(4).toFloat()
-        photo.addView(crown, FrameLayout.LayoutParams(dp(30), dp(24), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+        photo.addView(crown, FrameLayout.LayoutParams(dp((30 * sc).toInt()), dp((24 * sc).toInt()), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
     }
     stage.addView(photo, lin(dp(avSize + 6), dp(crownRoom + avSize)))
     stage.addView(PedestalView(this, rank), lin(MATCH, dp(platH), t = -overlap))
-    cell.addView(stage, lin(MATCH, dp(130)))
+    cell.addView(stage, lin(MATCH, dp((130 * sc).toInt())))
 
-    val nm = label(a.name, 10.5f, Palette.text, true, true)
+    val nm = label(a.name, 10.5f * sc, Palette.text, true, true)
     nm.gravity = Gravity.CENTER
     nm.maxLines = 2
     nm.ellipsize = TextUtils.TruncateAt.END
-    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(nm, 8, 11, 1, TypedValue.COMPLEX_UNIT_SP)
+    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(nm, (8 * sc).toInt(), (11 * sc).toInt(), 1, TypedValue.COMPLEX_UNIT_SP)
     cell.addView(nm, lin(MATCH, WRAP, t = 6))
     val mode = Store.podiumSort
-    val pt = label(Actors.primaryText(a, mode, true), 10f, Actors.deep(a.gender), true)
+    val pt = label(Actors.primaryText(a, mode, true), 10f * sc, Actors.deep(a.gender), true)
     pt.gravity = Gravity.CENTER
     pt.maxLines = 1
-    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(pt, 7, 10, 1, TypedValue.COMPLEX_UNIT_SP)
+    TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(pt, (7 * sc).toInt(), (10 * sc).toInt(), 1, TypedValue.COMPLEX_UNIT_SP)
     cell.addView(pt, lin(MATCH, WRAP, t = 2))
     val extra = Actors.detailText(a, mode)
     if (extra.isNotEmpty()) {
-        val dr = label(extra, 8.5f, Palette.muted)
+        val dr = label(extra, 8.5f * sc, Palette.muted)
         dr.gravity = Gravity.CENTER
         dr.maxLines = 2
         cell.addView(dr, lin(MATCH, WRAP, t = 1))
