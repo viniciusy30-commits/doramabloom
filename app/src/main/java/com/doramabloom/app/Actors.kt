@@ -530,7 +530,7 @@ fun Activity.showPodiumFull(gender: String, top: List<Actor>, maxVal: Double, on
     head.orientation = LinearLayout.HORIZONTAL
     head.gravity = Gravity.CENTER_VERTICAL
     head.addView(IconView(this, "crown", acc, 22), lin(WRAP, WRAP, r = 8))
-    head.addView(label(if (gender == "f") "Top 10 atrizes" else "Top 10 atores", 20f, Actors.deep(gender), true, true), lin(0, WRAP, 1f))
+    head.addView(label((if (gender == "f") "Atrizes" else "Atores") + " (" + top.size + ")", 20f, Actors.deep(gender), true, true), lin(0, WRAP, 1f))
     val close = pill("Fechar", acc, Color.WHITE, 12.5f, "close")
     close.setOnClickListener { dlg.dismiss() }
     head.addView(close, lin(WRAP, WRAP))
@@ -542,6 +542,7 @@ fun Activity.showPodiumFull(gender: String, top: List<Actor>, maxVal: Double, on
     }
     col.addView(podiumView(top, open, 1.7f), lin(MATCH, WRAP, t = 18))
     if (top.size > 3) {
+        // todos os que existirem, não só os 10 primeiros
         val rows = LinearLayout(this)
         rows.orientation = LinearLayout.VERTICAL
         for (i in 3 until top.size) rows.addView(actorRow(top[i], i + 1, maxVal, open), lin(MATCH, WRAP, t = if (i == 3) 0 else 6))
@@ -623,9 +624,14 @@ private fun Context.actorColumn(gender: String, list: List<Actor>, onOpen: (Acto
         val rr = LinearLayout(this)
         rr.gravity = Gravity.CENTER_HORIZONTAL
         rr.addView(reorder, lin(WRAP, WRAP))
-        val full = pill("Tela cheia", Color.WHITE, acc, 11.5f, "star")
-        full.setOnClickListener { act.showPodiumFull(gender, top, maxVal, onOpen) }
-        rr.addView(full, lin(WRAP, WRAP, l = 6))
+        // só um símbolo pequeno: abre o pódio com todo mundo em tela cheia
+        val full = FrameLayout(this)
+        full.background = roundRect(Color.WHITE, dp(17).toFloat(), acc, dp(2))
+        full.addView(IconView(this, "expand", acc, 16), FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        full.contentDescription = "Ver todos em tela cheia"
+        full.setOnClickListener { act.showPodiumFull(gender, list, maxVal, onOpen) }
+        full.pressable(0.9f)
+        rr.addView(full, lin(dp(34), dp(34), l = 8))
         c.addView(rr, lin(MATCH, WRAP, t = 8))
     }
 
