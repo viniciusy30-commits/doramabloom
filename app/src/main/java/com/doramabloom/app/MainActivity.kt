@@ -44,9 +44,6 @@ class MainActivity : AppCompatActivity() {
     private var accent = Palette.pink
 
     private var statusFilter = "all"
-    /** Dentro de "Dropado": "all", "retomar", "talvez", "nunca" ou DropKinds.NONE (sem classificação). */
-    private var dropFilter = "all"
-    private var dropChips: View? = null
     /** "all", "serie" ou "filme". */
     private var kindFilter = "all"
     private fun anyFilter() = statusFilter != "all" || kindFilter != "all"
@@ -253,9 +250,9 @@ class MainActivity : AppCompatActivity() {
         holder.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER_VERTICAL))
 
         navItems.clear()
-        val icons = listOf("home", "grid", "crown", "add", "chart", "trophy", "tune")
-        val names = listOf("Início", "Estante", "Supremacy", "Novo dorama", "Números", "Pódios", "Config.")
-        val tabs = listOf(0, 1, 5, -1, 2, 3, 4)
+        val icons = listOf("home", "grid", "crown", "heartbreak", "add", "chart", "trophy", "tune")
+        val names = listOf("Início", "Estante", "Supremacy", "Dropados", "Novo dorama", "Números", "Pódios", "Config.")
+        val tabs = listOf(0, 1, 5, 6, -1, 2, 3, 4)
         for (i in icons.indices) {
             val box = LinearLayout(this)
             box.orientation = LinearLayout.HORIZONTAL
@@ -354,6 +351,7 @@ class MainActivity : AppCompatActivity() {
                 else -> Palette.pink
             }
             5 -> Color.parseColor("#E0A100")
+            6 -> DROP_TINT
             else -> Palette.pink
         }
     }
@@ -366,6 +364,7 @@ class MainActivity : AppCompatActivity() {
             }
             1 -> Atmosphere.of(genreFilter, statusFilter, "all")
             5 -> Atmosphere.of("all", "sup", "all")
+            6 -> Atmosphere.of("all", "drop", "all")
             else -> Atmosphere.of("all", "all", "all")
         }
         petals.setTheme(a.icons, a.tints)
@@ -400,6 +399,7 @@ class MainActivity : AppCompatActivity() {
                     1 -> buildListTab()
                     4 -> buildSettings()
                     5 -> buildSupremacy()
+                    6 -> buildDropped()
                     3 -> buildPodiums()
                     else -> buildStats()
                 }
@@ -658,8 +658,11 @@ class MainActivity : AppCompatActivity() {
     // --------------------------------------------------------------- ESTANTE
 
     /** Páginas da Estante: "Todos" + cada gênero principal que tem pelo menos um dorama. */
+    /** A Estante não mostra dropados: eles têm aba própria. */
+    private fun shelfAll(): List<Drama> = Store.all().filter { it.status != "dropado" }
+
     private fun computeShelfKeys(): List<String> {
-        val used = Store.all().map { it.genre }.toSet()
+        val used = shelfAll().map { it.genre }.toSet()
         return listOf("all") + Genres.all.map { it.key }.filter { used.contains(it) }
     }
 
@@ -667,14 +670,11 @@ class MainActivity : AppCompatActivity() {
     private fun keyColor(k: String): Int = if (k == "all") Palette.pink else Genres.byKey(k).primary
 
     private fun filteredFor(key: String): List<Drama> {
-        var l = Store.all()
+        var l = shelfAll()
         if (statusFilter == "fav") {
             l = l.filter { it.favorite }
         } else if (statusFilter != "all") {
             l = l.filter { it.status == statusFilter }
-            if (statusFilter == "dropado" && dropFilter != "all") {
-                l = l.filter { (if (it.dropKind.isEmpty()) DropKinds.NONE else it.dropKind) == dropFilter }
-            }
         }
         if (kindFilter != "all") l = l.filter { it.kind == kindFilter }
         if (key != "all") l = l.filter { it.genre == key }
@@ -709,7 +709,6 @@ class MainActivity : AppCompatActivity() {
         val parts = ArrayList<String>()
         if (statusFilter == "fav") parts.add("Favoritos")
         else if (statusFilter != "all") parts.add(Statuses.byKey(statusFilter).label)
-        if (statusFilter == "dropado" && dropFilter != "all") parts.add(DropKinds.label(if (dropFilter == DropKinds.NONE) "" else dropFilter))
         if (kindFilter != "all") parts.add(if (kindFilter == "filme") "Filmes" else "Séries")
         if (key != "all") parts.add(Genres.byKey(key).label)
         if (query.isNotBlank()) parts.add("Busca")
@@ -789,10 +788,6 @@ class MainActivity : AppCompatActivity() {
         a.start()
     }
 
-    private fun refreshDropChips() {
-        dropChips?.visibility = if (statusFilter == "dropado") View.VISIBLE else View.GONE
-    }
-
     private fun updateClear() {
         styleFilterPill()
         val cp = clearPill ?: return
@@ -808,7 +803,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateEffect(animate: Boolean = true) {
         val box = effBox ?: return
         val key = genreFilter
-        val mine = Store.all().filter { key == "all" || it.genre == key }
+        val mine = shelfAll().filter { key == "all" || it.genre == key }
         val total = mine.size
         val icon: String
         val title: String
@@ -1138,11 +1133,9 @@ class MainActivity : AppCompatActivity() {
         val statusOpts = ArrayList<Opt>()
         statusOpts.add(Opt("all", "Todos", Palette.pink, "heart"))
         statusOpts.add(Opt("fav", "Favoritos", Palette.pink, "star"))
-        for (s in Statuses.all) statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
+        for (s in Statuses.all) if (s.key != "dropado") statusOpts.add(Opt(s.key, s.label, s.color, s.icon))
         fp.addView(chipScroller(statusOpts, statusFilter) {
             statusFilter = it
-            dropFilter = "all"
-            refreshDropChips()
             refreshList()
             applyAtmos()
         }, lin(MATCH, WRAP))
@@ -1159,18 +1152,6 @@ class MainActivity : AppCompatActivity() {
             updateClear()
         }, lin(MATCH, WRAP, t = 6))
 
-        // só aparece em "Dropado": separa os três tipos sem criar outra aba
-        val dropOpts = ArrayList<Opt>()
-        dropOpts.add(Opt("all", "Todos os dropados", Palette.pink, "close"))
-        for (k in DropKinds.all) dropOpts.add(Opt(k.key, k.label, k.color, k.icon))
-        dropOpts.add(Opt(DropKinds.NONE, "Sem classificação", Color.parseColor("#B7A3AE"), "tag"))
-        val dc = chipScroller(dropOpts, dropFilter) {
-            dropFilter = it
-            refreshList()
-        }
-        dc.visibility = if (statusFilter == "dropado") View.VISIBLE else View.GONE
-        dropChips = dc
-        fp.addView(dc, lin(MATCH, WRAP, t = 6))
 
         // gênero principal: os chips e o deslize para o lado andam juntos
         val genreOpts = ArrayList<Opt>()
@@ -1282,7 +1263,6 @@ class MainActivity : AppCompatActivity() {
         clr.setOnClickListener {
             statusFilter = "all"
             kindFilter = "all"
-            dropFilter = "all"
             showTab(1, false)
         }
         clearPill = clr
@@ -1504,6 +1484,17 @@ class MainActivity : AppCompatActivity() {
             buildSupremacyTab(sup, { d, l -> open(d, l, "Supremacy") }, { showTab(5, false) })
         } catch (e: Throwable) {
             errorView("Erro ao montar a aba Supremacy", e)
+        }
+    }
+
+    // --------------------------------------------------------------- DROPADOS
+
+    private fun buildDropped(): View {
+        val l = Store.all().filter { it.status == "dropado" }
+        return try {
+            buildDroppedTab(l) { d, list -> open(d, list, "Dropados") }
+        } catch (e: Throwable) {
+            errorView("Erro ao montar a aba Dropados", e)
         }
     }
 

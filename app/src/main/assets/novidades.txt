@@ -4,6 +4,18 @@
 - Pódio de atores e atrizes: um botãozinho com setas de expandir ao lado de Reordenar abre tudo em tela cheia: o pódio ampliado e, embaixo, todos os atores (ou atrizes) cadastrados, não só os 10 primeiros. Tocar em uma pessoa abre o perfil dela.
 
 #id 2026-11-26-dp
+#titulo Aba Dropados e fotos protegidas
+- Nova aba Dropados no menu lateral, com visual próprio (lilás, pétalas murchas caindo). Os dropados saem da Estante e ficam todos lá, separados em "Pretendo terminar", "Talvez volte" e "Definitivamente" (e "Sem classificação" para os antigos). Cada cartão mostra a capa, o tipo, o episódio em que parou, o motivo e uma barrinha do quanto você já viu. Os chips do topo filtram por tipo.
+- Ao marcar um dorama como Dropado na edição, escolha o tipo, o episódio em que parou e o motivo. Tudo aparece também na página do dorama e entra no backup.
+- Corrigido: salvar duas vezes seguidas (toque duplo em Salvar) criava um dorama repetido.
+- Corrigido: apagar um dorama repetido não leva mais as fotos (capa, elenco e casal) do outro, porque o app agora só apaga uma imagem se nenhum outro dorama a usa.
+
+#id 2026-11-26-pf
+#titulo Filmes no filtro e pódio em tela cheia
+- Estante > Filtros: nova linha para escolher Séries e filmes, Séries ou Filmes. Combina com o status e o gênero, e o botão Limpar também desliga esse filtro.
+- Pódio de atores e atrizes: um botãozinho com setas de expandir ao lado de Reordenar abre tudo em tela cheia: o pódio ampliado e, embaixo, todos os atores (ou atrizes) cadastrados, não só os 10 primeiros. Tocar em uma pessoa abre o perfil dela.
+
+#id 2026-11-26-dp
 #titulo Dropados organizados e fotos protegidas
 - Dropado continua sendo uma aba só, mas agora você escolhe o tipo: "Pretendo terminar", "Talvez volte" ou "Definitivamente". Na Estante, ao filtrar por Dropado aparecem chips para separar cada tipo (os antigos ficam em "Sem classificação" até você classificar).
 - Ao marcar um dorama como Dropado, dá para anotar em que episódio parou e o motivo do abandono. Tudo aparece na página do dorama e entra no backup.

@@ -1080,6 +1080,7 @@ object Atmosphere {
 
     fun status(key: String): Atmos = when (key) {
         "sup" -> Atmos(listOf("crown", "star", "sparkle"), listOf(c("#F5B301"), c("#FFD669"), c("#E39A00")))
+        "drop" -> Atmos(listOf("heartbreak", "cloud", "petal"), listOf(c("#A78BC7"), c("#C9B6E0"), c("#8E74B0")))
         "fav" -> Atmos(listOf("heart", "star"), listOf(Palette.pink, c("#FFB84D")))
         else -> {
             val s = Statuses.byKey(key)
